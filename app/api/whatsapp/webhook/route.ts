@@ -215,14 +215,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ===== CONVERSATION HISTORY =====
-    // Load the last 3 messages from this conversation so the AI can resolve
-    // references like "תשלח לי עם תאריך" → understands "it" = the previous list.
-    // Loaded once, passed to every downstream AI handler.
+    // Load context based on user signals:
+    //   - User replied to a message → walk the quote chain
+    //   - User sent a follow-up within 30s → include the previous message
+    //   - Otherwise → no history (treat as standalone, prevents field bleed)
     const conversationHistory = await loadConversationHistory({
       admin, workspaceId,
       senderPhone, groupId,
       excludeMessageId: messageDbId,
-      limit: 3,
+      quotedMessageId,
     });
 
     // ===== QUERY DETECTION =====
@@ -566,9 +567,9 @@ ${JSON.stringify(schema, null, 2)}
 - confidence < 0.5 = לא בטוח
 
 ⚠️ חשוב מאוד - הקשר השיחה:
-- הודעות קודמות בשיחה מוצגות לך רק כדי שתבין הקשר (כמו "תשלח לי שוב", "תוסיף תאריך לרשימה הקודמת", כינויי גוף).
-- כל הודעה היא רשומה עצמאית. אל תעתיק שדות מהודעות קודמות (assignee, property, status וכו') להודעה הנוכחית, אלא אם המשתמש מציין אותם במפורש בהודעה הנוכחית.
-- דוגמה: אם בהודעה קודמת המשתמש כתב "משימה ליוסי לתקן רכב", ובהודעה הנוכחית הוא כותב רק "לנקות עמוד" - אל תוסיף assignee=יוסי. הוסף רק description=לנקות עמוד.`;
+- הודעות קודמות (אם יש) מוצגות לך רק כדי לפענח התייחסויות והשלמות שהמשתמש מבטא במפורש (כמו "אצל יוסי" כהמשך לתקלה שתואר רגע קודם).
+- אם המשתמש לא מתייחס בבירור להודעה הקודמת (למשל פשוט שולח משימה חדשה) - התעלם מההיסטוריה לחלוטין ואל תעתיק שדות (assignee, property, status וכו') מההודעה הקודמת.
+- דוגמה: היסטוריה="משימה ליוסי לתקן רכב", הודעה נוכחית="לנקות עמוד" → צור משימה חדשה עם description=לנקות עמוד בלבד, ללא assignee.`;
 
   // Build messages with history (oldest first) followed by the current message
   const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -1186,19 +1187,25 @@ async function describeImage(imageBytes: ArrayBuffer, contentType: string, userC
 }
 
 // ============================================================================
-// CONVERSATION HISTORY — load last N turns for AI context
+// CONVERSATION HISTORY — load relevant context for AI
 // ============================================================================
 
 /**
- * Pull the most recent in/out messages from this conversation so the AI can
- * resolve references like "send it with a date" or "the previous list".
+ * Decide what context the AI needs based on user signals:
  *
- * Conversation scope:
- *   - private chat → same sender_phone in this workspace
- *   - group chat   → same group_id
+ *   1. User replied to a specific message → walk the quote chain backwards
+ *      and return the full thread (oldest → newest). This is the explicit
+ *      signal "this message is connected to that one."
  *
- * Returns messages oldest-first (so they slot naturally into a chat log),
- * EXCLUDING the message currently being processed (`excludeMessageId`).
+ *   2. No quote, but user sent another message within 30 seconds → return
+ *      just the previous message (handles mid-thought additions like
+ *      "תקלה במכונית" then 5 seconds later "אצל יוסי").
+ *
+ *   3. Otherwise → return empty history. Treat the message as standalone.
+ *      This is the common case: separate tasks should not bleed fields
+ *      into each other (e.g. assignee from a previous task).
+ *
+ * Returns messages oldest-first so they slot naturally into a chat log.
  */
 async function loadConversationHistory(opts: {
   admin: any;
@@ -1206,39 +1213,90 @@ async function loadConversationHistory(opts: {
   senderPhone: string;
   groupId: string | null;
   excludeMessageId: string;
-  limit?: number;
+  quotedMessageId: string | null;
 }): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
-  const limit = opts.limit ?? 3;
+  const { admin, workspaceId, senderPhone, groupId, excludeMessageId, quotedMessageId } = opts;
 
-  // Fetch a few extra to allow for the excluded one + any empty rows
-  const fetchLimit = limit + 2;
+  // ── Case 1: Quote chain
+  // Walk backwards from the quoted message until we run out of quotes.
+  // Cap at 10 hops to avoid pathological loops (shouldn't happen but be safe).
+  if (quotedMessageId) {
+    const chain: Array<{ text: string; direction: string }> = [];
+    let nextQuoteId: string | null = quotedMessageId;
+    let hops = 0;
+    const MAX_HOPS = 10;
+    const seen = new Set<string>();
 
-  let query = opts.admin
+    while (nextQuoteId && hops < MAX_HOPS && !seen.has(nextQuoteId)) {
+      seen.add(nextQuoteId);
+
+      // Find the message by green_api_message_id (works for both in & out
+      // since outgoing messages are also saved with their idMessage)
+      let query: any = admin
+        .from('wa_messages')
+        .select('id, text, direction, quoted_message_id')
+        .eq('workspace_id', workspaceId)
+        .eq('green_api_message_id', nextQuoteId)
+        .neq('id', excludeMessageId)
+        .not('text', 'is', null)
+        .neq('text', '')
+        .limit(1);
+
+      // Scope to same conversation
+      if (groupId) {
+        query = query.eq('group_id', groupId);
+      } else {
+        query = query.eq('sender_phone', senderPhone).is('group_id', null);
+      }
+
+      const { data } = await query.maybeSingle();
+      if (!data) break;
+
+      chain.push({ text: data.text, direction: data.direction });
+      nextQuoteId = data.quoted_message_id;
+      hops++;
+    }
+
+    // Chain was collected newest→oldest; reverse so AI sees oldest first
+    return chain.reverse().map((m) => ({
+      role: m.direction === 'out' ? ('assistant' as const) : ('user' as const),
+      content: String(m.text).slice(0, 1000),
+    }));
+  }
+
+  // ── Case 2: No quote, but maybe a follow-up within 30s
+  // Pull the single most recent inbound message from this conversation. If it
+  // arrived less than 30 seconds ago, return it as context — likely the user
+  // is mid-thought and this message extends the previous one.
+  const RECENT_WINDOW_MS = 30 * 1000;
+
+  let recentQuery: any = admin
     .from('wa_messages')
     .select('id, text, direction, received_at')
-    .eq('workspace_id', opts.workspaceId)
-    .neq('id', opts.excludeMessageId)
+    .eq('workspace_id', workspaceId)
+    .eq('direction', 'in')
+    .neq('id', excludeMessageId)
     .not('text', 'is', null)
     .neq('text', '')
     .order('received_at', { ascending: false })
-    .limit(fetchLimit);
+    .limit(1);
 
-  if (opts.groupId) {
-    query = query.eq('group_id', opts.groupId);
+  if (groupId) {
+    recentQuery = recentQuery.eq('group_id', groupId);
   } else {
-    query = query.eq('sender_phone', opts.senderPhone).is('group_id', null);
+    recentQuery = recentQuery.eq('sender_phone', senderPhone).is('group_id', null);
   }
 
-  const { data, error } = await query;
-  if (error || !data) return [];
+  const { data: recent } = await recentQuery.maybeSingle();
+  if (!recent) return [];
 
-  // Reverse to chronological (oldest first), then keep only `limit`
-  const chronological = (data as any[]).reverse().slice(-limit);
+  const ageMs = Date.now() - new Date(recent.received_at).getTime();
+  if (ageMs > RECENT_WINDOW_MS) return [];
 
-  return chronological.map((m: any) => ({
-    role: m.direction === 'out' ? ('assistant' as const) : ('user' as const),
-    content: String(m.text).slice(0, 1000), // cap each message to 1000 chars to keep context lean
-  }));
+  return [{
+    role: 'user' as const,
+    content: String(recent.text).slice(0, 1000),
+  }];
 }
 
 async function incrementAiUsage(admin: any, workspaceId: string) {
