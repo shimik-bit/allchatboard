@@ -98,18 +98,18 @@ export default function RecordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-slide-up"
+        className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] md:max-h-[90vh] flex flex-col animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <div
-              className="w-9 h-9 rounded-lg grid place-items-center text-xl"
+              className="w-8 h-8 md:w-9 md:h-9 rounded-lg grid place-items-center text-lg md:text-xl shrink-0"
               style={{ background: `${table.color}20` }}
             >
               {table.icon}
@@ -140,7 +140,7 @@ export default function RecordModal({
         </div>
 
         {/* Fields */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-5 space-y-4">
           {fields.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               לא הוגדרו שדות עבור הטבלה הזו
@@ -165,7 +165,7 @@ export default function RecordModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-t border-gray-200 bg-gray-50/50">
           <div>
             {!isNew && onDelete && canEdit && (
               <button
