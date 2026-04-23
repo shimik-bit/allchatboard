@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Field, RecordRow } from '@/lib/types/database';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -169,13 +170,37 @@ function AssigneeCell({
   phones: { id: string; display_name: string; job_title: string | null }[];
   onChange: (phoneId: string | null) => Promise<void>;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notifying, setNotifying] = useState(false);
   const currentPhoneId = record.assignee_phone_id;
-  // Display name comes from authorized_phones join when set, otherwise from
-  // raw_name (external assignee — e.g. a contractor not in the allowlist).
   const currentName = record._assignee_name || record.assignee_raw_name;
   const notifiedAt = record.assignee_notified_at;
+
+  // Manual notify — for records that pre-date assignment_rules, or where
+  // the routing rule didn't fire but the user still wants to notify.
+  // After a successful send, refresh the page so the green ✓ shows up.
+  async function handleManualNotify(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (notifying) return;
+    setNotifying(true);
+    try {
+      const res = await fetch(`/api/records/${record.id}/notify-assignee`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.message || json.error || 'שליחת התראה נכשלה');
+        return;
+      }
+      router.refresh();
+    } catch (err: any) {
+      alert(`שגיאה: ${err.message}`);
+    } finally {
+      setNotifying(false);
+    }
+  }
 
   if (editing) {
     return (
@@ -200,7 +225,6 @@ function AssigneeCell({
     );
   }
 
-  // Format the notification timestamp for the tooltip
   const notifiedTooltip = notifiedAt
     ? `התראה נשלחה ב-${new Date(notifiedAt).toLocaleString('he-IL', {
         day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -208,37 +232,52 @@ function AssigneeCell({
     : null;
 
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-      disabled={busy}
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium hover:ring-2 hover:ring-brand-400 transition disabled:opacity-50 text-right"
-      title="שינוי אחראי"
-    >
-      {currentName ? (
-        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-          {/* Notification indicator: green check = notified, amber bell = pending */}
-          {notifiedAt ? (
-            <span
-              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500 text-white text-[9px] font-bold leading-none"
-              title={notifiedTooltip || ''}
-            >
-              ✓
-            </span>
-          ) : (
-            <span
-              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-400 text-white text-[9px] leading-none"
-              title="ממתין להתראת וואטסאפ"
-            >
-              📲
-            </span>
-          )}
-          {currentName}
-          <Pencil className="w-3 h-3 opacity-40" />
-        </span>
-      ) : (
-        <span className="text-gray-300">+ הקצה</span>
+    <div className="inline-flex items-center gap-1">
+      <button
+        onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        disabled={busy}
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium hover:ring-2 hover:ring-brand-400 transition disabled:opacity-50 text-right"
+        title="שינוי אחראי"
+      >
+        {currentName ? (
+          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+            {notifiedAt ? (
+              <span
+                className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500 text-white text-[9px] font-bold leading-none"
+                title={notifiedTooltip || ''}
+              >
+                ✓
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-400 text-white text-[9px] leading-none"
+                title="ממתין להתראת וואטסאפ"
+              >
+                📲
+              </span>
+            )}
+            {currentName}
+            <Pencil className="w-3 h-3 opacity-40" />
+          </span>
+        ) : (
+          <span className="text-gray-300">+ הקצה</span>
+        )}
+      </button>
+
+      {/* Manual notify button — only shown when there's an assignee but
+          no notification was sent yet. Lets users push a notification
+          for records that pre-date assignment_rules. */}
+      {currentName && !notifiedAt && (
+        <button
+          onClick={handleManualNotify}
+          disabled={notifying}
+          className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 disabled:opacity-50 transition"
+          title="שלח עכשיו התראת וואטסאפ לנציג"
+        >
+          {notifying ? '…' : 'שלח'}
+        </button>
       )}
-    </button>
+    </div>
   );
 }
 

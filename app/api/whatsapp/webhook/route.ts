@@ -1404,7 +1404,25 @@ async function resolveAndNotifyAssignee(opts: {
 }): Promise<void> {
   const { admin, workspaceId, recordId, tableId, tableName, recordData, instanceId, token, senderName, groupName } = opts;
 
-  // 1. Load assignment rules for this table
+  // Resolve who should be notified, in priority order:
+  //   1. A matching assignment_rule (most specific — based on record content)
+  //   2. The table's default_assignee_phone_id (set in table settings)
+  //   3. Nobody → return without doing anything
+  //
+  // The shape we end up with:
+  //   { phone, name, recordPatch }
+  //   - phone:       string for sendGreenApiReply
+  //   - name:        used in the notification message
+  //   - recordPatch: what to write back to records (may be empty if assignee
+  //                  was already set, e.g. by table-default at insert time)
+
+  let resolved: {
+    phone: string;
+    name: string;
+    recordPatch: Record<string, any>;
+  } | null = null;
+
+  // ── Strategy 1: assignment rules ─────────────────────────────────────────
   const { data: rules } = await admin
     .from('assignment_rules')
     .select(`
@@ -1417,78 +1435,102 @@ async function resolveAndNotifyAssignee(opts: {
     .eq('is_active', true)
     .order('priority', { ascending: true });
 
-  if (!rules || rules.length === 0) return; // no rules — nothing to do
+  if (rules && rules.length > 0) {
+    // Map rule field_ids → field slugs (recordData uses slugs)
+    const fieldIds = Array.from(new Set(rules.map((r: any) => r.field_id)));
+    const { data: fields } = await admin
+      .from('fields')
+      .select('id, slug')
+      .in('id', fieldIds);
+    const fieldIdToSlug = new Map<string, string>(
+      (fields || []).map((f: any) => [f.id, f.slug])
+    );
 
-  // 2. Get field slugs by id (rules reference fields by id, but recordData uses slugs)
-  const fieldIds = Array.from(new Set(rules.map((r: any) => r.field_id)));
-  const { data: fields } = await admin
-    .from('fields')
-    .select('id, slug')
-    .in('id', fieldIds);
-  const fieldIdToSlug = new Map<string, string>(
-    (fields || []).map((f: any) => [f.id, f.slug])
-  );
+    for (const rule of rules) {
+      const slug = fieldIdToSlug.get(rule.field_id);
+      if (!slug) continue;
 
-  // 3. Find the first matching rule
-  let matched: any = null;
-  for (const rule of rules) {
-    const slug = fieldIdToSlug.get(rule.field_id);
-    if (!slug) continue;
+      const recordValue = recordData[slug];
+      let isMatch = false;
 
-    const recordValue = recordData[slug];
-
-    // Catch-all rule (NULL match_value) — fires when the field has any value
-    if (rule.match_value === null) {
-      if (recordValue !== undefined && recordValue !== null && recordValue !== '') {
-        matched = rule;
-        break;
+      if (rule.match_value === null) {
+        // Catch-all: matches whenever the field has any value
+        isMatch = recordValue !== undefined && recordValue !== null && recordValue !== '';
+      } else {
+        const target = String(rule.match_value).trim().toLowerCase();
+        if (Array.isArray(recordValue)) {
+          isMatch = recordValue.some(v => String(v).trim().toLowerCase() === target);
+        } else if (recordValue !== undefined && recordValue !== null) {
+          isMatch = String(recordValue).trim().toLowerCase() === target;
+        }
       }
-      continue;
+
+      if (!isMatch) continue;
+
+      // Pull joined assignee data (Supabase returns either array or object)
+      const ap = Array.isArray(rule.authorized_phones)
+        ? rule.authorized_phones[0]
+        : rule.authorized_phones;
+      const phone = ap?.phone || rule.raw_phone;
+      if (!phone) continue;
+
+      resolved = {
+        phone,
+        name: ap?.display_name || rule.raw_name || 'נציג',
+        // Write the resolved assignee back to the record so the dashboard
+        // shows it (rules win over table defaults — overwrite if needed)
+        recordPatch: rule.assignee_phone_id
+          ? { assignee_phone_id: rule.assignee_phone_id, assignee_raw_phone: null, assignee_raw_name: null }
+          : { assignee_phone_id: null, assignee_raw_phone: rule.raw_phone, assignee_raw_name: rule.raw_name },
+      };
+      break;
     }
+  }
 
-    // Specific value match — case-insensitive, trimmed
-    const target = String(rule.match_value).trim().toLowerCase();
+  // ── Strategy 2: table's default assignee ─────────────────────────────────
+  if (!resolved) {
+    // The record was already inserted with assignee_phone_id from the table's
+    // default — re-fetch it (joined with the phone) so we know who to notify.
+    // We don't *change* the record here, just send a notification to the
+    // already-assigned person.
+    const { data: rec } = await admin
+      .from('records')
+      .select(`
+        assignee_phone_id,
+        assignee_raw_phone,
+        assignee_raw_name,
+        authorized_phones:assignee_phone_id ( phone, display_name )
+      `)
+      .eq('id', recordId)
+      .maybeSingle();
 
-    if (Array.isArray(recordValue)) {
-      // multi-select / tags — match if any element equals target
-      if (recordValue.some(v => String(v).trim().toLowerCase() === target)) {
-        matched = rule;
-        break;
-      }
-    } else if (recordValue !== undefined && recordValue !== null) {
-      if (String(recordValue).trim().toLowerCase() === target) {
-        matched = rule;
-        break;
+    if (rec) {
+      const ap = Array.isArray(rec.authorized_phones)
+        ? rec.authorized_phones[0]
+        : rec.authorized_phones;
+      const phone = ap?.phone || rec.assignee_raw_phone;
+      if (phone) {
+        resolved = {
+          phone,
+          name: ap?.display_name || rec.assignee_raw_name || 'נציג',
+          recordPatch: {}, // nothing to change — assignee was already set
+        };
       }
     }
   }
 
-  if (!matched) return; // no rule matched
+  if (!resolved) return; // nothing to do
 
-  // 4. Determine assignee phone + display name
-  const ap = matched.authorized_phones; // joined data (may be null if rule used raw_phone)
-  const assigneePhone = ap?.phone || matched.raw_phone;
-  const assigneeName = ap?.display_name || matched.raw_name || 'נציג';
-
-  if (!assigneePhone) return; // safety guard — schema constraint should prevent this
-
-  // 5. Update the record with assignee info + persist who we resolved to
-  const recordPatch: any = {};
-  if (matched.assignee_phone_id) {
-    recordPatch.assignee_phone_id = matched.assignee_phone_id;
-  } else {
-    recordPatch.assignee_raw_phone = matched.raw_phone;
-    recordPatch.assignee_raw_name = matched.raw_name;
+  // ── Apply patch (if any), send notification, mark notified ───────────────
+  if (Object.keys(resolved.recordPatch).length > 0) {
+    await admin.from('records').update(resolved.recordPatch).eq('id', recordId);
   }
 
-  await admin.from('records').update(recordPatch).eq('id', recordId);
-
-  // 6. Build and send notification message
-  const chatId = phoneToChatId(assigneePhone);
+  const chatId = phoneToChatId(resolved.phone);
   if (!chatId) return;
 
   const notificationText = buildAssigneeNotification({
-    assigneeName,
+    assigneeName: resolved.name,
     tableName,
     recordData,
     senderName,
@@ -1503,12 +1545,11 @@ async function resolveAndNotifyAssignee(opts: {
     text: notificationText,
     persist: {
       admin, workspaceId,
-      senderPhone: assigneePhone, // the OTHER party = the assignee
-      groupId: null,              // private chat, not a group
+      senderPhone: resolved.phone, // the OTHER party = the assignee
+      groupId: null,
     },
   });
 
-  // 7. Mark the record as notified (only if the WhatsApp send succeeded)
   if (sentId) {
     await admin.from('records')
       .update({ assignee_notified_at: new Date().toISOString() })
