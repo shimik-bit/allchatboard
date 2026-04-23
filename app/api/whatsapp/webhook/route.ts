@@ -1,0 +1,1004 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * Green API webhook endpoint with allowlist + reply threading.
+ *
+ * Configure in Green API console → Settings → System notifications:
+ *   URL: https://YOUR_DOMAIN/api/whatsapp/webhook?workspace=WORKSPACE_ID
+ *   Enable: incomingMessageReceived
+ *
+ * Behavior:
+ *   1. Phone must be in authorized_phones (allowlist) — else replies "אין הרשאה"
+ *   2. If message quotes one of OUR previous outgoing messages → it's an UPDATE on a record
+ *   3. Otherwise → AI classifies + creates a new record
+ *   4. Always replies in WhatsApp with status confirmation
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const workspaceId = req.nextUrl.searchParams.get('workspace');
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'missing workspace param' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    if (body.typeWebhook !== 'incomingMessageReceived') {
+      return NextResponse.json({ ok: true, ignored: body.typeWebhook });
+    }
+
+    const admin = createAdminClient();
+
+    // Load workspace config
+    const { data: workspace } = await admin
+      .from('workspaces')
+      .select('id, whatsapp_instance_id, whatsapp_token, business_description, ai_messages_used, ai_messages_limit')
+      .eq('id', workspaceId)
+      .single();
+
+    if (!workspace) {
+      return NextResponse.json({ error: 'workspace not found' }, { status: 404 });
+    }
+
+    // Extract message data
+    const idMessage: string = body.idMessage || '';
+    const chatId: string = body.senderData?.chatId || '';
+    const senderPhone: string = (body.senderData?.sender || '').replace('@c.us', '').replace('@g.us', '');
+    const senderName: string = body.senderData?.senderName || body.senderData?.chatName || '';
+    const msgType: string = body.messageData?.typeMessage || '';
+
+    // Detect quoted (reply) message — Green API puts stanzaId in different places
+    const quotedMessageId: string | null =
+      body.messageData?.quotedMessage?.stanzaId
+      || body.messageData?.extendedTextMessageData?.stanzaId
+      || body.messageData?.contextInfo?.stanzaId
+      || null;
+
+    let text = '';
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
+
+    // Handle all message types that can carry text:
+    // - textMessage: simple message
+    // - extendedTextMessage: text with link/preview, also used for replies in some clients
+    // - quotedMessage: explicit reply to another message (typeMessage='quotedMessage')
+    // - reactionMessage: emoji reaction to a message
+    // - imageMessage/videoMessage/documentMessage: media with optional caption
+    if (msgType === 'textMessage') {
+      text = body.messageData?.textMessageData?.textMessage || '';
+    } else if (msgType === 'extendedTextMessage') {
+      text = body.messageData?.extendedTextMessageData?.text
+          || body.messageData?.textMessageData?.textMessage
+          || '';
+    } else if (msgType === 'quotedMessage') {
+      // This is a REPLY — text could be in either of these places
+      text = body.messageData?.extendedTextMessageData?.text
+          || body.messageData?.textMessageData?.textMessage
+          || '';
+    } else if (msgType === 'reactionMessage') {
+      // User reacted with emoji on a message → treat as a quick status update
+      text = body.messageData?.extendedTextMessageData?.text
+          || body.messageData?.reactionMessage?.text
+          || '';
+    } else if (msgType === 'imageMessage' || msgType === 'videoMessage' || msgType === 'documentMessage') {
+      text = body.messageData?.fileMessageData?.caption || '';
+      mediaUrl = body.messageData?.fileMessageData?.downloadUrl || null;
+      mediaType = body.messageData?.fileMessageData?.mimeType || msgType;
+    }
+
+    // ===== ALLOWLIST CHECK =====
+    const { data: phoneRows } = await admin.rpc('find_authorized_phone', {
+      ws_id: workspaceId,
+      p_phone: senderPhone,
+    });
+    const authorizedPhone = phoneRows && phoneRows.length > 0 ? phoneRows[0] : null;
+
+    // Group handling
+    let groupId: string | null = null;
+    if (chatId.endsWith('@g.us')) {
+      const { data: group } = await admin
+        .from('whatsapp_groups')
+        .select('id, is_active')
+        .eq('workspace_id', workspaceId)
+        .eq('green_api_chat_id', chatId)
+        .maybeSingle();
+
+      if (group) {
+        groupId = group.id;
+        if (!group.is_active) {
+          await saveMessage(admin, {
+            workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+            sender_phone: senderPhone, sender_name: senderName,
+            authorized_phone_id: authorizedPhone?.id, text, media_url: mediaUrl, media_type: mediaType,
+            quoted_message_id: quotedMessageId, status: 'ignored',
+          });
+          return NextResponse.json({ ok: true, status: 'group muted' });
+        }
+      } else {
+        const { data: newGroup } = await admin
+          .from('whatsapp_groups')
+          .insert({
+            workspace_id: workspaceId,
+            green_api_chat_id: chatId,
+            group_name: body.senderData?.chatName || 'קבוצה ללא שם',
+            is_active: true,
+          })
+          .select('id').single();
+        groupId = newGroup?.id || null;
+      }
+    }
+
+    // Reject unauthorized phones
+    if (!authorizedPhone || !authorizedPhone.is_active) {
+      const messageId = await saveMessage(admin, {
+        workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+        sender_phone: senderPhone, sender_name: senderName,
+        text, media_url: mediaUrl, media_type: mediaType,
+        quoted_message_id: quotedMessageId, status: 'ignored',
+        ai_error: 'מספר לא מורשה',
+        update_action: 'rejected',
+      });
+      // Send polite rejection (only in private chats, not groups)
+      if (!chatId.endsWith('@g.us') && workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+        await sendGreenApiReply({
+          instanceId: workspace.whatsapp_instance_id,
+          token: workspace.whatsapp_token,
+          chatId,
+          text: 'אין לך הרשאה לשלוח נתונים למערכת. פנה למנהל המערכת.',
+          quotedMessageId: idMessage,
+        });
+      }
+      return NextResponse.json({ ok: true, status: 'unauthorized' });
+    }
+
+    // Reader-only phones can QUERY but not create/update records
+    const isReaderOnly = authorizedPhone.permission === 'reader';
+
+    // Save the inbound message first (so we have a messageDbId for everything downstream)
+    const messageDbId = await saveMessage(admin, {
+      workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+      sender_phone: senderPhone, sender_name: senderName,
+      authorized_phone_id: authorizedPhone.id,
+      text, media_url: mediaUrl, media_type: mediaType,
+      quoted_message_id: quotedMessageId, status: 'received',
+    });
+    if (!messageDbId) {
+      return NextResponse.json({ error: 'failed to save message' }, { status: 500 });
+    }
+
+    // ===== QUERY DETECTION =====
+    // Before deciding if this is a create/update, check if it's a READ query.
+    // Admin + reader can query; writer can also query but mainly creates.
+    // Heuristic: questions, "list/show me", imperatives like "תן לי"
+    const looksLikeQuery = /^(רשימת|תן\s*לי|תראה\s*לי|מה|כמה|איפה|מי|הראה|show|list|how\s*many|what|which|give\s*me|report|דו[״"']ח)/i
+      .test(text.trim())
+      || /\?$/.test(text.trim());
+
+    if (looksLikeQuery && !quotedMessageId && text.trim()) {
+      // Only run query flow for non-reply messages with actual text
+      try {
+        const queryResult = await handleQuery({
+          admin, workspaceId, messageDbId, text,
+          businessDescription: workspace.business_description || '',
+          authorizedPhone,
+        });
+
+        if (queryResult.matched) {
+          if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+            await sendGreenApiReply({
+              instanceId: workspace.whatsapp_instance_id,
+              token: workspace.whatsapp_token,
+              chatId,
+              text: queryResult.responseText,
+              quotedMessageId: idMessage,
+            });
+          }
+          return NextResponse.json({ ok: true, action: 'query', matched: true });
+        }
+        // Not matched as query → fall through to normal create flow
+      } catch (e: any) {
+        console.error('Query handler error:', e);
+        // Fall through to classify
+      }
+    }
+
+    // Reader-only phones can't create/update — reject here (queries already handled above)
+    if (isReaderOnly) {
+      await admin.from('wa_messages').update({
+        status: 'ignored',
+        ai_error: 'הרשאה: צופה בלבד - יכול רק לשלוח שאלות',
+        update_action: 'rejected',
+        processed_at: new Date().toISOString(),
+      }).eq('id', messageDbId);
+
+      if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+        await sendGreenApiReply({
+          instanceId: workspace.whatsapp_instance_id,
+          token: workspace.whatsapp_token,
+          chatId,
+          text: `${authorizedPhone.display_name}, יש לך הרשאת צפייה בלבד. אפשר לשאול שאלות (לדוגמה: "רשימת תקלות פתוחות"), אבל לא ליצור רשומות חדשות.`,
+          quotedMessageId: idMessage,
+        });
+      }
+      return NextResponse.json({ ok: true, status: 'reader cannot write' });
+    }
+
+    // Handle empty text (possibly a reaction)
+    if (!text.trim()) {
+      const isReaction = msgType === 'reactionMessage';
+      if (isReaction && quotedMessageId) {
+        text = '✅';
+      } else {
+        await admin.from('wa_messages')
+          .update({ status: 'ignored', processed_at: new Date().toISOString() })
+          .eq('id', messageDbId);
+        return NextResponse.json({ ok: true, status: 'no text' });
+      }
+    }
+
+    // ===== REPLY DETECTION =====
+    // Strategy 1: quoted message ID matches a record's last_wa_message_id
+    // Strategy 2: fallback — if message has quoted_message_id but no match,
+    //             OR message text strongly implies an update ("טופל", "בוצע")
+    //             → find the most recent record created from this chat_id
+    const looksLikeUpdate = /^\s*(טופל|בוצע|סגור|הושלם|סיימתי|נסגר|done|closed|resolved|fixed|✅|👍|✔)\s*$/i
+      .test(text.trim());
+    const hasQuote = !!quotedMessageId;
+
+    if (hasQuote || looksLikeUpdate) {
+      // Try strategy 1: exact quoted message match
+      let parentRecord: any = null;
+
+      if (quotedMessageId) {
+        const { data } = await admin
+          .from('records')
+          .select('id, table_id, data, last_wa_message_id, tables(name, slug)')
+          .eq('workspace_id', workspaceId)
+          .eq('last_wa_message_id', quotedMessageId)
+          .maybeSingle();
+        parentRecord = data;
+      }
+
+      // Strategy 2: fallback to most-recent record from this chat
+      // (Green API's sendMessage-returned id doesn't always match the stanza id
+      //  that comes back on replies, so we need a fuzzy match)
+      if (!parentRecord) {
+        const { data } = await admin
+          .from('records')
+          .select('id, table_id, data, last_wa_message_id, tables(name, slug)')
+          .eq('workspace_id', workspaceId)
+          .eq('source_chat_id', chatId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        // Only use fallback if reply was sent within 2 hours of record creation
+        if (data && data.length > 0) {
+          const { data: fullRecord } = await admin
+            .from('records')
+            .select('id, table_id, data, last_wa_message_id, tables(name, slug), created_at')
+            .eq('id', data[0].id)
+            .single();
+          if (fullRecord) {
+            const ageMs = Date.now() - new Date(fullRecord.created_at).getTime();
+            if (ageMs < 2 * 60 * 60 * 1000) { // 2 hours
+              parentRecord = fullRecord;
+            }
+          }
+        }
+      }
+
+      if (parentRecord) {
+        try {
+          const result = await processUpdate({
+            admin, workspaceId, messageDbId,
+            record: parentRecord, replyText: text,
+            authorizedPhone, businessDescription: workspace.business_description || '',
+          });
+
+          if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+            const sentId = await sendGreenApiReply({
+              instanceId: workspace.whatsapp_instance_id,
+              token: workspace.whatsapp_token,
+              chatId,
+              text: result.confirmationText,
+              quotedMessageId: idMessage,
+            });
+            if (sentId) {
+              await admin.from('records')
+                .update({ last_wa_message_id: sentId })
+                .eq('id', parentRecord.id);
+            }
+          }
+
+          return NextResponse.json({ ok: true, action: 'updated', recordId: parentRecord.id });
+        } catch (e: any) {
+          await admin.from('wa_messages').update({
+            status: 'failed', ai_error: e?.message,
+            processed_at: new Date().toISOString(),
+          }).eq('id', messageDbId);
+          return NextResponse.json({ ok: true, error: e?.message });
+        }
+      }
+      // No parent record found → fall through to normal classify
+    }
+
+    // ===== NORMAL CLASSIFY + INSERT =====
+    if (workspace.ai_messages_used >= workspace.ai_messages_limit) {
+      await admin.from('wa_messages').update({
+        status: 'failed', ai_error: 'הוגעה תקרת ה-AI החודשית',
+        processed_at: new Date().toISOString(),
+      }).eq('id', messageDbId);
+      return NextResponse.json({ ok: true, status: 'quota exceeded' });
+    }
+
+    try {
+      const result = await classifyAndInsert({
+        admin, workspaceId, messageDbId, text,
+        businessDescription: workspace.business_description || '',
+        authorizedPhone,
+        senderPhone, chatId, greenMessageId: idMessage,
+      });
+
+      // Always reply in WhatsApp with confirmation
+      if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+        const replyText = buildCreateReply(result, authorizedPhone);
+        const sentId = await sendGreenApiReply({
+          instanceId: workspace.whatsapp_instance_id,
+          token: workspace.whatsapp_token,
+          chatId,
+          text: replyText,
+          quotedMessageId: idMessage,
+        });
+        // Save outgoing reply id on the record so future replies map back
+        if (sentId && result.recordId) {
+          await admin.from('records')
+            .update({ last_wa_message_id: sentId })
+            .eq('id', result.recordId);
+        }
+      }
+
+      return NextResponse.json({ ok: true, ...result });
+    } catch (e: any) {
+      await admin.from('wa_messages').update({
+        status: 'failed', ai_error: e?.message,
+        processed_at: new Date().toISOString(),
+      }).eq('id', messageDbId);
+      return NextResponse.json({ ok: true, error: e?.message });
+    }
+  } catch (e: any) {
+    console.error('Webhook error:', e);
+    return NextResponse.json({ ok: false, error: e?.message }, { status: 200 });
+  }
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+async function saveMessage(admin: any, data: any): Promise<string | null> {
+  const { data: saved } = await admin
+    .from('wa_messages')
+    .insert({ ...data, direction: 'in' })
+    .select('id').single();
+  return saved?.id || null;
+}
+
+function buildCreateReply(result: any, phone: any): string {
+  if (!result.success) {
+    return `${phone.display_name || ''}, לא הצלחנו לסווג את ההודעה. נסה לכתוב יותר ספציפי. (${result.reason || ''})`;
+  }
+  const fields = result.fieldsExtracted
+    ? Object.entries(result.fieldsExtracted).slice(0, 3)
+        .map(([k, v]) => `${k}: ${v}`).join(', ')
+    : '';
+  return `✓ נרשם ב-${result.tableName}\n${fields}\n\n💬 השב להודעה זו לעדכון (לדוגמה: "טופל", "סגור", "שינוי כתובת ל...")`;
+}
+
+// ============================================================================
+// CLASSIFY NEW MESSAGE → INSERT RECORD
+// ============================================================================
+
+async function classifyAndInsert(opts: {
+  admin: any;
+  workspaceId: string;
+  messageDbId: string;
+  text: string;
+  businessDescription: string;
+  authorizedPhone: any;
+  senderPhone: string;
+  chatId: string;
+  greenMessageId: string;
+}) {
+  const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+
+  // Load workspace tables + fields for the AI prompt
+  const { data: tables } = await admin
+    .from('tables')
+    .select('id, name, slug, ai_keywords, description, default_assignee_phone_id')
+    .eq('workspace_id', workspaceId)
+    .eq('is_archived', false)
+    .order('position');
+
+  if (!tables || tables.length === 0) {
+    throw new Error('לא הוגדרו טבלאות');
+  }
+
+  const { data: allFields } = await admin
+    .from('fields')
+    .select('id, table_id, name, slug, type, is_required, config, ai_extraction_hint, is_primary')
+    .in('table_id', tables.map((t: any) => t.id))
+    .order('position');
+
+  const fieldsByTable = new Map<string, any[]>();
+  for (const f of allFields || []) {
+    if (!fieldsByTable.has(f.table_id)) fieldsByTable.set(f.table_id, []);
+    fieldsByTable.get(f.table_id)!.push(f);
+  }
+
+  // For relation fields, load up to 100 records from the referenced table so AI
+  // knows what values exist and can match (e.g. "תקלה אצל יוסי" → yossi's record id)
+  const relationSamples = new Map<string, { id: string; label: string }[]>();
+  const relationFields = (allFields || []).filter((f: any) => f.type === 'relation' && f.config?.relation_table_id);
+  for (const rf of relationFields) {
+    if (relationSamples.has(rf.id)) continue;
+    const { data: sample } = await admin.rpc('list_records_for_dropdown', {
+      p_table_id: rf.config.relation_table_id,
+    });
+    relationSamples.set(rf.id, (sample || []).slice(0, 100).map((r: any) => ({
+      id: r.id, label: r.display_name,
+    })));
+  }
+
+  const schema = tables.map((t: any) => ({
+    slug: t.slug,
+    name: t.name,
+    keywords: t.ai_keywords || [],
+    description: t.description || '',
+    fields: (fieldsByTable.get(t.id) || []).map((f) => {
+      const baseField: any = {
+        slug: f.slug,
+        name: f.name,
+        type: f.type,
+        required: f.is_required,
+        hint: f.ai_extraction_hint || '',
+        options: f.config?.options?.map((o: any) => o.value) || undefined,
+      };
+      if (f.type === 'relation') {
+        const samples = relationSamples.get(f.id) || [];
+        // Tell AI the linked records — use their IDs as enum + labels as hints
+        baseField.existing_records = samples.map((s) => ({ id: s.id, name: s.label }));
+        baseField.relation_hint = 'מצא בהודעה שם/כתובת שתואם לאחת מהרשומות הקיימות, והחזר את ה-id שלה. אם אין התאמה, החזר null.';
+      }
+      return baseField;
+    }),
+  }));
+
+  const senderInfo = authorizedPhone
+    ? `${authorizedPhone.display_name}${authorizedPhone.job_title ? ` (${authorizedPhone.job_title})` : ''}`
+    : 'לא ידוע';
+
+  const systemPrompt = `אתה עוזר שמסווג הודעות וואטסאפ בעברית לטבלאות.
+${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
+הטבלאות הזמינות:
+${JSON.stringify(schema, null, 2)}
+
+המשתמש: ${senderInfo}
+
+החזר אך ורק JSON תקין:
+{
+  "table_slug": "<slug או null>",
+  "confidence": <0.0-1.0>,
+  "data": { "<field_slug>": <value> },
+  "reasoning": "<קצר>"
+}
+
+כללים:
+- table_slug: null אם זה לא נתון לשמירה (שיחת חולין, שאלה)
+- select/status: רק ערך מתוך options
+- date: YYYY-MM-DD | datetime: ISO 8601 | number/currency: מספר
+- אל תמציא שדות
+- confidence < 0.5 = לא בטוח`;
+
+  const aiRes = await callOpenAI(systemPrompt, text);
+  const classification = JSON.parse(aiRes);
+
+  await incrementAiUsage(admin, workspaceId);
+
+  if (!classification.table_slug || classification.confidence < 0.5) {
+    await admin.from('wa_messages').update({
+      status: 'classified', ai_classification: classification,
+      processed_at: new Date().toISOString(),
+    }).eq('id', messageDbId);
+    return { success: false, reason: classification.reasoning || 'לא בטוח', classification };
+  }
+
+  const targetTable = tables.find((t: any) => t.slug === classification.table_slug);
+  if (!targetTable) {
+    throw new Error(`טבלה "${classification.table_slug}" לא נמצאה`);
+  }
+
+  const { data: newRecord, error: insertError } = await admin
+    .from('records')
+    .insert({
+      table_id: targetTable.id,
+      workspace_id: workspaceId,
+      data: classification.data || {},
+      source: 'whatsapp',
+      source_message_id: messageDbId,
+      ai_confidence: classification.confidence,
+      authorized_phone_id: authorizedPhone?.id,
+      source_phone: opts.senderPhone,
+      source_chat_id: opts.chatId,
+      source_message_green_id: opts.greenMessageId,
+      assignee_phone_id: targetTable.default_assignee_phone_id || null,
+    }).select('id').single();
+
+  if (insertError) throw new Error(insertError.message);
+
+  await admin.from('wa_messages').update({
+    status: 'inserted', ai_classification: classification,
+    record_id: newRecord.id, update_action: 'created',
+    processed_at: new Date().toISOString(),
+  }).eq('id', messageDbId);
+
+  return {
+    success: true,
+    recordId: newRecord.id,
+    tableName: targetTable.name,
+    fieldsExtracted: classification.data || {},
+    confidence: classification.confidence,
+  };
+}
+
+// ============================================================================
+// PROCESS REPLY → UPDATE EXISTING RECORD
+// ============================================================================
+
+async function processUpdate(opts: {
+  admin: any;
+  workspaceId: string;
+  messageDbId: string;
+  record: any;
+  replyText: string;
+  authorizedPhone: any;
+  businessDescription: string;
+}) {
+  const { admin, workspaceId, messageDbId, record, replyText, authorizedPhone, businessDescription } = opts;
+
+  // Get the table's fields to know what can be updated
+  const { data: fields } = await admin
+    .from('fields')
+    .select('name, slug, type, config')
+    .eq('table_id', record.table_id)
+    .order('position');
+
+  const tableName = record.tables?.name || 'הרשומה';
+
+  const fieldsSchema = (fields || []).map((f: any) => ({
+    slug: f.slug,
+    name: f.name,
+    type: f.type,
+    options: f.config?.options?.map((o: any) => ({ value: o.value, label: o.label })) || undefined,
+  }));
+
+  // FAST PATH: if text is a clear "completion" signal, auto-find a status field
+  // and set it to a "closed" option — don't rely on AI for simple cases.
+  const isCompletionSignal = /^\s*(טופל|בוצע|סגור|הושלם|סיימתי|נסגר|done|closed|resolved|fixed|✅|👍|✔)\s*$/i
+    .test(replyText.trim());
+
+  if (isCompletionSignal) {
+    // Find a status/select field with a "closed" option
+    const statusField = (fields || []).find((f: any) =>
+      (f.type === 'status' || f.type === 'select') &&
+      f.config?.options?.some((o: any) =>
+        /טופל|בוצע|סגור|הושלם|resolved|closed|done|completed/i.test(o.label) ||
+        /טופל|בוצע|סגור|הושלם|resolved|closed|done|completed/i.test(o.value)
+      )
+    );
+
+    if (statusField) {
+      const closedOption = statusField.config.options.find((o: any) =>
+        /טופל|בוצע|סגור|הושלם|resolved|closed|done|completed/i.test(o.label) ||
+        /טופל|בוצע|סגור|הושלם|resolved|closed|done|completed/i.test(o.value)
+      );
+
+      const newData = { ...record.data, [statusField.slug]: closedOption.value };
+      const { error: updateError } = await admin
+        .from('records')
+        .update({ data: newData, updated_at: new Date().toISOString() })
+        .eq('id', record.id);
+
+      if (updateError) throw new Error(updateError.message);
+
+      await admin.from('wa_messages').update({
+        status: 'inserted',
+        ai_classification: { action: 'update', fastPath: true, field: statusField.slug, value: closedOption.value },
+        record_id: record.id, update_action: 'updated',
+        processed_at: new Date().toISOString(),
+      }).eq('id', messageDbId);
+
+      // Increment is not needed here since we didn't use AI
+      return {
+        success: true,
+        confirmationText: `✓ עודכן ב-${tableName}\n${statusField.name}: ${closedOption.label}\n\nתודה ${authorizedPhone?.display_name || ''}!`,
+      };
+    }
+  }
+
+  // Otherwise, go through AI for richer interpretation
+
+  const senderInfo = authorizedPhone
+    ? `${authorizedPhone.display_name}${authorizedPhone.job_title ? ` (${authorizedPhone.job_title})` : ''}`
+    : 'לא ידוע';
+
+  const systemPrompt = `אתה עוזר שמעדכן רשומה קיימת לפי תגובת משתמש בוואטסאפ.
+${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
+הרשומה הנוכחית מטבלת "${tableName}":
+${JSON.stringify(record.data, null, 2)}
+
+השדות הזמינים לעדכון:
+${JSON.stringify(fieldsSchema, null, 2)}
+
+המשתמש (${senderInfo}) שלח תגובה. עליך להבין:
+1. אילו שדות הוא רוצה לעדכן
+2. אם יש שדה "סטטוס" / "status" — מילים כמו "טופל", "בוצע", "סגור", "סיימתי", "✅" → סטטוס לערך הסופי
+3. אם הוא רק מבקש מידע (שאלה) — אל תעדכן
+
+החזר אך ורק JSON:
+{
+  "action": "update" | "query" | "ignore",
+  "updates": { "<field_slug>": <new_value> },
+  "summary": "<תיאור קצר בעברית של מה התבצע>"
+}`;
+
+  const aiRes = await callOpenAI(systemPrompt, replyText);
+  const result = JSON.parse(aiRes);
+
+  await incrementAiUsage(admin, workspaceId);
+
+  if (result.action === 'ignore' || !result.updates || Object.keys(result.updates).length === 0) {
+    await admin.from('wa_messages').update({
+      status: 'classified', ai_classification: result,
+      record_id: record.id, update_action: result.action === 'query' ? 'queried' : 'ignored',
+      processed_at: new Date().toISOString(),
+    }).eq('id', messageDbId);
+
+    if (result.action === 'query') {
+      return { success: true, confirmationText: `${result.summary || 'מידע התקבל'}\n\nפרטי הרשומה:\n${formatRecord(record.data, fields)}` };
+    }
+    return { success: true, confirmationText: 'לא הבנתי איזה עדכון לבצע. נסה לכתוב יותר ספציפי.' };
+  }
+
+  // Apply updates
+  const newData = { ...record.data, ...result.updates };
+  const { error: updateError } = await admin
+    .from('records')
+    .update({ data: newData, updated_at: new Date().toISOString() })
+    .eq('id', record.id);
+
+  if (updateError) throw new Error(updateError.message);
+
+  await admin.from('wa_messages').update({
+    status: 'inserted', ai_classification: result,
+    record_id: record.id, update_action: 'updated',
+    processed_at: new Date().toISOString(),
+  }).eq('id', messageDbId);
+
+  const updateLabels = Object.entries(result.updates)
+    .map(([k, v]) => {
+      const f = fields?.find((x: any) => x.slug === k);
+      return `${f?.name || k}: ${formatValue(v, f)}`;
+    })
+    .join('\n');
+
+  return {
+    success: true,
+    confirmationText: `✓ עודכן ב-${tableName}\n${updateLabels}\n\nתודה ${authorizedPhone?.display_name || ''}!`,
+  };
+}
+
+function formatValue(v: any, field?: any): string {
+  if (v === null || v === undefined) return '—';
+  if (field?.config?.options) {
+    const opt = field.config.options.find((o: any) => o.value === v);
+    return opt?.label || String(v);
+  }
+  return String(v);
+}
+
+function formatRecord(data: Record<string, any>, fields: any[]): string {
+  if (!fields) return JSON.stringify(data);
+  return fields.slice(0, 5).map((f) => `${f.name}: ${formatValue(data?.[f.slug], f)}`).join('\n');
+}
+
+// ============================================================================
+// QUERY HANDLER — "רשימת תקלות פתוחות", "נכסים פנויים", etc.
+// ============================================================================
+
+async function handleQuery(opts: {
+  admin: any;
+  workspaceId: string;
+  messageDbId: string;
+  text: string;
+  businessDescription: string;
+  authorizedPhone: any;
+}): Promise<{ matched: boolean; responseText: string }> {
+  const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+
+  // Load tables + fields so AI knows what's queryable
+  const { data: tables } = await admin
+    .from('tables')
+    .select('id, name, slug, icon, ai_keywords')
+    .eq('workspace_id', workspaceId)
+    .eq('is_archived', false)
+    .order('position');
+
+  if (!tables || tables.length === 0) {
+    return { matched: false, responseText: '' };
+  }
+
+  const { data: allFields } = await admin
+    .from('fields')
+    .select('id, table_id, name, slug, type, is_primary, config')
+    .in('table_id', tables.map((t: any) => t.id))
+    .order('position');
+
+  const fieldsByTable = new Map<string, any[]>();
+  for (const f of allFields || []) {
+    if (!fieldsByTable.has(f.table_id)) fieldsByTable.set(f.table_id, []);
+    fieldsByTable.get(f.table_id)!.push(f);
+  }
+
+  // Load relation samples so AI can translate names/addresses in queries
+  // (e.g. "תקלות של יוסי כהן") into the actual record IDs stored on records
+  const relationSamples = new Map<string, { id: string; label: string }[]>();
+  const relationFields = (allFields || []).filter((f: any) => f.type === 'relation' && f.config?.relation_table_id);
+  for (const rf of relationFields) {
+    if (relationSamples.has(rf.id)) continue;
+    const { data: sample } = await admin.rpc('list_records_for_dropdown', {
+      p_table_id: rf.config.relation_table_id,
+    });
+    relationSamples.set(rf.id, (sample || []).slice(0, 100).map((r: any) => ({
+      id: r.id, label: r.display_name,
+    })));
+  }
+
+  // Build compact schema for AI
+  const schema = tables.map((t: any) => ({
+    slug: t.slug,
+    name: t.name,
+    keywords: t.ai_keywords || [],
+    fields: (fieldsByTable.get(t.id) || []).map((f: any) => {
+      const baseField: any = {
+        slug: f.slug,
+        name: f.name,
+        type: f.type,
+        is_primary: f.is_primary,
+        options: f.config?.options?.map((o: any) => ({ value: o.value, label: o.label })) || undefined,
+      };
+      if (f.type === 'relation') {
+        const samples = relationSamples.get(f.id) || [];
+        baseField.existing_records = samples.map((s) => ({ id: s.id, name: s.label }));
+        baseField.relation_hint = 'כשהמשתמש מזכיר שם/כתובת שתואם לרשומה קיימת, השתמש ב-id שלה כערך בפילטר (operator: eq).';
+      }
+      return baseField;
+    }),
+  }));
+
+  const systemPrompt = `אתה עוזר שמזהה שאילתות-קריאה מהודעות וואטסאפ בעברית ומתרגם אותן לחיפוש בטבלאות.
+${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
+הטבלאות:
+${JSON.stringify(schema, null, 2)}
+
+המשתמש שאל. החזר JSON:
+{
+  "is_query": true | false,
+  "table_slug": "<באיזו טבלה לחפש>",
+  "filters": [
+    { "field_slug": "...", "operator": "eq|neq|in|not_in|gt|lt|contains", "value": <ערך> }
+  ],
+  "intent": "list" | "count" | "detail",
+  "limit": <מספר רשומות מקסימלי, ברירת מחדל 10>,
+  "summary": "<איך לקרוא לתוצאה, לדוגמה: 'תקלות פתוחות' או 'נכסים פנויים'>"
+}
+
+דוגמאות:
+- "רשימת תקלות פתוחות" → table: issues, filter: status neq resolved, intent: list
+- "כמה תקלות דחופות יש?" → table: issues, filter: urgency eq high, intent: count
+- "נכסים פנויים" → table: properties, filter: status eq vacant, intent: list
+- "שוכרים עם חוזה שמסתיים החודש" → table: tenants, filter: lease_end between...
+- "תקלות של יוסי כהן" → מצא את יוסי ב-existing_records של שדה relation, filter: <relation_field> eq "<uuid>", intent: list
+
+אם זו לא שאילתה-קריאה (מדובר ביצירה/עדכון) → החזר {"is_query": false}`;
+
+  let parsed: any;
+  try {
+    const aiRes = await callOpenAI(systemPrompt, text);
+    parsed = JSON.parse(aiRes);
+    await incrementAiUsage(admin, workspaceId);
+  } catch {
+    return { matched: false, responseText: '' };
+  }
+
+  if (!parsed.is_query || !parsed.table_slug) {
+    return { matched: false, responseText: '' };
+  }
+
+  const targetTable = tables.find((t: any) => t.slug === parsed.table_slug);
+  if (!targetTable) return { matched: false, responseText: '' };
+
+  const tableFields = fieldsByTable.get(targetTable.id) || [];
+
+  // Fetch ALL records for this table (we'll filter in JS — simpler than building
+  // dynamic JSON-path queries for every operator)
+  const { data: records } = await admin
+    .from('records')
+    .select('id, data, created_at, source_phone, notes')
+    .eq('table_id', targetTable.id)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (!records || records.length === 0) {
+    return {
+      matched: true,
+      responseText: `📋 ${parsed.summary || targetTable.name}\n\nלא נמצאו רשומות`,
+    };
+  }
+
+  // Apply filters
+  const filtered = (records as any[]).filter((r: any) => {
+    for (const f of (parsed.filters || [])) {
+      const val = r.data?.[f.field_slug];
+      switch (f.operator) {
+        case 'eq':
+          if (val !== f.value) return false;
+          break;
+        case 'neq':
+          if (val === f.value) return false;
+          break;
+        case 'in':
+          if (!Array.isArray(f.value) || !f.value.includes(val)) return false;
+          break;
+        case 'not_in':
+          if (Array.isArray(f.value) && f.value.includes(val)) return false;
+          break;
+        case 'gt':
+          if (!(Number(val) > Number(f.value))) return false;
+          break;
+        case 'lt':
+          if (!(Number(val) < Number(f.value))) return false;
+          break;
+        case 'contains':
+          if (!String(val || '').toLowerCase().includes(String(f.value).toLowerCase())) return false;
+          break;
+      }
+    }
+    return true;
+  });
+
+  const limit = Math.min(parsed.limit || 10, 20);
+
+  // Mark message as handled
+  await admin.from('wa_messages').update({
+    status: 'classified',
+    ai_classification: { ...parsed, result_count: filtered.length },
+    update_action: 'queried',
+    processed_at: new Date().toISOString(),
+  }).eq('id', messageDbId);
+
+  // Format response based on intent
+  if (parsed.intent === 'count') {
+    return {
+      matched: true,
+      responseText: `📊 ${parsed.summary || targetTable.name}\n\n*${filtered.length}* רשומות`,
+    };
+  }
+
+  if (filtered.length === 0) {
+    return {
+      matched: true,
+      responseText: `📋 ${parsed.summary || targetTable.name}\n\n✨ אין רשומות תואמות - הכל מסודר!`,
+    };
+  }
+
+  // List format
+  const primaryField = tableFields.find((f: any) => f.is_primary) || tableFields[0];
+  const secondaryFields = tableFields.filter((f: any) => !f.is_primary).slice(0, 3);
+
+  const items = filtered.slice(0, limit).map((r: any, i: number) => {
+    const title = primaryField ? (r.data?.[primaryField.slug] || '—') : '—';
+    const details = secondaryFields
+      .map((f: any) => {
+        const v = r.data?.[f.slug];
+        if (v === null || v === undefined || v === '') return null;
+        const label = formatValue(v, f);
+        return `${f.name}: ${label}`;
+      })
+      .filter(Boolean)
+      .join(' · ');
+    return `${i + 1}. *${title}*${details ? `\n   ${details}` : ''}`;
+  }).join('\n\n');
+
+  let response = `${targetTable.icon || '📋'} *${parsed.summary || targetTable.name}* (${filtered.length})\n\n${items}`;
+  if (filtered.length > limit) {
+    response += `\n\n_...ועוד ${filtered.length - limit} רשומות_`;
+  }
+
+  return { matched: true, responseText: response };
+}
+
+// ============================================================================
+// OPENAI CALL
+// ============================================================================
+
+async function callOpenAI(systemPrompt: string, userMsg: string): Promise<string> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) throw new Error('OPENAI_API_KEY not configured');
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMsg },
+      ],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`OpenAI: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('AI החזיר תשובה ריקה');
+  return content;
+}
+
+async function incrementAiUsage(admin: any, workspaceId: string) {
+  await admin.rpc('increment_ai_usage', { ws_id: workspaceId });
+}
+
+// ============================================================================
+// SEND VIA GREEN API
+// ============================================================================
+
+async function sendGreenApiReply(opts: {
+  instanceId: string;
+  token: string;
+  chatId: string;
+  text: string;
+  quotedMessageId?: string | null;
+}): Promise<string | null> {
+  const { instanceId, token, chatId, text, quotedMessageId } = opts;
+  try {
+    const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+    const body: any = { chatId, message: text };
+    if (quotedMessageId) body.quotedMessageId = quotedMessageId;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.error('Green API send failed', res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.idMessage || null;
+  } catch (e) {
+    console.error('sendGreenApiReply failed', e);
+    return null;
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    service: 'AllChatBoard WhatsApp Webhook v2',
+    features: ['allowlist', 'reply-threading', 'auto-reply'],
+  });
+}
