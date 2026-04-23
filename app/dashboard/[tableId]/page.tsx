@@ -4,8 +4,10 @@ import TableClient from './TableClient';
 
 export default async function TablePage({
   params,
+  searchParams,
 }: {
   params: { tableId: string };
+  searchParams: { focus?: string };
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,6 +80,7 @@ export default async function TablePage({
       views={views || []}
       phones={phones || []}
       userRole={membership.role}
+      focusRecordId={searchParams.focus || null}
     />
   );
 }

@@ -172,7 +172,10 @@ function AssigneeCell({
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const currentPhoneId = record.assignee_phone_id;
-  const currentName = record._assignee_name;
+  // Display name comes from authorized_phones join when set, otherwise from
+  // raw_name (external assignee — e.g. a contractor not in the allowlist).
+  const currentName = record._assignee_name || record.assignee_raw_name;
+  const notifiedAt = record.assignee_notified_at;
 
   if (editing) {
     return (
@@ -197,6 +200,13 @@ function AssigneeCell({
     );
   }
 
+  // Format the notification timestamp for the tooltip
+  const notifiedTooltip = notifiedAt
+    ? `התראה נשלחה ב-${new Date(notifiedAt).toLocaleString('he-IL', {
+        day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
+      })}`
+    : null;
+
   return (
     <button
       onClick={(e) => { e.stopPropagation(); setEditing(true); }}
@@ -206,6 +216,22 @@ function AssigneeCell({
     >
       {currentName ? (
         <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+          {/* Notification indicator: green check = notified, amber bell = pending */}
+          {notifiedAt ? (
+            <span
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500 text-white text-[9px] font-bold leading-none"
+              title={notifiedTooltip || ''}
+            >
+              ✓
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-400 text-white text-[9px] leading-none"
+              title="ממתין להתראת וואטסאפ"
+            >
+              📲
+            </span>
+          )}
           {currentName}
           <Pencil className="w-3 h-3 opacity-40" />
         </span>

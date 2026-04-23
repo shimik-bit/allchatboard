@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow, View, ViewType, MemberRole } from '@/lib/types/database';
@@ -28,6 +28,7 @@ export default function TableClient({
   views,
   phones,
   userRole,
+  focusRecordId,
 }: {
   table: Table;
   fields: Field[];
@@ -35,6 +36,7 @@ export default function TableClient({
   views: View[];
   phones: PhoneOption[];
   userRole: MemberRole;
+  focusRecordId?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -46,6 +48,20 @@ export default function TableClient({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RecordRow | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // When the URL has ?focus=<recordId> (e.g. from a WhatsApp short link
+  // /r/<recordId>), open that record's detail modal automatically.
+  // useEffect runs after first render so the records array is populated.
+  useEffect(() => {
+    if (!focusRecordId) return;
+    const target = initialRecords.find(r => r.id === focusRecordId);
+    if (target) {
+      setEditingRecord(target);
+      setModalOpen(true);
+    }
+    // intentionally no dep on initialRecords — this should fire once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRecordId]);
 
   const canEdit = userRole === 'owner' || userRole === 'admin' || userRole === 'editor';
   const canManageTable = userRole === 'owner' || userRole === 'admin';

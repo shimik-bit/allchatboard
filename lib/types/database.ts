@@ -97,6 +97,9 @@ export interface RecordRow {
   source_message_green_id: string | null;
   authorized_phone_id: string | null;
   assignee_phone_id: string | null;
+  assignee_raw_phone: string | null;
+  assignee_raw_name: string | null;
+  assignee_notified_at: string | null;
   last_wa_message_id: string | null;
   created_by: string | null;
   last_updated_by: string | null;
