@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut,
-  ChevronDown, Sparkles, FileText, Phone,
+  ChevronDown, Sparkles, FileText, Phone, UserCheck,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -88,6 +88,18 @@ export default function Sidebar({
         >
           <Phone className="w-4 h-4" />
           מספרים מורשים
+        </Link>
+
+        <Link
+          href="/dashboard/assignments"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-colors ${
+            pathname === '/dashboard/assignments'
+              ? 'bg-brand-50 text-brand-700'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <UserCheck className="w-4 h-4" />
+          שיוך פניות
         </Link>
 
         <div className="mt-6 mb-2 px-3 flex items-center justify-between">
