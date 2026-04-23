@@ -90,7 +90,7 @@ export default function WhatsAppClient({
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="font-display font-bold text-3xl mb-1">וואטסאפ</h1>
         <p className="text-gray-500">חברו את הוואטסאפ כדי לקלוט רשומות אוטומטית מהודעות</p>

@@ -35,9 +35,9 @@ export default async function DashboardPage() {
     .limit(5);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="font-display font-bold text-3xl mb-1">סקירה</h1>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <div className="mb-6 md:mb-8 pr-12 md:pr-0">
+        <h1 className="font-display font-bold text-xl md:text-3xl mb-1">סקירה</h1>
         <p className="text-gray-500">מבט מהיר על העסק שלך</p>
       </div>
 

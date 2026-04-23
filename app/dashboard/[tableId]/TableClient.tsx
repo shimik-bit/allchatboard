@@ -251,44 +251,47 @@ export default function TableClient({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        {/* Mobile: pr-14 leaves room for the hamburger button (top-3 right-3
+            on RTL = top-right corner visually). Smaller padding/icon on mobile. */}
+        <div className="px-4 md:px-6 py-3 md:py-4 pr-14 md:pr-6">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
               <div
-                className="w-10 h-10 rounded-lg grid place-items-center text-2xl"
+                className="w-9 h-9 md:w-10 md:h-10 rounded-lg grid place-items-center text-xl md:text-2xl shrink-0"
                 style={{ background: `${table.color}20` }}
               >
                 {table.icon}
               </div>
-              <div>
-                <h1 className="font-display font-bold text-xl">{table.name}</h1>
+              <div className="min-w-0">
+                <h1 className="font-display font-bold text-lg md:text-xl truncate">{table.name}</h1>
                 {table.description && (
-                  <p className="text-sm text-gray-500">{table.description}</p>
+                  <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{table.description}</p>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
               <button
                 onClick={handleExportCSV}
-                className="btn-ghost text-sm"
+                className="btn-ghost text-xs md:text-sm"
                 title="ייצוא לקובץ CSV"
               >
                 <Download className="w-4 h-4" />
-                ייצוא
+                <span className="hidden sm:inline">ייצוא</span>
               </button>
               {canManageTable && (
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className={`btn-ghost text-sm ${showSettings ? 'bg-gray-100' : ''}`}
+                  className={`btn-ghost text-xs md:text-sm ${showSettings ? 'bg-gray-100' : ''}`}
                   title="הגדרות טבלה"
                 >
                   <Settings2 className="w-4 h-4" />
                 </button>
               )}
               {canEdit && (
-                <button onClick={openCreateModal} className="btn-primary text-sm">
+                <button onClick={openCreateModal} className="btn-primary text-xs md:text-sm">
                   <Plus className="w-4 h-4" />
-                  רשומה חדשה
+                  <span className="hidden sm:inline">רשומה חדשה</span>
+                  <span className="sm:hidden">חדש</span>
                 </button>
               )}
             </div>
@@ -325,7 +328,7 @@ export default function TableClient({
         )}
 
         {/* Toolbar: view switcher + search */}
-        <div className="px-6 py-2 flex items-center justify-between gap-4 border-t border-gray-100">
+        <div className="px-4 md:px-6 py-2 flex items-center justify-between gap-2 md:gap-4 border-t border-gray-100 flex-wrap">
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <ViewButton
               active={activeView === 'grid'}
@@ -347,7 +350,7 @@ export default function TableClient({
             />
           </div>
 
-          <div className="flex items-center gap-2 flex-1 max-w-xs">
+          <div className="flex items-center gap-2 flex-1 min-w-[180px] max-w-xs">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input

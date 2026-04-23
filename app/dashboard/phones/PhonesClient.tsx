@@ -101,15 +101,17 @@ export default function PhonesClient({
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="font-display font-bold text-3xl mb-1">מספרי טלפון מורשים</h1>
-          <p className="text-gray-500">רק מספרים שמופיעים כאן יוכלו לשלוח נתונים למערכת דרך וואטסאפ</p>
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+      <div className="mb-6 md:mb-8 flex items-start md:items-center justify-between gap-3 pr-12 md:pr-0 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display font-bold text-xl md:text-3xl mb-1">מספרי טלפון מורשים</h1>
+          <p className="text-sm text-gray-500">רק מספרים שמופיעים כאן יוכלו לשלוח נתונים למערכת דרך וואטסאפ</p>
         </div>
         {canEdit && (
-          <button onClick={openCreate} className="btn-primary text-sm">
-            <Plus className="w-4 h-4" /> הוסף מספר
+          <button onClick={openCreate} className="btn-primary text-sm shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">הוסף מספר</span>
+            <span className="sm:hidden">חדש</span>
           </button>
         )}
       </div>

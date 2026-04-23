@@ -37,7 +37,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         tables={tables || []}
         userEmail={user.email || ''}
       />
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
+          overlap content. Reset on md+ where the hamburger is hidden. */}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">{children}</main>
     </div>
   );
 }

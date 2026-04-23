@@ -151,11 +151,11 @@ export default function AssignmentsClient({
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6 pr-12 md:pr-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">שיוך פניות לנציגים</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">שיוך פניות לנציגים</h1>
           <p className="text-sm text-gray-600">
             הגדירו לכל קטגוריה איזה נציג מטפל. כשתיפתח פנייה תואמת — הוא יקבל הודעת וואטסאפ אישית.
           </p>
@@ -163,10 +163,11 @@ export default function AssignmentsClient({
         {canEdit && (
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors shrink-0"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" />
-            כלל חדש
+            <span className="hidden sm:inline">כלל חדש</span>
+            <span className="sm:hidden">חדש</span>
           </button>
         )}
       </div>

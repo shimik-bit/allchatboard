@@ -67,7 +67,7 @@ export default function SettingsClient({
   ));
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="font-display font-bold text-3xl mb-1">הגדרות</h1>
         <p className="text-gray-500">ניהול הsworkspace והצוות</p>

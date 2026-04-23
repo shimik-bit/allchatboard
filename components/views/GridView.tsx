@@ -29,7 +29,11 @@ export default function GridView({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      {/* table-auto + min-w-max lets columns size to their content instead of
+          getting squeezed together. Combined with the parent overflow-x-auto,
+          this gives natural horizontal scroll on mobile while looking normal
+          on desktop. */}
+      <table className="text-sm table-auto min-w-max">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50/50">
             {fields.map((f) => (
@@ -89,7 +93,10 @@ function RecordRowComponent({
       className="border-b border-gray-100 hover:bg-brand-50/30 transition-colors group"
     >
       {fields.map((f) => (
-        <td key={f.id} className="px-4 py-2 align-top">
+        <td
+          key={f.id}
+          className="px-4 py-2 align-top max-w-[280px]"
+        >
           <EditableCell
             field={f}
             record={record}
@@ -644,10 +651,12 @@ function DisplayValue({ field, value }: { field: Field; value: any }) {
     case 'url':
       return <a href={value} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()} className="text-brand-600 hover:underline truncate inline-block max-w-[200px]" dir="ltr">{value}</a>;
     case 'longtext':
-      return <span className="text-gray-700 line-clamp-2 max-w-md">{value}</span>;
+      return <span className="text-gray-700 line-clamp-2 break-words">{value}</span>;
     case 'rating':
       return <span>{'⭐'.repeat(Number(value) || 0)}</span>;
     default:
-      return <span className="text-gray-900">{String(value)}</span>;
+      // break-words instead of letting the browser break mid-word (which on
+      // Hebrew + narrow columns produces vertical-letter-stack disasters)
+      return <span className="text-gray-900 break-words">{String(value)}</span>;
   }
 }

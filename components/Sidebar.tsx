@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut,
-  ChevronDown, Sparkles, FileText, Phone, UserCheck,
+  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -22,6 +22,28 @@ export default function Sidebar({
   const supabase = createClient();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  // Mobile drawer state. The sidebar is hidden by default on mobile (<md) and
+  // toggled via a hamburger button. On desktop, this state is irrelevant —
+  // the sidebar is always visible thanks to md:translate-x-0 below.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Auto-close the drawer when the user navigates to a new page. Without
+  // this, tapping a link on mobile would change the route but leave the
+  // drawer open covering the new content.
+  useEffect(() => {
+    setMobileOpen(false);
+    setShowUserMenu(false);
+  }, [pathname]);
+
+  // Lock body scroll while the drawer is open so background content doesn't
+  // scroll under the user's finger when they're trying to scroll the menu.
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [mobileOpen]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push('/auth/login');
@@ -33,24 +55,69 @@ export default function Sidebar({
   ));
 
   return (
-    <aside className="w-64 bg-white border-l border-gray-200 flex flex-col h-screen">
-      {/* Workspace header */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-9 h-9 rounded-lg grid place-items-center text-white font-bold"
-            style={{ background: workspace.primary_color }}
-          >
-            {workspace.name.charAt(0)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">{workspace.name}</div>
-            <div className="text-xs text-gray-500">
-              {workspace.plan === 'trial' ? `ניסיון - ${trialDays} ימים` : workspace.plan}
+    <>
+      {/* ── Mobile-only hamburger button ──────────────────────────────────
+          Floats top-right (RTL) when the drawer is closed. Hidden on
+          md+ where the sidebar is permanently visible. */}
+      {!mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="פתח תפריט"
+          className="md:hidden fixed top-3 right-3 z-40 w-10 h-10 grid place-items-center bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition"
+        >
+          <Menu className="w-5 h-5 text-gray-700" />
+        </button>
+      )}
+
+      {/* ── Mobile-only overlay ──────────────────────────────────────────
+          Dims the background and closes the drawer when tapped. */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/40 z-40 transition-opacity"
+          aria-hidden
+        />
+      )}
+
+      {/* ── Sidebar / drawer ─────────────────────────────────────────────
+          - Desktop (md+): static, always visible at w-64
+          - Mobile (<md): fixed-position drawer that slides in from the
+            right (RTL). Hidden via translate-x-full when closed. */}
+      <aside
+        className={`
+          bg-white border-l border-gray-200 flex flex-col h-screen
+          fixed md:static top-0 right-0 z-50
+          w-72 max-w-[85vw] md:w-64
+          transition-transform duration-200 ease-out
+          ${mobileOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+        `}
+      >
+        {/* Mobile-only close button inside the drawer header */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="סגור תפריט"
+          className="md:hidden absolute top-3 left-3 z-10 w-8 h-8 grid place-items-center text-gray-500 hover:bg-gray-100 rounded-lg transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Workspace header */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-9 h-9 rounded-lg grid place-items-center text-white font-bold"
+              style={{ background: workspace.primary_color }}
+            >
+              {workspace.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">{workspace.name}</div>
+              <div className="text-xs text-gray-500">
+                {workspace.plan === 'trial' ? `ניסיון - ${trialDays} ימים` : workspace.plan}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3">
@@ -203,5 +270,6 @@ export default function Sidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }
