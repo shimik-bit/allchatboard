@@ -420,6 +420,33 @@ export async function POST(req: NextRequest) {
             .update({ last_wa_message_id: sentId })
             .eq('id', result.recordId);
         }
+
+        // ──────────────────────────────────────────────────────────────
+        // ASSIGNEE NOTIFICATION
+        // After the record is created, check if any assignment rule
+        // matches its category. If yes, assign + notify the assignee
+        // privately on WhatsApp. Failures are logged but don't fail
+        // the request (the user already got their confirmation).
+        // ──────────────────────────────────────────────────────────────
+        if (result.recordId) {
+          try {
+            await resolveAndNotifyAssignee({
+              admin,
+              workspaceId,
+              recordId: result.recordId,
+              tableId: result.tableId,
+              tableName: result.tableName,
+              recordData: result.fieldsExtracted,
+              instanceId: workspace.whatsapp_instance_id,
+              token: workspace.whatsapp_token,
+              senderName: authorizedPhone?.display_name || senderPhone,
+              groupName: groupId ? (await getGroupName(admin, groupId)) : null,
+            });
+          } catch (notifyErr) {
+            console.error('assignee notification failed', notifyErr);
+            // non-fatal — user already got their confirmation
+          }
+        }
       }
 
       return NextResponse.json({ ok: true, ...result });
@@ -621,6 +648,7 @@ ${JSON.stringify(schema, null, 2)}
   return {
     success: true,
     recordId: newRecord.id,
+    tableId: targetTable.id,
     tableName: targetTable.name,
     fieldsExtracted: classification.data || {},
     confidence: classification.confidence,
@@ -1315,6 +1343,225 @@ async function incrementAiUsage(admin: any, workspaceId: string) {
  * that don't need to record (e.g. unauthorized rejection messages) skip it,
  * and we don't double-write or write malformed rows.
  */
+// ============================================================================
+// ASSIGNEE RESOLUTION + NOTIFICATION
+// ============================================================================
+
+/**
+ * Lightweight helper: get group display name for inclusion in notifications.
+ * Returns null on any failure (the notification will just omit the group).
+ */
+async function getGroupName(admin: any, groupId: string): Promise<string | null> {
+  try {
+    const { data } = await admin
+      .from('whatsapp_groups')
+      .select('name')
+      .eq('id', groupId)
+      .maybeSingle();
+    return data?.name || null;
+  } catch { return null; }
+}
+
+/**
+ * Normalize a phone number into Green API chat ID format (e.g. "972501234567@c.us").
+ * Accepts inputs like "0501234567", "+972501234567", "972-50-123-4567".
+ */
+function phoneToChatId(phone: string): string | null {
+  if (!phone) return null;
+  // Strip everything except digits
+  let digits = phone.replace(/\D/g, '');
+  if (!digits) return null;
+  // Israeli mobiles often arrive as "05X..." → convert to "972 5X..."
+  if (digits.startsWith('0')) digits = '972' + digits.slice(1);
+  // Strip a leading "+" was already removed; also strip a leading "00"
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  return `${digits}@c.us`;
+}
+
+/**
+ * After a record is created, look up assignment rules for its table and
+ * resolve to an assignee. If matched, update the record with the assignee
+ * and send a private WhatsApp notification with the record details.
+ *
+ * Rule matching:
+ *   - Pull all active rules for this table, ordered by priority ASC (lower = higher priority).
+ *   - For each rule, check if the record's value at `field_id` matches `match_value`.
+ *     Comparison is case-insensitive, trimmed, and works for string or array values.
+ *   - A rule with `match_value = NULL` is a catch-all (applies to any value).
+ *   - First matching rule wins.
+ */
+async function resolveAndNotifyAssignee(opts: {
+  admin: any;
+  workspaceId: string;
+  recordId: string;
+  tableId: string;
+  tableName: string;
+  recordData: Record<string, any>;
+  instanceId: string;
+  token: string;
+  senderName: string;
+  groupName: string | null;
+}): Promise<void> {
+  const { admin, workspaceId, recordId, tableId, tableName, recordData, instanceId, token, senderName, groupName } = opts;
+
+  // 1. Load assignment rules for this table
+  const { data: rules } = await admin
+    .from('assignment_rules')
+    .select(`
+      id, field_id, match_value, priority,
+      assignee_phone_id, raw_phone, raw_name,
+      authorized_phones ( id, phone, display_name, job_title )
+    `)
+    .eq('workspace_id', workspaceId)
+    .eq('table_id', tableId)
+    .eq('is_active', true)
+    .order('priority', { ascending: true });
+
+  if (!rules || rules.length === 0) return; // no rules — nothing to do
+
+  // 2. Get field slugs by id (rules reference fields by id, but recordData uses slugs)
+  const fieldIds = Array.from(new Set(rules.map((r: any) => r.field_id)));
+  const { data: fields } = await admin
+    .from('fields')
+    .select('id, slug')
+    .in('id', fieldIds);
+  const fieldIdToSlug = new Map<string, string>(
+    (fields || []).map((f: any) => [f.id, f.slug])
+  );
+
+  // 3. Find the first matching rule
+  let matched: any = null;
+  for (const rule of rules) {
+    const slug = fieldIdToSlug.get(rule.field_id);
+    if (!slug) continue;
+
+    const recordValue = recordData[slug];
+
+    // Catch-all rule (NULL match_value) — fires when the field has any value
+    if (rule.match_value === null) {
+      if (recordValue !== undefined && recordValue !== null && recordValue !== '') {
+        matched = rule;
+        break;
+      }
+      continue;
+    }
+
+    // Specific value match — case-insensitive, trimmed
+    const target = String(rule.match_value).trim().toLowerCase();
+
+    if (Array.isArray(recordValue)) {
+      // multi-select / tags — match if any element equals target
+      if (recordValue.some(v => String(v).trim().toLowerCase() === target)) {
+        matched = rule;
+        break;
+      }
+    } else if (recordValue !== undefined && recordValue !== null) {
+      if (String(recordValue).trim().toLowerCase() === target) {
+        matched = rule;
+        break;
+      }
+    }
+  }
+
+  if (!matched) return; // no rule matched
+
+  // 4. Determine assignee phone + display name
+  const ap = matched.authorized_phones; // joined data (may be null if rule used raw_phone)
+  const assigneePhone = ap?.phone || matched.raw_phone;
+  const assigneeName = ap?.display_name || matched.raw_name || 'נציג';
+
+  if (!assigneePhone) return; // safety guard — schema constraint should prevent this
+
+  // 5. Update the record with assignee info + persist who we resolved to
+  const recordPatch: any = {};
+  if (matched.assignee_phone_id) {
+    recordPatch.assignee_phone_id = matched.assignee_phone_id;
+  } else {
+    recordPatch.assignee_raw_phone = matched.raw_phone;
+    recordPatch.assignee_raw_name = matched.raw_name;
+  }
+
+  await admin.from('records').update(recordPatch).eq('id', recordId);
+
+  // 6. Build and send notification message
+  const chatId = phoneToChatId(assigneePhone);
+  if (!chatId) return;
+
+  const notificationText = buildAssigneeNotification({
+    assigneeName,
+    tableName,
+    recordData,
+    senderName,
+    groupName,
+    recordId,
+  });
+
+  const sentId = await sendGreenApiReply({
+    instanceId,
+    token,
+    chatId,
+    text: notificationText,
+    persist: {
+      admin, workspaceId,
+      senderPhone: assigneePhone, // the OTHER party = the assignee
+      groupId: null,              // private chat, not a group
+    },
+  });
+
+  // 7. Mark the record as notified (only if the WhatsApp send succeeded)
+  if (sentId) {
+    await admin.from('records')
+      .update({ assignee_notified_at: new Date().toISOString() })
+      .eq('id', recordId);
+  }
+}
+
+/**
+ * Build the private WhatsApp message sent to the assignee.
+ * Keeps it short, scannable, and shows the most relevant fields.
+ */
+function buildAssigneeNotification(opts: {
+  assigneeName: string;
+  tableName: string;
+  recordData: Record<string, any>;
+  senderName: string;
+  groupName: string | null;
+  recordId: string;
+}): string {
+  const { assigneeName, tableName, recordData, senderName, groupName, recordId } = opts;
+
+  const lines: string[] = [];
+  lines.push(`היי ${assigneeName} 👋`);
+  lines.push(`קיבלת ${tableName} חדשה לטיפול:`);
+  lines.push('');
+
+  // Show up to 5 most informative fields (skip empty + internal-looking keys)
+  const SKIP = new Set(['id', 'created_at', 'updated_at']);
+  const entries = Object.entries(recordData)
+    .filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== '')
+    .slice(0, 5);
+
+  for (const [key, value] of entries) {
+    const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+    lines.push(`• ${key}: ${displayValue}`);
+  }
+
+  lines.push('');
+  if (groupName) {
+    lines.push(`📍 דווח על ידי ${senderName} בקבוצת "${groupName}"`);
+  } else {
+    lines.push(`📍 דווח על ידי ${senderName}`);
+  }
+
+  // Link to the record in the dashboard
+  const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://allchatboard.vercel.app';
+  lines.push('');
+  lines.push(`👁 לצפייה ועדכון: ${dashboardUrl}/r/${recordId}`);
+
+  return lines.join('\n');
+}
+
+
 async function sendGreenApiReply(opts: {
   instanceId: string;
   token: string;
