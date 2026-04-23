@@ -446,6 +446,31 @@ export async function POST(req: NextRequest) {
             console.error('assignee notification failed', notifyErr);
             // non-fatal — user already got their confirmation
           }
+
+          // ────────────────────────────────────────────────────────────
+          // VENDOR NOTIFICATION
+          // Independent from the assignee flow above. If the record has
+          // a "vendor" relation field pointing at a vendor with
+          // notify_on_issues=yes, send them the full record details on
+          // WhatsApp. This is how subcontractors / suppliers get pinged
+          // on new issues automatically.
+          // ────────────────────────────────────────────────────────────
+          try {
+            await notifyVendorIfApplicable({
+              admin,
+              workspaceId,
+              recordId: result.recordId,
+              tableId: result.tableId,
+              tableName: result.tableName,
+              recordData: result.fieldsExtracted,
+              instanceId: workspace.whatsapp_instance_id,
+              token: workspace.whatsapp_token,
+              senderName: authorizedPhone?.display_name || senderPhone,
+              groupName: groupId ? (await getGroupName(admin, groupId)) : null,
+            });
+          } catch (vendorErr) {
+            console.error('vendor notification failed', vendorErr);
+          }
         }
       }
 
@@ -1600,6 +1625,201 @@ function buildAssigneeNotification(opts: {
   lines.push(`👁 לצפייה ועדכון: ${dashboardUrl}/r/${recordId}`);
 
   return lines.join('\n');
+}
+
+// ============================================================================
+// VENDOR NOTIFICATION
+// ============================================================================
+
+/**
+ * If the new record references a vendor (via a relation field named "vendor"),
+ * fetch that vendor and — only if their notify_on_issues field equals "yes" —
+ * send them the full record details on WhatsApp.
+ *
+ * This is a separate concern from the assignee notification:
+ *   - assignee = an internal team member (set via assignment_rules or table default)
+ *   - vendor   = an external supplier/contractor referenced from the record itself
+ *
+ * Both can fire for the same record, so e.g. a maintenance issue both notifies
+ * the in-house property manager AND pings the plumber the AI matched to.
+ */
+async function notifyVendorIfApplicable(opts: {
+  admin: any;
+  workspaceId: string;
+  recordId: string;
+  tableId: string;
+  tableName: string;
+  recordData: Record<string, any>;
+  instanceId: string;
+  token: string;
+  senderName: string;
+  groupName: string | null;
+}): Promise<void> {
+  const { admin, workspaceId, recordId, tableId, tableName, recordData, instanceId, token, senderName, groupName } = opts;
+
+  // 1. Find the vendor relation field on this table (slug='vendor', type='relation')
+  //    Also pull the relation_table_id from config so we know where to look up.
+  const { data: vendorField } = await admin
+    .from('fields')
+    .select('id, slug, config')
+    .eq('table_id', tableId)
+    .eq('slug', 'vendor')
+    .eq('type', 'relation')
+    .maybeSingle();
+
+  if (!vendorField) return; // table doesn't have a vendor field — nothing to do
+
+  const vendorId = recordData[vendorField.slug];
+  if (!vendorId) return; // record didn't get a vendor assigned
+
+  // 2. Find the vendors table — the relation field config tells us which one
+  const relationTableId = vendorField.config?.relation_table_id;
+  if (!relationTableId) return;
+
+  // 3. Fetch the vendor record. Vendors are stored as records in the vendors
+  //    table with their data in the JSONB `data` column.
+  const { data: vendorRecord } = await admin
+    .from('records')
+    .select('id, data')
+    .eq('id', vendorId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+
+  if (!vendorRecord) return;
+
+  const vendorData = vendorRecord.data as Record<string, any>;
+
+  // 4. Gate: only notify if the flag is explicitly "yes"
+  //    (not set, "no", or anything else → skip)
+  if (vendorData.notify_on_issues !== 'yes') return;
+
+  const vendorPhone = vendorData.phone;
+  const vendorName = vendorData.name || 'ספק';
+
+  if (!vendorPhone) return;
+
+  const chatId = phoneToChatId(vendorPhone);
+  if (!chatId) return;
+
+  // 5. Build a vendor-flavored notification (different framing from the
+  //    internal assignee message — vendors are external, so we frame it
+  //    as a service request, not a task assignment)
+  const text = buildVendorNotification({
+    vendorName,
+    tableName,
+    recordData,
+    senderName,
+    groupName,
+    recordId,
+    vendorCategory: vendorData.category || null,
+  });
+
+  // 6. Send. We don't persist this in wa_messages history because vendors
+  //    aren't part of the conversation flow (they're external — replies from
+  //    them shouldn't try to update records via the bot logic).
+  await sendGreenApiReply({
+    instanceId,
+    token,
+    chatId,
+    text,
+  });
+
+  // 7. Mark on the record so the dashboard can show "vendor was notified"
+  //    Reuse a similar timestamp pattern as assignee_notified_at; we don't
+  //    have a dedicated column yet so for now we stick it in record notes
+  //    if it wasn't already there. (A future migration could add a proper
+  //    column if vendors become first-class.)
+  // For now: skip — log only. The fact that they got the message will be
+  // visible in the WhatsApp conversation itself.
+}
+
+/**
+ * Format the WhatsApp message sent to an external vendor. Different framing
+ * from the internal assignee message: vendors get a service-request tone
+ * ("פנייה חדשה אלינו") rather than a task-assignment tone ("קיבלת לטיפול").
+ */
+function buildVendorNotification(opts: {
+  vendorName: string;
+  tableName: string;
+  recordData: Record<string, any>;
+  senderName: string;
+  groupName: string | null;
+  recordId: string;
+  vendorCategory: string | null;
+}): string {
+  const { vendorName, tableName, recordData, senderName, groupName, recordId, vendorCategory } = opts;
+
+  const lines: string[] = [];
+  lines.push(`שלום ${vendorName} 👋`);
+  lines.push('');
+  lines.push(`התקבלה ${tableName} חדשה הדורשת ${categoryToTrade(vendorCategory)}:`);
+  lines.push('');
+
+  // Show meaningful fields. Skip internal/relation IDs (they'd be UUIDs which
+  // mean nothing to the vendor).
+  const SKIP = new Set([
+    'id', 'created_at', 'updated_at',
+    'vendor', // don't echo back the vendor's own id
+    'reported_by', // a UUID; not useful to display
+    'property',    // a UUID; we'll inject the address separately if available
+  ]);
+
+  // Try to add the property address if there's one (lookup via relation field
+  // is too heavy here — we'd need an extra DB call. Skip for now; the vendor
+  // can click the dashboard link for full context.)
+
+  for (const [key, value] of Object.entries(recordData)) {
+    if (SKIP.has(key)) continue;
+    if (value === null || value === undefined || value === '') continue;
+    const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+    lines.push(`• ${key}: ${displayValue}`);
+  }
+
+  lines.push('');
+  if (groupName) {
+    lines.push(`📍 דווח על ידי ${senderName} (${groupName})`);
+  } else {
+    lines.push(`📍 דווח על ידי ${senderName}`);
+  }
+
+  lines.push('');
+  lines.push('נשמח אם תוכל/י ליצור קשר ולתאם הגעה. תודה!');
+
+  // Don't include the dashboard link — vendors are external and shouldn't
+  // need access to the workspace. If they reply to this message, the
+  // notification just gets ignored by the bot (they're not in authorized_phones).
+
+  return lines.join('\n');
+}
+
+/**
+ * Convert a vendor category code into a Hebrew trade name suitable for the
+ * notification message (e.g. "plumbing" → "אינסטלטור"). Falls back to a
+ * generic phrase if the category isn't recognized.
+ */
+function categoryToTrade(category: string | null): string {
+  if (!category) return 'טיפול';
+  const map: Record<string, string> = {
+    plumbing: 'אינסטלטור',
+    electrical: 'חשמלאי',
+    hvac: 'איש מיזוג',
+    cleaning: 'שירותי ניקיון',
+    gardening: 'גנן',
+    carpentry: 'נגר',
+    painting: 'צבעי',
+    pest_control: 'מדביר',
+    locksmith: 'מנעולן',
+    general: 'טיפול',
+    drywall_paint: 'גבסן/צבעי',
+    tiling: 'רצף',
+    aluminum: 'איש אלומיניום',
+    metalwork: 'מסגר',
+    roofing: 'איש גגות',
+    sealing: 'איטום',
+    materials: 'אספקת חומרים',
+    logistics: 'הובלה',
+  };
+  return map[category] || 'טיפול מקצועי';
 }
 
 
