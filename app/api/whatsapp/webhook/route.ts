@@ -82,6 +82,12 @@ export async function POST(req: NextRequest) {
       text = body.messageData?.extendedTextMessageData?.text
           || body.messageData?.reactionMessage?.text
           || '';
+    } else if (msgType === 'audioMessage') {
+      // Voice note (or sent audio file). No caption from WhatsApp UI for voice
+      // notes — text starts empty and we'll fill it via Whisper transcription.
+      text = body.messageData?.fileMessageData?.caption || '';
+      mediaUrl = body.messageData?.fileMessageData?.downloadUrl || null;
+      mediaType = body.messageData?.fileMessageData?.mimeType || 'audio';
     } else if (msgType === 'imageMessage' || msgType === 'videoMessage' || msgType === 'documentMessage') {
       text = body.messageData?.fileMessageData?.caption || '';
       mediaUrl = body.messageData?.fileMessageData?.downloadUrl || null;
@@ -168,6 +174,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'failed to save message' }, { status: 500 });
     }
 
+    // ===== MEDIA PROCESSING =====
+    // Voice notes get transcribed; images get described. The result is folded
+    // into `text` so the rest of the pipeline (query/classify/update) works
+    // identically whether the message arrived as text, voice, or image.
+    if (mediaUrl && mediaType) {
+      const isAudio = msgType === 'audioMessage' || mediaType.startsWith('audio');
+      const isImage = msgType === 'imageMessage' || mediaType.startsWith('image');
+
+      if (isAudio || isImage) {
+        const downloaded = await downloadMedia(mediaUrl);
+        if (downloaded) {
+          if (isAudio) {
+            const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType);
+            if (transcript && transcript.trim()) {
+              // Replace text with the transcript (voice notes have no caption anyway)
+              text = transcript.trim();
+            }
+          } else if (isImage) {
+            const description = await describeImage(downloaded.bytes, downloaded.contentType, text);
+            if (description && description.trim()) {
+              // Combine the user's caption (if any) with the AI description so the
+              // classifier sees both — caption is the user's intent, description
+              // is what's actually in the photo.
+              text = text.trim()
+                ? `${text.trim()}\n[תיאור התמונה: ${description.trim()}]`
+                : `[תיאור התמונה: ${description.trim()}]`;
+            }
+          }
+
+          // Persist the enriched text back to wa_messages so it shows in admin
+          // panel and feeds future conversation history correctly.
+          if (text.trim()) {
+            await admin.from('wa_messages')
+              .update({ text })
+              .eq('id', messageDbId);
+          }
+        }
+      }
+    }
+
+    // ===== CONVERSATION HISTORY =====
+    // Load the last 3 messages from this conversation so the AI can resolve
+    // references like "תשלח לי עם תאריך" → understands "it" = the previous list.
+    // Loaded once, passed to every downstream AI handler.
+    const conversationHistory = await loadConversationHistory({
+      admin, workspaceId,
+      senderPhone, groupId,
+      excludeMessageId: messageDbId,
+      limit: 3,
+    });
+
     // ===== QUERY DETECTION =====
     // Before deciding if this is a create/update, check if it's a READ query.
     // Admin + reader can query; writer can also query but mainly creates.
@@ -183,6 +240,7 @@ export async function POST(req: NextRequest) {
           admin, workspaceId, messageDbId, text,
           businessDescription: workspace.business_description || '',
           authorizedPhone,
+          history: conversationHistory,
         });
 
         if (queryResult.matched) {
@@ -193,6 +251,7 @@ export async function POST(req: NextRequest) {
               chatId,
               text: queryResult.responseText,
               quotedMessageId: idMessage,
+              persist: { admin, workspaceId, senderPhone, groupId },
             });
           }
           return NextResponse.json({ ok: true, action: 'query', matched: true });
@@ -294,6 +353,7 @@ export async function POST(req: NextRequest) {
             admin, workspaceId, messageDbId,
             record: parentRecord, replyText: text,
             authorizedPhone, businessDescription: workspace.business_description || '',
+            history: conversationHistory,
           });
 
           if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
@@ -303,6 +363,7 @@ export async function POST(req: NextRequest) {
               chatId,
               text: result.confirmationText,
               quotedMessageId: idMessage,
+              persist: { admin, workspaceId, senderPhone, groupId },
             });
             if (sentId) {
               await admin.from('records')
@@ -338,6 +399,7 @@ export async function POST(req: NextRequest) {
         businessDescription: workspace.business_description || '',
         authorizedPhone,
         senderPhone, chatId, greenMessageId: idMessage,
+        history: conversationHistory,
       });
 
       // Always reply in WhatsApp with confirmation
@@ -349,6 +411,7 @@ export async function POST(req: NextRequest) {
           chatId,
           text: replyText,
           quotedMessageId: idMessage,
+          persist: { admin, workspaceId, senderPhone, groupId },
         });
         // Save outgoing reply id on the record so future replies map back
         if (sentId && result.recordId) {
@@ -409,8 +472,10 @@ async function classifyAndInsert(opts: {
   senderPhone: string;
   chatId: string;
   greenMessageId: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }) {
   const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+  const history = opts.history || [];
 
   // Load workspace tables + fields for the AI prompt
   const { data: tables } = await admin
@@ -500,7 +565,12 @@ ${JSON.stringify(schema, null, 2)}
 - אל תמציא שדות
 - confidence < 0.5 = לא בטוח`;
 
-  const aiRes = await callOpenAI(systemPrompt, text);
+  // Build messages with history (oldest first) followed by the current message
+  const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    ...history,
+    { role: 'user', content: text },
+  ];
+  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
   const classification = JSON.parse(aiRes);
 
   await incrementAiUsage(admin, workspaceId);
@@ -563,8 +633,10 @@ async function processUpdate(opts: {
   replyText: string;
   authorizedPhone: any;
   businessDescription: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }) {
   const { admin, workspaceId, messageDbId, record, replyText, authorizedPhone, businessDescription } = opts;
+  const history = opts.history || [];
 
   // Get the table's fields to know what can be updated
   const { data: fields } = await admin
@@ -652,7 +724,11 @@ ${JSON.stringify(fieldsSchema, null, 2)}
   "summary": "<תיאור קצר בעברית של מה התבצע>"
 }`;
 
-  const aiRes = await callOpenAI(systemPrompt, replyText);
+  const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    ...history,
+    { role: 'user', content: replyText },
+  ];
+  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
   const result = JSON.parse(aiRes);
 
   await incrementAiUsage(admin, workspaceId);
@@ -723,8 +799,10 @@ async function handleQuery(opts: {
   text: string;
   businessDescription: string;
   authorizedPhone: any;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }): Promise<{ matched: boolean; responseText: string }> {
   const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+  const history = opts.history || [];
 
   // Load tables + fields so AI knows what's queryable
   const { data: tables } = await admin
@@ -814,7 +892,11 @@ ${JSON.stringify(schema, null, 2)}
 
   let parsed: any;
   try {
-    const aiRes = await callOpenAI(systemPrompt, text);
+    const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      ...history,
+      { role: 'user', content: text },
+    ];
+    const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
     parsed = JSON.parse(aiRes);
     await incrementAiUsage(admin, workspaceId);
   } catch {
@@ -933,6 +1015,20 @@ ${JSON.stringify(schema, null, 2)}
 // ============================================================================
 
 async function callOpenAI(systemPrompt: string, userMsg: string): Promise<string> {
+  return callOpenAIWithMessages(systemPrompt, [
+    { role: 'user', content: userMsg },
+  ]);
+}
+
+/**
+ * Same as callOpenAI but accepts a custom messages array — useful for passing
+ * conversation history (3 most recent in/out turns) so the AI can resolve
+ * references like "send it with a date" → understands "it" = the previous list.
+ */
+async function callOpenAIWithMessages(
+  systemPrompt: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<string> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) throw new Error('OPENAI_API_KEY not configured');
 
@@ -945,7 +1041,7 @@ async function callOpenAI(systemPrompt: string, userMsg: string): Promise<string
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMsg },
+        ...messages,
       ],
     }),
   });
@@ -957,6 +1053,185 @@ async function callOpenAI(systemPrompt: string, userMsg: string): Promise<string
   return content;
 }
 
+// ============================================================================
+// MEDIA HANDLERS — transcribe voice notes & describe images
+// ============================================================================
+
+/**
+ * Download a media file from a URL (e.g. Green API's downloadUrl) and return
+ * its bytes. Green API URLs are time-limited so we must fetch them right when
+ * the webhook fires.
+ */
+async function downloadMedia(url: string): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error('media download failed', res.status, url);
+      return null;
+    }
+    const contentType = res.headers.get('content-type') || 'application/octet-stream';
+    const bytes = await res.arrayBuffer();
+    return { bytes, contentType };
+  } catch (e) {
+    console.error('downloadMedia threw', e);
+    return null;
+  }
+}
+
+/**
+ * Transcribe an audio voice note using OpenAI Whisper (Hebrew-friendly).
+ * We use whisper-1 because it's Whisper's best transcription model and is
+ * dramatically cheaper than running gpt-4o-audio for raw transcription.
+ * Returns the transcript text or null on failure.
+ */
+async function transcribeAudio(audioBytes: ArrayBuffer, contentType: string): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) return null;
+
+  try {
+    // WhatsApp voice notes from Green API typically arrive as audio/ogg (opus).
+    // Whisper accepts ogg directly — no conversion needed.
+    const ext = contentType.includes('ogg') ? 'ogg'
+              : contentType.includes('mp4') || contentType.includes('m4a') ? 'm4a'
+              : contentType.includes('mpeg') ? 'mp3'
+              : contentType.includes('wav') ? 'wav'
+              : 'ogg';
+
+    const form = new FormData();
+    form.append('file', new Blob([audioBytes], { type: contentType }), `voice.${ext}`);
+    form.append('model', 'whisper-1');
+    form.append('language', 'he'); // bias toward Hebrew, still works for Hebrew+English mix
+
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiKey}` },
+      body: form,
+    });
+
+    if (!res.ok) {
+      console.error('Whisper failed', res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const data = await res.json();
+    return data.text || null;
+  } catch (e) {
+    console.error('transcribeAudio threw', e);
+    return null;
+  }
+}
+
+/**
+ * Describe an image using GPT-4o vision. Returns a Hebrew description that's
+ * good enough to feed into the classifier (e.g. "תמונה של דליפת מים מתחת
+ * לכיור" gives the classifier enough signal to file as an issue).
+ *
+ * We send the image as a data URL — simpler than uploading and works fine for
+ * the typical phone-photo size of a few hundred KB.
+ */
+async function describeImage(imageBytes: ArrayBuffer, contentType: string, userCaption: string): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) return null;
+
+  try {
+    // Convert to base64 data URL. atob/btoa-friendly chunked conversion to
+    // avoid blowing the call stack on multi-MB images.
+    const bytes = new Uint8Array(imageBytes);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    const base64 = Buffer.from(binary, 'binary').toString('base64');
+    const dataUrl = `data:${contentType};base64,${base64}`;
+
+    const prompt = userCaption
+      ? `המשתמש שלח את התמונה הזאת עם הכיתוב: "${userCaption}". תאר בקצרה מה רואים בתמונה (משפט-שניים בעברית) באופן שיעזור לסווג אותה לטבלה במערכת ניהול עסקי.`
+      : 'תאר בקצרה מה רואים בתמונה (משפט-שניים בעברית) באופן שיעזור לסווג אותה לטבלה במערכת ניהול עסקי. אם זו תקלה/נזק/חשבונית/קבלה/מסמך - ציין זאת.';
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o', // vision-capable; -mini also works but is less accurate for messy phone photos
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+          ],
+        }],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('vision call failed', res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error('describeImage threw', e);
+    return null;
+  }
+}
+
+// ============================================================================
+// CONVERSATION HISTORY — load last N turns for AI context
+// ============================================================================
+
+/**
+ * Pull the most recent in/out messages from this conversation so the AI can
+ * resolve references like "send it with a date" or "the previous list".
+ *
+ * Conversation scope:
+ *   - private chat → same sender_phone in this workspace
+ *   - group chat   → same group_id
+ *
+ * Returns messages oldest-first (so they slot naturally into a chat log),
+ * EXCLUDING the message currently being processed (`excludeMessageId`).
+ */
+async function loadConversationHistory(opts: {
+  admin: any;
+  workspaceId: string;
+  senderPhone: string;
+  groupId: string | null;
+  excludeMessageId: string;
+  limit?: number;
+}): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const limit = opts.limit ?? 3;
+
+  // Fetch a few extra to allow for the excluded one + any empty rows
+  const fetchLimit = limit + 2;
+
+  let query = opts.admin
+    .from('wa_messages')
+    .select('id, text, direction, received_at')
+    .eq('workspace_id', opts.workspaceId)
+    .neq('id', opts.excludeMessageId)
+    .not('text', 'is', null)
+    .neq('text', '')
+    .order('received_at', { ascending: false })
+    .limit(fetchLimit);
+
+  if (opts.groupId) {
+    query = query.eq('group_id', opts.groupId);
+  } else {
+    query = query.eq('sender_phone', opts.senderPhone).is('group_id', null);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+
+  // Reverse to chronological (oldest first), then keep only `limit`
+  const chronological = (data as any[]).reverse().slice(-limit);
+
+  return chronological.map((m: any) => ({
+    role: m.direction === 'out' ? ('assistant' as const) : ('user' as const),
+    content: String(m.text).slice(0, 1000), // cap each message to 1000 chars to keep context lean
+  }));
+}
+
 async function incrementAiUsage(admin: any, workspaceId: string) {
   await admin.rpc('increment_ai_usage', { ws_id: workspaceId });
 }
@@ -965,14 +1240,28 @@ async function incrementAiUsage(admin: any, workspaceId: string) {
 // SEND VIA GREEN API
 // ============================================================================
 
+/**
+ * Send a WhatsApp message via Green API and (optionally) persist it to
+ * wa_messages so it appears in conversation history.
+ *
+ * The persistence is opt-in via the `persist` block — that way callers
+ * that don't need to record (e.g. unauthorized rejection messages) skip it,
+ * and we don't double-write or write malformed rows.
+ */
 async function sendGreenApiReply(opts: {
   instanceId: string;
   token: string;
   chatId: string;
   text: string;
   quotedMessageId?: string | null;
+  persist?: {
+    admin: any;
+    workspaceId: string;
+    senderPhone: string; // the OTHER party's phone (i.e. the user we're replying to)
+    groupId?: string | null;
+  };
 }): Promise<string | null> {
-  const { instanceId, token, chatId, text, quotedMessageId } = opts;
+  const { instanceId, token, chatId, text, quotedMessageId, persist } = opts;
   try {
     const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
     const body: any = { chatId, message: text };
@@ -988,7 +1277,28 @@ async function sendGreenApiReply(opts: {
       return null;
     }
     const data = await res.json();
-    return data.idMessage || null;
+    const sentMessageId = data.idMessage || null;
+
+    // Persist outgoing message so it shows in conversation history for
+    // future AI calls (lets the bot understand "the previous list" etc.)
+    if (persist) {
+      try {
+        await persist.admin.from('wa_messages').insert({
+          workspace_id: persist.workspaceId,
+          group_id: persist.groupId || null,
+          green_api_message_id: sentMessageId,
+          sender_phone: persist.senderPhone,
+          text,
+          direction: 'out',
+          status: 'sent',
+        });
+      } catch (e) {
+        // Non-fatal: if persistence fails the user still got the message.
+        console.error('failed to persist outgoing message', e);
+      }
+    }
+
+    return sentMessageId;
   } catch (e) {
     console.error('sendGreenApiReply failed', e);
     return null;
