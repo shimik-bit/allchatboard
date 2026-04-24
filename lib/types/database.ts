@@ -101,6 +101,9 @@ export interface RecordRow {
   assignee_raw_name: string | null;
   assignee_notified_at: string | null;
   last_wa_message_id: string | null;
+  attachment_url: string | null;
+  attachment_type: string | null;
+  attachment_name: string | null;
   created_by: string | null;
   last_updated_by: string | null;
   status_updated_at: string | null;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow } from '@/lib/types/database';
-import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft } from 'lucide-react';
+import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 
 export default function RecordModal({
@@ -141,6 +141,16 @@ export default function RecordModal({
 
         {/* Fields */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-5 space-y-4">
+          {/* Attachment preview — shown when the record was created from a
+              WhatsApp image/document. Gives the user instant visual context
+              and a link to the original file. */}
+          {!isNew && record?.attachment_url && (
+            <AttachmentPreview
+              url={record.attachment_url}
+              type={record.attachment_type || null}
+            />
+          )}
+
           {fields.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               לא הוגדרו שדות עבור הטבלה הזו
@@ -601,6 +611,83 @@ function RelatedRecordsSection({ recordId }: { recordId: string }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── AttachmentPreview ──────────────────────────────────────────────────────
+/**
+ * Renders the file attached to a record. When it's an image we show it
+ * inline (users want to verify an invoice/damage photo at a glance).
+ * For PDFs and other documents we show a compact "file card" with a
+ * download link — most browsers handle PDF viewing from the opened tab.
+ */
+function AttachmentPreview({ url, type }: { url: string; type: string | null }) {
+  const isImage = type?.startsWith('image/');
+  const isPdf = type === 'application/pdf';
+
+  // Short filename for the card — last path segment
+  const filename = (() => {
+    try {
+      const last = url.split('/').pop() || '';
+      return decodeURIComponent(last).split('?')[0];
+    } catch { return 'attachment'; }
+  })();
+
+  if (isImage) {
+    return (
+      <div className="mb-4">
+        <div className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+          <Paperclip className="w-3 h-3" />
+          קובץ מצורף
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-lg overflow-hidden border border-gray-200 hover:border-brand-400 transition-colors"
+          title="לחץ לפתיחה במסך מלא"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt="קובץ מצורף"
+            className="w-full max-h-80 object-contain bg-gray-50"
+            loading="lazy"
+          />
+        </a>
+      </div>
+    );
+  }
+
+  // Non-image file — show a card with icon + download link
+  return (
+    <div className="mb-4">
+      <div className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+        <Paperclip className="w-3 h-3" />
+        קובץ מצורף
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors"
+      >
+        <div className={`w-10 h-10 rounded-lg grid place-items-center shrink-0 ${
+          isPdf ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-600'
+        }`}>
+          <FileText className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm text-gray-900 truncate" dir="ltr">
+            {filename}
+          </div>
+          <div className="text-xs text-gray-500">
+            {isPdf ? 'מסמך PDF' : (type || 'קובץ')}
+          </div>
+        </div>
+        <Download className="w-4 h-4 text-gray-400 shrink-0" />
+      </a>
     </div>
   );
 }

@@ -156,10 +156,13 @@ function RecordRowComponent({
         >
           <Pencil className="w-3 h-3" /> פתח
         </button>
-        <div className="mt-1">
-          {record.source === 'whatsapp' && '💬'}
-          {record.source === 'manual' && '✏️'}
-          {record.source === 'import' && '📥'}
+        <div className="mt-1 flex items-center gap-1">
+          {record.source === 'whatsapp' && <span title="מקור: וואטסאפ">💬</span>}
+          {record.source === 'manual' && <span title="מקור: הזנה ידנית">✏️</span>}
+          {record.source === 'import' && <span title="מקור: ייבוא">📥</span>}
+          {record.attachment_url && (
+            <span title="יש קובץ מצורף" className="text-gray-400">📎</span>
+          )}
         </div>
       </td>
     </tr>
