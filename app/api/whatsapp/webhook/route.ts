@@ -178,13 +178,42 @@ export async function POST(req: NextRequest) {
     // Voice notes get transcribed; images get described. The result is folded
     // into `text` so the rest of the pipeline (query/classify/update) works
     // identically whether the message arrived as text, voice, or image.
+    //
+    // We also save the media itself to Supabase Storage and keep the public
+    // URL around so we can attach it to the resulting record (for images
+    // and documents — attachments on invoices/receipts are important to keep).
+    let attachmentUrl: string | null = null;
+    let attachmentType: string | null = null;
+
     if (mediaUrl && mediaType) {
       const isAudio = msgType === 'audioMessage' || mediaType.startsWith('audio');
       const isImage = msgType === 'imageMessage' || mediaType.startsWith('image');
+      const isDocument = msgType === 'documentMessage';
 
-      if (isAudio || isImage) {
+      if (isAudio || isImage || isDocument) {
         const downloaded = await downloadMedia(mediaUrl);
         if (downloaded) {
+          // Upload images and documents to Storage so the user can see the
+          // original later from the dashboard. Skip audio — transcripts are
+          // enough, storing voice notes just wastes space.
+          if (isImage || isDocument) {
+            const uploaded = await uploadMediaToStorage({
+              admin,
+              workspaceId,
+              bytes: downloaded.bytes,
+              contentType: downloaded.contentType,
+            });
+            if (uploaded) {
+              attachmentUrl = uploaded.url;
+              attachmentType = downloaded.contentType;
+              // Also mark the message row with the attachment so the chat
+              // history shows the image inline
+              await admin.from('wa_messages')
+                .update({ attachment_url: uploaded.url, attachment_type: downloaded.contentType })
+                .eq('id', messageDbId);
+            }
+          }
+
           if (isAudio) {
             const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType);
             if (transcript && transcript.trim()) {
@@ -192,7 +221,45 @@ export async function POST(req: NextRequest) {
               text = transcript.trim();
             }
           } else if (isImage) {
-            const description = await describeImage(downloaded.bytes, downloaded.contentType, text);
+            // Build a compact schema hint so vision knows what datapoints
+            // to extract. Without this, it gives generic "picture of an
+            // invoice" descriptions instead of actual numbers/dates.
+            let schemaHint: string | undefined;
+            try {
+              const { data: tables } = await admin
+                .from('tables')
+                .select('id, name, slug, description')
+                .eq('workspace_id', workspaceId)
+                .eq('is_archived', false);
+
+              if (tables && tables.length > 0) {
+                const tableIds = tables.map((t: any) => t.id);
+                const { data: fields } = await admin
+                  .from('fields')
+                  .select('table_id, name, ai_extraction_hint')
+                  .in('table_id', tableIds);
+
+                const fieldsByTable = new Map<string, string[]>();
+                for (const f of fields || []) {
+                  if (!fieldsByTable.has(f.table_id)) fieldsByTable.set(f.table_id, []);
+                  const hint = f.ai_extraction_hint ? ` (${f.ai_extraction_hint})` : '';
+                  fieldsByTable.get(f.table_id)!.push(`${f.name}${hint}`);
+                }
+                schemaHint = tables.map((t: any) =>
+                  `• ${t.name}: ${(fieldsByTable.get(t.id) || []).join(', ') || '(ללא שדות)'}`
+                ).join('\n');
+              }
+            } catch (e) {
+              // Non-fatal — we'll just send the vision call without hints
+              console.error('failed to build schemaHint', e);
+            }
+
+            const description = await describeImage(
+              downloaded.bytes,
+              downloaded.contentType,
+              text,
+              schemaHint
+            );
             if (description && description.trim()) {
               // Combine the user's caption (if any) with the AI description so the
               // classifier sees both — caption is the user's intent, description
@@ -414,11 +481,20 @@ export async function POST(req: NextRequest) {
           quotedMessageId: idMessage,
           persist: { admin, workspaceId, senderPhone, groupId },
         });
-        // Save outgoing reply id on the record so future replies map back
-        if (sentId && result.recordId) {
-          await admin.from('records')
-            .update({ last_wa_message_id: sentId })
-            .eq('id', result.recordId);
+        // Save outgoing reply id on the record so future replies map back.
+        // If this message had an image/document attachment, also persist
+        // its URL onto the record — so the dashboard can show the original
+        // file (useful for invoices/receipts/damage photos).
+        if (result.recordId) {
+          const patch: any = {};
+          if (sentId) patch.last_wa_message_id = sentId;
+          if (attachmentUrl) {
+            patch.attachment_url = attachmentUrl;
+            patch.attachment_type = attachmentType;
+          }
+          if (Object.keys(patch).length > 0) {
+            await admin.from('records').update(patch).eq('id', result.recordId);
+          }
         }
 
         // ──────────────────────────────────────────────────────────────
@@ -1142,6 +1218,65 @@ async function downloadMedia(url: string): Promise<{ bytes: ArrayBuffer; content
 }
 
 /**
+ * Upload downloaded media to the 'media' Supabase Storage bucket.
+ * Returns the public URL for inclusion in records/wa_messages, or null
+ * if upload fails.
+ *
+ * The path pattern is: workspaces/<workspace_id>/<yyyy>/<mm>/<uuid>.<ext>
+ * This keeps files organized per-workspace and per-month so listing/cleanup
+ * is straightforward if needed later.
+ */
+async function uploadMediaToStorage(opts: {
+  admin: any;
+  workspaceId: string;
+  bytes: ArrayBuffer;
+  contentType: string;
+}): Promise<{ url: string; path: string } | null> {
+  const { admin, workspaceId, bytes, contentType } = opts;
+  try {
+    // Pick an extension from the content-type. Falls back to .bin if unknown
+    // (still uploadable, just not directly previewable).
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/heic': 'heic',
+      'application/pdf': 'pdf',
+      'audio/ogg': 'ogg',
+      'audio/mpeg': 'mp3',
+      'audio/mp4': 'm4a',
+      'video/mp4': 'mp4',
+    };
+    const ext = extMap[contentType.toLowerCase().split(';')[0]] || 'bin';
+
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    // crypto.randomUUID is available in Node 18+
+    const uuid = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const path = `workspaces/${workspaceId}/${yyyy}/${mm}/${uuid}.${ext}`;
+
+    const { error } = await admin.storage.from('media').upload(path, bytes, {
+      contentType,
+      upsert: false,
+    });
+    if (error) {
+      console.error('storage upload failed', error.message);
+      return null;
+    }
+
+    // Public URL — bucket is public, so this works without a signed URL
+    const { data } = admin.storage.from('media').getPublicUrl(path);
+    return { url: data.publicUrl, path };
+  } catch (e) {
+    console.error('uploadMediaToStorage threw', e);
+    return null;
+  }
+}
+
+/**
  * Transcribe an audio voice note using OpenAI Whisper (Hebrew-friendly).
  * We use whisper-1 because it's Whisper's best transcription model and is
  * dramatically cheaper than running gpt-4o-audio for raw transcription.
@@ -1191,7 +1326,25 @@ async function transcribeAudio(audioBytes: ArrayBuffer, contentType: string): Pr
  * We send the image as a data URL — simpler than uploading and works fine for
  * the typical phone-photo size of a few hundred KB.
  */
-async function describeImage(imageBytes: ArrayBuffer, contentType: string, userCaption: string): Promise<string | null> {
+/**
+ * Describe/extract data from an image using GPT-4o vision.
+ *
+ * Returns a Hebrew description rich enough for the classifier to build an
+ * accurate record. When `schemaHint` is provided (list of table names + field
+ * names the workspace uses), the model is instructed to extract concrete
+ * values — invoice totals, dates, addresses, amounts — instead of giving a
+ * generic "picture of an invoice" summary.
+ *
+ * Uses `detail: 'high'` so small text (invoice line items, totals, dates) is
+ * legible. The cost difference vs. 'low' is small for single images and the
+ * accuracy gain is huge for OCR-style content.
+ */
+async function describeImage(
+  imageBytes: ArrayBuffer,
+  contentType: string,
+  userCaption: string,
+  schemaHint?: string
+): Promise<string | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) return null;
 
@@ -1207,21 +1360,50 @@ async function describeImage(imageBytes: ArrayBuffer, contentType: string, userC
     const base64 = Buffer.from(binary, 'binary').toString('base64');
     const dataUrl = `data:${contentType};base64,${base64}`;
 
-    const prompt = userCaption
-      ? `המשתמש שלח את התמונה הזאת עם הכיתוב: "${userCaption}". תאר בקצרה מה רואים בתמונה (משפט-שניים בעברית) באופן שיעזור לסווג אותה לטבלה במערכת ניהול עסקי.`
-      : 'תאר בקצרה מה רואים בתמונה (משפט-שניים בעברית) באופן שיעזור לסווג אותה לטבלה במערכת ניהול עסקי. אם זו תקלה/נזק/חשבונית/קבלה/מסמך - ציין זאת.';
+    // Build the extraction prompt. The model's job here isn't to describe
+    // what it sees — it's to pull every concrete datapoint a human would
+    // need to record the event. The downstream classifier will then map
+    // those datapoints to fields.
+    const parts: string[] = [];
+    parts.push('קרא את התמונה בקפידה וחלץ את כל המידע שרלוונטי למערכת ניהול עסקי בעברית.');
+    parts.push('');
+
+    if (userCaption) {
+      parts.push(`כיתוב של המשתמש: "${userCaption}"`);
+      parts.push('');
+    }
+
+    if (schemaHint) {
+      parts.push('הטבלאות והשדות במערכת:');
+      parts.push(schemaHint);
+      parts.push('');
+      parts.push('לכל נתון שאתה מזהה בתמונה — שם, סכום, תאריך, כתובת, מספר חשבונית, שם ספק/חברה, פרטי קשר, תיאור פעולה, מוצר/שירות — ציין אותו מפורשות בפורמט "שדה: ערך".');
+    }
+
+    parts.push('');
+    parts.push('הנחיות חשובות:');
+    parts.push('• אם זו חשבונית/קבלה — ציין **סכום מדויק** (כולל מע"מ), **תאריך מלא**, **שם הספק/עסק המשלם**, **מספר מסמך**, **תיאור השירות/המוצר**.');
+    parts.push('• אם זה מסמך/טופס — העתק את הכותרת, השמות, התאריכים, המספרים הרלוונטיים.');
+    parts.push('• אם זה נזק/תקלה/מצב בשטח — תאר בפרטנות מה רואים: סוג התקלה, מיקום, חומרה.');
+    parts.push('• אל תמציא נתונים. אם ערך לא ברור או לא מופיע — כתוב "לא מצוין".');
+    parts.push('• תאריכים תמיד בפורמט YYYY-MM-DD.');
+    parts.push('• סכומים תמיד במספרים בלבד (לא מילים).');
+
+    const prompt = parts.join('\n');
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o', // vision-capable; -mini also works but is less accurate for messy phone photos
-        max_tokens: 200,
+        model: 'gpt-4o',
+        max_tokens: 800, // up from 200 — invoices need room to spell out all line items
         messages: [{
           role: 'user',
           content: [
             { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+            // detail:'high' costs more tokens but is critical for reading
+            // invoice small-print, handwriting, faded receipts, etc.
+            { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
           ],
         }],
       }),
