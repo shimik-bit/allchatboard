@@ -90,7 +90,9 @@ function RecordRowComponent({
 }) {
   return (
     <tr
-      className="border-b border-gray-100 hover:bg-brand-50/30 transition-colors group"
+      onClick={onRowClick}
+      className="border-b border-gray-100 hover:bg-brand-50/40 transition-colors group cursor-pointer"
+      title="לחץ לפתיחת הרשומה המלאה"
     >
       {fields.map((f) => (
         <td
@@ -151,8 +153,9 @@ function RecordRowComponent({
       {/* מקור */}
       <td className="px-4 py-2 text-xs text-gray-400 align-top">
         <button
-          onClick={onRowClick}
-          className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-brand-600 hover:underline"
+          onClick={(e) => { e.stopPropagation(); onRowClick(); }}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors text-xs font-medium"
+          title="פתח רשומה מלאה"
         >
           <Pencil className="w-3 h-3" /> פתח
         </button>
@@ -217,8 +220,10 @@ function AssigneeCell({
       <select
         autoFocus
         defaultValue={currentPhoneId || ''}
+        onClick={(e) => e.stopPropagation()}
         onBlur={() => setEditing(false)}
         onChange={async (e) => {
+          e.stopPropagation();
           setEditing(false);
           setBusy(true);
           try { await onChange(e.target.value || null); } finally { setBusy(false); }
@@ -371,8 +376,10 @@ function SelectCell({
       <select
         autoFocus
         defaultValue={value || ''}
+        onClick={(e) => e.stopPropagation()}
         onBlur={() => setEditing(false)}
         onChange={async (e) => {
+          e.stopPropagation();
           const newVal = e.target.value || null;
           const newLabel = opts.find((o) => o.value === newVal)?.label || newVal;
           setEditing(false);
@@ -483,9 +490,11 @@ function TextCell({
         ref={inputRef}
         type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
         value={draft}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
+          e.stopPropagation();
           if (e.key === 'Enter') commit();
           if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false); }
         }}
@@ -532,6 +541,8 @@ function NotesCell({
         ref={ref}
         autoFocus
         value={draft}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         rows={2}
