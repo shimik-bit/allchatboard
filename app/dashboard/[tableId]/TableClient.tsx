@@ -8,9 +8,11 @@ import GridView from '@/components/views/GridView';
 import KanbanView from '@/components/views/KanbanView';
 import CalendarView from '@/components/views/CalendarView';
 import RecordModal from '@/components/RecordModal';
+import TablePermissionsModal from '@/components/TablePermissionsModal';
+import AddFieldModal from '@/components/AddFieldModal';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
-  Search, Download, UserCircle, Settings2,
+  Search, Download, UserCircle, Settings2, Shield, Database,
 } from 'lucide-react';
 
 type PhoneOption = {
@@ -48,6 +50,8 @@ export default function TableClient({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RecordRow | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPermissions, setShowPermissions] = useState(false);
+  const [showAddField, setShowAddField] = useState(false);
 
   // When the URL has ?focus=<recordId> (e.g. from a WhatsApp short link
   // /r/<recordId>), open that record's detail modal automatically.
@@ -323,6 +327,25 @@ export default function TableClient({
                   רשומות חדשות יסומנו אוטומטית עם האחראי הזה
                 </div>
               </div>
+
+              <div className="flex flex-col gap-2 min-w-[180px]">
+                <button
+                  onClick={() => setShowAddField(true)}
+                  className="btn-secondary text-sm flex items-center gap-2 justify-center"
+                  title="הוסף שדה חדש לטבלה"
+                >
+                  <Database className="w-4 h-4" />
+                  ניהול שדות
+                </button>
+                <button
+                  onClick={() => setShowPermissions(true)}
+                  className="btn-secondary text-sm flex items-center gap-2 justify-center"
+                  title="קבע מי רואה ועורך"
+                >
+                  <Shield className="w-4 h-4" />
+                  הרשאות גישה
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -413,6 +436,25 @@ export default function TableClient({
           }}
           onSave={handleSave}
           onDelete={editingRecord ? handleDelete : undefined}
+        />
+      )}
+
+      {/* Permissions modal */}
+      {showPermissions && (
+        <TablePermissionsModal
+          tableId={table.id}
+          tableName={table.name}
+          onClose={() => setShowPermissions(false)}
+        />
+      )}
+
+      {/* Add field modal */}
+      {showAddField && (
+        <AddFieldModal
+          tableId={table.id}
+          workspaceId={table.workspace_id}
+          onClose={() => setShowAddField(false)}
+          onAdded={() => router.refresh()}
         />
       )}
     </div>

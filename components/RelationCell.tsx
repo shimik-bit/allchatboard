@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Field } from '@/lib/types/database';
-import { Link2, X, ExternalLink, Search } from 'lucide-react';
+import { Link2, X, Search } from 'lucide-react';
 
 interface RelationOption {
   id: string;
   display_name: string;
+  data: Record<string, any>;
 }
 
 export default function RelationCell({
@@ -26,30 +27,59 @@ export default function RelationCell({
   const [options, setOptions] = useState<RelationOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentLabel, setCurrentLabel] = useState<string>('');
+  const [currentRecord, setCurrentRecord] = useState<RelationOption | null>(null);
+  const [targetFields, setTargetFields] = useState<Field[]>([]);
 
   const relationTableId = field.config?.relation_table_id;
+  const displayColumns: string[] =
+    (field.config?.display_columns as string[]) ||
+    (field.config?.display_field ? [field.config.display_field] : []);
 
-  // Load the current value's display name
+  // Load fields of target table for proper formatting
+  useEffect(() => {
+    if (!relationTableId) return;
+    supabase
+      .from('fields')
+      .select('id, name, slug, type, config')
+      .eq('table_id', relationTableId)
+      .then(({ data }) => setTargetFields((data as any) || []));
+  }, [relationTableId, supabase]);
+
+  // Load current value's data
   useEffect(() => {
     if (!value || !relationTableId) {
-      setCurrentLabel('');
+      setCurrentRecord(null);
       return;
     }
-    supabase.rpc('list_records_for_dropdown', { p_table_id: relationTableId })
+    supabase
+      .rpc('list_records_for_dropdown_rich', { p_table_id: relationTableId })
       .then(({ data }) => {
         const match = (data || []).find((r: any) => r.id === value);
-        setCurrentLabel(match?.display_name || '...');
+        if (match) {
+          setCurrentRecord({
+            id: match.id,
+            display_name: match.display_name,
+            data: match.data || {},
+          });
+        }
       });
-  }, [value, relationTableId]);
+  }, [value, relationTableId, supabase]);
 
   async function openPicker() {
     if (readOnly || !relationTableId) return;
     setEditing(true);
     if (options.length === 0) {
       setLoading(true);
-      const { data } = await supabase.rpc('list_records_for_dropdown', { p_table_id: relationTableId });
-      setOptions((data || []).map((r: any) => ({ id: r.id, display_name: r.display_name })));
+      const { data } = await supabase.rpc('list_records_for_dropdown_rich', {
+        p_table_id: relationTableId,
+      });
+      setOptions(
+        (data || []).map((r: any) => ({
+          id: r.id,
+          display_name: r.display_name,
+          data: r.data || {},
+        }))
+      );
       setLoading(false);
     }
   }
@@ -57,12 +87,11 @@ export default function RelationCell({
   async function handleSelect(id: string | null) {
     setEditing(false);
     await onChange(id);
-    // update label
     if (id) {
       const opt = options.find((o) => o.id === id);
-      if (opt) setCurrentLabel(opt.display_name);
+      if (opt) setCurrentRecord(opt);
     } else {
-      setCurrentLabel('');
+      setCurrentRecord(null);
     }
   }
 
@@ -70,10 +99,32 @@ export default function RelationCell({
     return <span className="text-red-400 text-xs">שדה קישור לא מוגדר</span>;
   }
 
+  function formatColumn(slug: string, data: Record<string, any>): string {
+    const f = targetFields.find((tf) => tf.slug === slug);
+    const raw = data?.[slug];
+    if (raw === null || raw === undefined || raw === '') return '';
+
+    if (f?.type === 'select' || f?.type === 'status') {
+      const opt = ((f.config as any)?.options || []).find((o: any) => o.value === raw);
+      return opt?.label || String(raw);
+    }
+    if (f?.type === 'currency' && typeof raw === 'number') {
+      return `₪${raw.toLocaleString()}`;
+    }
+    if (Array.isArray(raw)) return raw.join(', ');
+    return String(raw);
+  }
+
   const filtered = searchQuery
-    ? options.filter((o) =>
-        o.display_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? options.filter((o) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          o.display_name.toLowerCase().includes(q) ||
+          displayColumns.some((slug) =>
+            String(o.data?.[slug] || '').toLowerCase().includes(q)
+          )
+        );
+      })
     : options;
 
   if (editing) {
@@ -128,17 +179,30 @@ export default function RelationCell({
                     × הסר קישור
                   </button>
                 )}
-                {filtered.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => handleSelect(opt.id)}
-                    className={`w-full text-right px-3 py-2 rounded-lg text-sm hover:bg-brand-50 ${
-                      opt.id === value ? 'bg-brand-100 font-medium' : ''
-                    }`}
-                  >
-                    {opt.display_name}
-                  </button>
-                ))}
+                {filtered.map((opt) => {
+                  const cols = displayColumns
+                    .map((slug) => formatColumn(slug, opt.data))
+                    .filter(Boolean);
+                  const display = cols.length > 0 ? cols : [opt.display_name];
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleSelect(opt.id)}
+                      className={`w-full text-right px-3 py-2 rounded-lg text-sm hover:bg-brand-50 ${
+                        opt.id === value ? 'bg-brand-100 font-medium' : ''
+                      }`}
+                    >
+                      <div className="font-medium">{display[0]}</div>
+                      {display.length > 1 && (
+                        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                          {display.slice(1).map((v, i) => (
+                            <span key={i}>{v}</span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </>
             )}
           </div>
@@ -147,20 +211,41 @@ export default function RelationCell({
     );
   }
 
-  // Display mode
+  // Display mode - show up to 3 columns
+  const displayValues = currentRecord
+    ? displayColumns
+        .map((slug) => formatColumn(slug, currentRecord.data))
+        .filter(Boolean)
+    : [];
+
+  if (!value || displayValues.length === 0) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); openPicker(); }}
+        disabled={readOnly}
+        className="text-xs text-gray-400 hover:text-brand-600"
+      >
+        {readOnly ? '—' : '+ קשר רשומה'}
+      </button>
+    );
+  }
+
   return (
     <button
       onClick={(e) => { e.stopPropagation(); openPicker(); }}
       disabled={readOnly}
-      className="inline-flex items-center gap-1 text-right"
+      className="inline-flex flex-col items-start gap-0.5 text-right max-w-full disabled:cursor-default"
     >
-      {value && currentLabel ? (
-        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors">
-          <Link2 className="w-3 h-3" />
-          {currentLabel}
+      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors max-w-full">
+        <Link2 className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{displayValues[0]}</span>
+      </span>
+      {displayValues.length > 1 && (
+        <span className="text-[11px] text-gray-500 leading-tight px-1 flex items-center gap-1.5 flex-wrap">
+          {displayValues.slice(1).map((v, i) => (
+            <span key={i} className="truncate">{v}</span>
+          ))}
         </span>
-      ) : (
-        <span className="text-xs text-gray-400 hover:text-brand-600">+ קשר רשומה</span>
       )}
     </button>
   );

@@ -75,6 +75,7 @@ export interface Field {
     // Relation fields:
     relation_table_id?: string;
     display_field?: string;
+    display_columns?: string[];
     allow_create?: boolean;
     many?: boolean;
   };
