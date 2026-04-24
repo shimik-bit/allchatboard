@@ -36,6 +36,7 @@ export async function POST(
     .select(`
       id, table_id, workspace_id, data,
       assignee_phone_id, assignee_raw_phone, assignee_raw_name,
+      attachment_url, attachment_type,
       authorized_phones:assignee_phone_id ( phone, display_name ),
       tables ( name )
     `)
@@ -131,6 +132,38 @@ export async function POST(
     await admin.from('records')
       .update({ assignee_notified_at: notifiedAt })
       .eq('id', record.id);
+
+    // 9 — If the record has a file attached, send that too. A manual
+    //     notification for an invoice-related record is much more useful
+    //     with the actual invoice image alongside the text.
+    if (record.attachment_url) {
+      try {
+        const extMap: Record<string, string> = {
+          'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+          'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
+          'application/pdf': 'pdf',
+        };
+        const ext = (record.attachment_type && extMap[record.attachment_type.toLowerCase()])
+          || record.attachment_url.split('.').pop()?.toLowerCase()
+          || 'file';
+        const fileName = `${tableName.replace(/[^\p{L}\p{N}_-]/gu, '-').slice(0, 20) || 'file'}-${notifiedAt.slice(0, 10)}.${ext}`;
+
+        const fileUrl = `https://api.green-api.com/waInstance${workspace.whatsapp_instance_id}/sendFileByUrl/${workspace.whatsapp_token}`;
+        await fetch(fileUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId,
+            urlFile: record.attachment_url,
+            fileName,
+            caption: `📎 הקובץ המקורי שצורף ל${tableName}`,
+          }),
+        });
+      } catch (e) {
+        // Non-fatal — the text notification was already sent successfully
+        console.error('manual notify: file send failed', e);
+      }
+    }
 
     return NextResponse.json({ ok: true, notifiedAt, assigneeName: name });
   } catch (e: any) {

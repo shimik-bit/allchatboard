@@ -517,6 +517,8 @@ export async function POST(req: NextRequest) {
               token: workspace.whatsapp_token,
               senderName: authorizedPhone?.display_name || senderPhone,
               groupName: groupId ? (await getGroupName(admin, groupId)) : null,
+              attachmentUrl,
+              attachmentType,
             });
           } catch (notifyErr) {
             console.error('assignee notification failed', notifyErr);
@@ -543,6 +545,8 @@ export async function POST(req: NextRequest) {
               token: workspace.whatsapp_token,
               senderName: authorizedPhone?.display_name || senderPhone,
               groupName: groupId ? (await getGroupName(admin, groupId)) : null,
+              attachmentUrl,
+              attachmentType,
             });
           } catch (vendorErr) {
             console.error('vendor notification failed', vendorErr);
@@ -1608,8 +1612,14 @@ async function resolveAndNotifyAssignee(opts: {
   token: string;
   senderName: string;
   groupName: string | null;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
 }): Promise<void> {
-  const { admin, workspaceId, recordId, tableId, tableName, recordData, instanceId, token, senderName, groupName } = opts;
+  const {
+    admin, workspaceId, recordId, tableId, tableName, recordData,
+    instanceId, token, senderName, groupName,
+    attachmentUrl, attachmentType,
+  } = opts;
 
   // Resolve who should be notified, in priority order:
   //   1. A matching assignment_rule (most specific — based on record content)
@@ -1762,6 +1772,20 @@ async function resolveAndNotifyAssignee(opts: {
       .update({ assignee_notified_at: new Date().toISOString() })
       .eq('id', recordId);
   }
+
+  // Forward the original file if there is one — the assignee often needs
+  // to see the actual invoice/photo/document to act, not just a text summary.
+  if (attachmentUrl) {
+    const filename = deriveAttachmentFilename(attachmentUrl, attachmentType || null, tableName);
+    await sendGreenApiFile({
+      instanceId,
+      token,
+      chatId,
+      fileUrl: attachmentUrl,
+      fileName: filename,
+      caption: `📎 הקובץ המקורי שצורף ל${tableName}`,
+    });
+  }
 }
 
 /**
@@ -1836,8 +1860,14 @@ async function notifyVendorIfApplicable(opts: {
   token: string;
   senderName: string;
   groupName: string | null;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
 }): Promise<void> {
-  const { admin, workspaceId, recordId, tableId, tableName, recordData, instanceId, token, senderName, groupName } = opts;
+  const {
+    admin, workspaceId, recordId, tableId, tableName, recordData,
+    instanceId, token, senderName, groupName,
+    attachmentUrl, attachmentType,
+  } = opts;
 
   // 1. Find the vendor relation field on this table (slug='vendor', type='relation')
   //    Also pull the relation_table_id from config so we know where to look up.
@@ -1905,6 +1935,21 @@ async function notifyVendorIfApplicable(opts: {
     chatId,
     text,
   });
+
+  // Forward the file if available. For a vendor (e.g. a plumber getting
+  // a leak photo, or an accountant getting an invoice scan), the actual
+  // image often matters more than the text description.
+  if (attachmentUrl) {
+    const filename = deriveAttachmentFilename(attachmentUrl, attachmentType || null, tableName);
+    await sendGreenApiFile({
+      instanceId,
+      token,
+      chatId,
+      fileUrl: attachmentUrl,
+      fileName: filename,
+      caption: `📎 הקובץ המקורי`,
+    });
+  }
 
   // 7. Mark on the record so the dashboard can show "vendor was notified"
   //    Reuse a similar timestamp pattern as assignee_notified_at; we don't
@@ -2060,6 +2105,74 @@ async function sendGreenApiReply(opts: {
     console.error('sendGreenApiReply failed', e);
     return null;
   }
+}
+
+/**
+ * Send a file (image, PDF, etc) by URL via Green API.
+ *
+ * We use the `sendFileByUrl` endpoint rather than uploading the bytes
+ * because we already uploaded the file to Supabase Storage — letting
+ * Green API fetch it by URL is faster and uses less bandwidth on our
+ * serverless function.
+ *
+ * The caption parameter becomes the text shown under the file in
+ * WhatsApp. Without a caption the file arrives as a standalone media
+ * message which looks abrupt — we always include at least a short
+ * note so the recipient knows what it's about.
+ *
+ * Returns the Green API message ID on success, null on failure.
+ * Failures are non-fatal for the caller — the primary text notification
+ * was already sent separately.
+ */
+async function sendGreenApiFile(opts: {
+  instanceId: string;
+  token: string;
+  chatId: string;
+  fileUrl: string;
+  fileName: string;
+  caption?: string;
+}): Promise<string | null> {
+  const { instanceId, token, chatId, fileUrl, fileName, caption } = opts;
+  try {
+    const url = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
+    const body: any = { chatId, urlFile: fileUrl, fileName };
+    if (caption) body.caption = caption;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.error('Green API sendFile failed', res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.idMessage || null;
+  } catch (e) {
+    console.error('sendGreenApiFile failed', e);
+    return null;
+  }
+}
+
+/**
+ * Helper: derive a human-friendly filename from an attachment URL.
+ * The stored filename is a UUID which is opaque to recipients, so we
+ * construct something like "invoice-2026-04-24.jpg" based on context.
+ */
+function deriveAttachmentFilename(attachmentUrl: string, attachmentType: string | null, tableName: string): string {
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+    'image/gif': 'gif', 'image/webp': 'webp', 'image/heic': 'heic',
+    'application/pdf': 'pdf',
+  };
+  const ext = (attachmentType && extMap[attachmentType.toLowerCase()])
+    || attachmentUrl.split('.').pop()?.toLowerCase()
+    || 'file';
+  const dateStr = new Date().toISOString().split('T')[0];
+  // Strip non-alphanumerics from table name so filename is safe
+  const safeName = tableName.replace(/[^\p{L}\p{N}_-]/gu, '-').slice(0, 20) || 'attachment';
+  return `${safeName}-${dateStr}.${ext}`;
 }
 
 export async function GET() {
