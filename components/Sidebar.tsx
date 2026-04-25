@@ -6,9 +6,10 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
-  LayoutGrid, Plus, Settings, MessageSquare, LogOut,
+  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X,
 } from 'lucide-react';
+import { DevModeToggle } from '@/components/DevMode';
 
 export default function Sidebar({
   workspace, tables, userEmail,
@@ -236,6 +237,11 @@ export default function Sidebar({
         </div>
       </nav>
 
+      {/* Dev mode toggle */}
+      <div className="border-t border-gray-100 px-3 pt-3 pb-1">
+        <DevModeToggle />
+      </div>
+
       {/* User menu */}
       <div className="border-t border-gray-100 p-3 relative">
         <button
@@ -260,6 +266,25 @@ export default function Sidebar({
             >
               <Settings className="w-4 h-4" /> הגדרות
             </Link>
+            <button
+              onClick={() => {
+                setShowUserMenu(false);
+                try { localStorage.removeItem('allchatboard:onboarding-seen-v1'); } catch {}
+                window.location.reload();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-left"
+            >
+              <HelpCircle className="w-4 h-4" /> סיור הכרות
+            </button>
+            <a
+              href="https://docs.allchatboard.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowUserMenu(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <BookOpen className="w-4 h-4" /> מדריך משתמש
+            </a>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-red-600"

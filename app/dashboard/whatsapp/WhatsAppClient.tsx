@@ -7,9 +7,10 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   MessageSquare, Check, AlertCircle, Clock, Copy,
-  Zap, ExternalLink, RefreshCw,
+  Zap, ExternalLink, RefreshCw, Lock,
 } from 'lucide-react';
 import GroupsManager from '@/components/GroupsManager';
+import { useDevMode } from '@/lib/hooks/useDevMode';
 
 export default function WhatsAppClient({
   workspace,
@@ -23,6 +24,8 @@ export default function WhatsAppClient({
   canEdit: boolean;
 }) {
   const supabase = createClient();
+  const { enabled: devMode } = useDevMode();
+  const canEditCredentials = canEdit && devMode;
   const [instanceId, setInstanceId] = useState(workspace.whatsapp_instance_id || '');
   const [token, setToken] = useState(workspace.whatsapp_token || '');
   const [saving, setSaving] = useState(false);
@@ -108,6 +111,17 @@ export default function WhatsAppClient({
           </div>
         </div>
 
+        {!devMode && canEdit && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+            <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="block mb-0.5">הגדרות חיבור נעולות</strong>
+              עריכת Instance ID או Token דורשת הפעלת "מצב מפתח" מהסיידבר.
+              שינוי שגוי כאן יכול לנתק את כל המערכת מ-WhatsApp.
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -117,7 +131,7 @@ export default function WhatsAppClient({
               type="text"
               value={instanceId}
               onChange={(e) => setInstanceId(e.target.value)}
-              disabled={!canEdit || saving}
+              disabled={!canEditCredentials || saving}
               placeholder="1103xxxxxxx"
               dir="ltr"
               className="input-field"
@@ -131,7 +145,7 @@ export default function WhatsAppClient({
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              disabled={!canEdit || saving}
+              disabled={!canEditCredentials || saving}
               placeholder="••••••••••••••••"
               dir="ltr"
               className="input-field"
@@ -141,7 +155,7 @@ export default function WhatsAppClient({
           <div className="flex items-center gap-2 pt-2">
             <button
               onClick={handleSaveConnection}
-              disabled={!canEdit || saving}
+              disabled={!canEditCredentials || saving}
               className="btn-primary text-sm"
             >
               {saving ? 'שומר...' : 'שמירה'}

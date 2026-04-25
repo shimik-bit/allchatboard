@@ -9,11 +9,12 @@ import KanbanView from '@/components/views/KanbanView';
 import CalendarView from '@/components/views/CalendarView';
 import RecordModal from '@/components/RecordModal';
 import TablePermissionsModal from '@/components/TablePermissionsModal';
-import AddFieldModal from '@/components/AddFieldModal';
+import FieldsManagerModal from '@/components/FieldsManagerModal';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
-  Search, Download, UserCircle, Settings2, Shield, Database,
+  Search, Download, UserCircle, Settings2, Shield, Database, Trash2,
 } from 'lucide-react';
+import { DevModeOnly } from '@/components/DevMode';
 
 type PhoneOption = {
   id: string;
@@ -157,6 +158,26 @@ export default function TableClient({
     },
     [canManageTable, table.id, supabase]
   );
+
+  const handleArchiveTable = useCallback(async () => {
+    if (!canManageTable) return;
+    const confirmText = `הסרת הטבלה "${table.name}" תעביר אותה לארכיון.\n\nהנתונים נשארים ב-DB אבל הטבלה לא תוצג עוד.\n\nכדי לאשר, הקלד את שם הטבלה:`;
+    const userInput = prompt(confirmText);
+    if (userInput !== table.name) {
+      if (userInput !== null) alert('הטקסט לא תואם — הפעולה בוטלה');
+      return;
+    }
+    const { error } = await supabase
+      .from('tables')
+      .update({ is_archived: true })
+      .eq('id', table.id);
+    if (error) {
+      alert('שגיאה: ' + error.message);
+      return;
+    }
+    router.push('/dashboard');
+    router.refresh();
+  }, [canManageTable, table.id, table.name, supabase, router]);
 
   const handleSave = useCallback(
     async (data: Record<string, any>) => {
@@ -337,14 +358,28 @@ export default function TableClient({
                   <Database className="w-4 h-4" />
                   ניהול שדות
                 </button>
-                <button
-                  onClick={() => setShowPermissions(true)}
-                  className="btn-secondary text-sm flex items-center gap-2 justify-center"
-                  title="קבע מי רואה ועורך"
-                >
-                  <Shield className="w-4 h-4" />
-                  הרשאות גישה
-                </button>
+                <DevModeOnly fallback={
+                  <div className="text-[11px] text-gray-400 text-center py-1.5 px-2 rounded border border-dashed border-gray-200">
+                    🔒 הרשאות + מחיקת טבלה — דורש מצב מפתח
+                  </div>
+                }>
+                  <button
+                    onClick={() => setShowPermissions(true)}
+                    className="btn-secondary text-sm flex items-center gap-2 justify-center"
+                    title="קבע מי רואה ועורך"
+                  >
+                    <Shield className="w-4 h-4" />
+                    הרשאות גישה
+                  </button>
+                  <button
+                    onClick={handleArchiveTable}
+                    className="text-sm flex items-center gap-2 justify-center px-3 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-medium"
+                    title="הסר את הטבלה מסביבת העבודה (לארכיון)"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    הסר טבלה
+                  </button>
+                </DevModeOnly>
               </div>
             </div>
           </div>
@@ -448,13 +483,14 @@ export default function TableClient({
         />
       )}
 
-      {/* Add field modal */}
+      {/* Fields management modal */}
       {showAddField && (
-        <AddFieldModal
+        <FieldsManagerModal
           tableId={table.id}
+          tableName={table.name}
           workspaceId={table.workspace_id}
           onClose={() => setShowAddField(false)}
-          onAdded={() => router.refresh()}
+          onChange={() => router.refresh()}
         />
       )}
     </div>

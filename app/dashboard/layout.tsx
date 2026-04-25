@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/Sidebar';
+import OnboardingTour from '@/components/OnboardingTour';
+import { DevModeIndicator } from '@/components/DevMode';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -39,7 +41,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
       {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
           overlap content. Reset on md+ where the hamburger is hidden. */}
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">{children}</main>
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+        <DevModeIndicator />
+        {children}
+      </main>
+      <OnboardingTour />
     </div>
   );
 }
