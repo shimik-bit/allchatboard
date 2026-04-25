@@ -137,7 +137,7 @@ export interface View {
 }
 
 // WhatsApp message types
-export type MessageStatus = 'received' | 'classified' | 'inserted' | 'failed' | 'ignored';
+export type MessageStatus = 'received' | 'classified' | 'inserted' | 'failed' | 'ignored' | 'sent' | 'logged';
 export type PhonePermission = 'writer' | 'admin' | 'reader';
 
 export interface AuthorizedPhone {

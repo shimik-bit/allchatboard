@@ -9,7 +9,6 @@ import {
   MessageSquare, Check, AlertCircle, Clock, Copy,
   Zap, ExternalLink, RefreshCw,
 } from 'lucide-react';
-import GroupsManager from '@/components/GroupsManager';
 
 export default function WhatsAppClient({
   workspace,
@@ -194,8 +193,35 @@ export default function WhatsAppClient({
         </div>
       </div>
 
-      {/* Groups - now with full routing management */}
-      <GroupsManager workspaceId={workspace.id} canEdit={canEdit} />
+      {/* Groups */}
+      {initialGroups.length > 0 && (
+        <div className="card p-6 mb-6">
+          <h2 className="font-display font-bold text-lg mb-4">קבוצות פעילות</h2>
+          <div className="space-y-2">
+            {initialGroups.map((g) => (
+              <div
+                key={g.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-gray-50/70 border border-gray-100"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-green-100 text-green-700 grid place-items-center">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm">{g.group_name || 'ללא שם'}</div>
+                    <div className="text-xs text-gray-500 font-mono" dir="ltr">{g.green_api_chat_id}</div>
+                  </div>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  g.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {g.is_active ? 'פעיל' : 'כבוי'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent messages */}
       <div className="card p-6">
@@ -223,10 +249,17 @@ function MessageRow({ msg }: { msg: WaMessage }) {
     received:   { label: 'התקבלה',    color: 'bg-gray-100 text-gray-600',   icon: <Clock className="w-3 h-3" /> },
     classified: { label: 'סווגה',     color: 'bg-blue-100 text-blue-700',   icon: <Zap className="w-3 h-3" /> },
     inserted:   { label: 'נשמרה',     color: 'bg-green-100 text-green-700', icon: <Check className="w-3 h-3" /> },
+    sent:       { label: 'נשלחה',     color: 'bg-emerald-100 text-emerald-700', icon: <Check className="w-3 h-3" /> },
+    logged:     { label: 'נרשמה',     color: 'bg-slate-100 text-slate-600',  icon: <MessageSquare className="w-3 h-3" /> },
     failed:     { label: 'נכשלה',     color: 'bg-red-100 text-red-700',     icon: <AlertCircle className="w-3 h-3" /> },
     ignored:    { label: 'התעלמנו',   color: 'bg-gray-100 text-gray-400',   icon: <AlertCircle className="w-3 h-3" /> },
   };
-  const info = statusInfo[msg.status];
+  // Safe fallback so an unknown status string from the DB never crashes the page
+  const info = statusInfo[msg.status] || {
+    label: msg.status || 'לא ידוע',
+    color: 'bg-gray-100 text-gray-500',
+    icon: <Clock className="w-3 h-3" />,
+  };
 
   return (
     <div className="p-3 rounded-lg border border-gray-100 hover:bg-gray-50/50 transition-colors">
