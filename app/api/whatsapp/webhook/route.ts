@@ -19,10 +19,12 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(req: NextRequest) {
   try {
-    const workspaceId = req.nextUrl.searchParams.get('workspace');
+    let workspaceId = req.nextUrl.searchParams.get('workspace');
     if (!workspaceId) {
       return NextResponse.json({ error: 'missing workspace param' }, { status: 400 });
     }
+    // workspaceId is non-null from here; force the type to never be null below
+    let activeWorkspaceId: string = workspaceId;
 
     const body = await req.json();
     if (body.typeWebhook !== 'incomingMessageReceived') {
@@ -32,10 +34,10 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
 
     // Load workspace config
-    const { data: workspace } = await admin
+    let { data: workspace } = await admin
       .from('workspaces')
       .select('id, whatsapp_instance_id, whatsapp_token, business_description, ai_messages_used, ai_messages_limit')
-      .eq('id', workspaceId)
+      .eq('id', activeWorkspaceId)
       .single();
 
     if (!workspace) {
@@ -96,37 +98,57 @@ export async function POST(req: NextRequest) {
 
     // ===== ALLOWLIST CHECK =====
     const { data: phoneRows } = await admin.rpc('find_authorized_phone', {
-      ws_id: workspaceId,
+      ws_id: activeWorkspaceId,
       p_phone: senderPhone,
     });
     const authorizedPhone = phoneRows && phoneRows.length > 0 ? phoneRows[0] : null;
 
-    // Group handling
+    // Group handling - now with routing support
     let groupId: string | null = null;
+    let groupTargetTableId: string | null = null;
+    let groupDefaultAssigneePhoneId: string | null = null;
+    let groupAutoCreateRecord = true;
+    let groupAutoReplyEnabled = false;
+
     if (chatId.endsWith('@g.us')) {
       const { data: group } = await admin
         .from('whatsapp_groups')
-        .select('id, is_active')
-        .eq('workspace_id', workspaceId)
+        .select('id, is_active, target_table_id, target_workspace_id, default_assignee_phone_id, auto_create_record, auto_reply_enabled')
         .eq('green_api_chat_id', chatId)
         .maybeSingle();
 
       if (group) {
         groupId = group.id;
+        // ROUTING: if group is bound to a different workspace, switch context
+        if (group.target_workspace_id && group.target_workspace_id !== activeWorkspaceId) {
+          const { data: targetWs } = await admin
+            .from('workspaces')
+            .select('id, name, business_description, ai_persona, whatsapp_instance_id, whatsapp_token')
+            .eq('id', group.target_workspace_id)
+            .single();
+          if (targetWs) {
+            activeWorkspaceId = targetWs.id;
+            workspace = targetWs;
+          }
+        }
         if (!group.is_active) {
           await saveMessage(admin, {
-            workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+            workspace_id: activeWorkspaceId, group_id: groupId, green_api_message_id: idMessage,
             sender_phone: senderPhone, sender_name: senderName,
             authorized_phone_id: authorizedPhone?.id, text, media_url: mediaUrl, media_type: mediaType,
             quoted_message_id: quotedMessageId, status: 'ignored',
           });
           return NextResponse.json({ ok: true, status: 'group muted' });
         }
+        groupTargetTableId = group.target_table_id;
+        groupDefaultAssigneePhoneId = group.default_assignee_phone_id;
+        groupAutoCreateRecord = group.auto_create_record !== false;
+        groupAutoReplyEnabled = group.auto_reply_enabled === true;
       } else {
         const { data: newGroup } = await admin
           .from('whatsapp_groups')
           .insert({
-            workspace_id: workspaceId,
+            workspace_id: activeWorkspaceId,
             green_api_chat_id: chatId,
             group_name: body.senderData?.chatName || 'קבוצה ללא שם',
             is_active: true,
@@ -139,7 +161,7 @@ export async function POST(req: NextRequest) {
     // Reject unauthorized phones
     if (!authorizedPhone || !authorizedPhone.is_active) {
       const messageId = await saveMessage(admin, {
-        workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+        workspace_id: activeWorkspaceId, group_id: groupId, green_api_message_id: idMessage,
         sender_phone: senderPhone, sender_name: senderName,
         text, media_url: mediaUrl, media_type: mediaType,
         quoted_message_id: quotedMessageId, status: 'ignored',
@@ -164,7 +186,7 @@ export async function POST(req: NextRequest) {
 
     // Save the inbound message first (so we have a messageDbId for everything downstream)
     const messageDbId = await saveMessage(admin, {
-      workspace_id: workspaceId, group_id: groupId, green_api_message_id: idMessage,
+      workspace_id: activeWorkspaceId, group_id: groupId, green_api_message_id: idMessage,
       sender_phone: senderPhone, sender_name: senderName,
       authorized_phone_id: authorizedPhone.id,
       text, media_url: mediaUrl, media_type: mediaType,
@@ -199,7 +221,7 @@ export async function POST(req: NextRequest) {
           if (isImage || isDocument) {
             const uploaded = await uploadMediaToStorage({
               admin,
-              workspaceId,
+              activeWorkspaceId,
               bytes: downloaded.bytes,
               contentType: downloaded.contentType,
             });
@@ -229,7 +251,7 @@ export async function POST(req: NextRequest) {
               const { data: tables } = await admin
                 .from('tables')
                 .select('id, name, slug, description')
-                .eq('workspace_id', workspaceId)
+                .eq('workspace_id', activeWorkspaceId)
                 .eq('is_archived', false);
 
               if (tables && tables.length > 0) {
@@ -287,7 +309,7 @@ export async function POST(req: NextRequest) {
     //   - User sent a follow-up within 30s → include the previous message
     //   - Otherwise → no history (treat as standalone, prevents field bleed)
     const conversationHistory = await loadConversationHistory({
-      admin, workspaceId,
+      admin, activeWorkspaceId,
       senderPhone, groupId,
       excludeMessageId: messageDbId,
       quotedMessageId,
@@ -305,7 +327,7 @@ export async function POST(req: NextRequest) {
       // Only run query flow for non-reply messages with actual text
       try {
         const queryResult = await handleQuery({
-          admin, workspaceId, messageDbId, text,
+          admin, activeWorkspaceId, messageDbId, text,
           businessDescription: workspace.business_description || '',
           authorizedPhone,
           history: conversationHistory,
@@ -319,7 +341,7 @@ export async function POST(req: NextRequest) {
               chatId,
               text: queryResult.responseText,
               quotedMessageId: idMessage,
-              persist: { admin, workspaceId, senderPhone, groupId },
+              persist: { admin, activeWorkspaceId, senderPhone, groupId },
             });
           }
           return NextResponse.json({ ok: true, action: 'query', matched: true });
@@ -382,7 +404,7 @@ export async function POST(req: NextRequest) {
         const { data } = await admin
           .from('records')
           .select('id, table_id, data, last_wa_message_id, tables(name, slug)')
-          .eq('workspace_id', workspaceId)
+          .eq('workspace_id', activeWorkspaceId)
           .eq('last_wa_message_id', quotedMessageId)
           .maybeSingle();
         parentRecord = data;
@@ -395,7 +417,7 @@ export async function POST(req: NextRequest) {
         const { data } = await admin
           .from('records')
           .select('id, table_id, data, last_wa_message_id, tables(name, slug)')
-          .eq('workspace_id', workspaceId)
+          .eq('workspace_id', activeWorkspaceId)
           .eq('source_chat_id', chatId)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -418,7 +440,7 @@ export async function POST(req: NextRequest) {
       if (parentRecord) {
         try {
           const result = await processUpdate({
-            admin, workspaceId, messageDbId,
+            admin, activeWorkspaceId, messageDbId,
             record: parentRecord, replyText: text,
             authorizedPhone, businessDescription: workspace.business_description || '',
             history: conversationHistory,
@@ -431,7 +453,7 @@ export async function POST(req: NextRequest) {
               chatId,
               text: result.confirmationText,
               quotedMessageId: idMessage,
-              persist: { admin, workspaceId, senderPhone, groupId },
+              persist: { admin, activeWorkspaceId, senderPhone, groupId },
             });
             if (sentId) {
               await admin.from('records')
@@ -463,15 +485,21 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await classifyAndInsert({
-        admin, workspaceId, messageDbId, text,
+        admin, activeWorkspaceId, messageDbId, text,
         businessDescription: workspace.business_description || '',
         authorizedPhone,
         senderPhone, chatId, greenMessageId: idMessage,
         history: conversationHistory,
+        forcedTableId: groupTargetTableId,
+        forcedAssigneePhoneId: groupDefaultAssigneePhoneId,
+        skipRecordCreation: !groupAutoCreateRecord,
       });
 
-      // Always reply in WhatsApp with confirmation
-      if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+      // Reply in WhatsApp - but only if configured
+      // For groups: only reply if auto_reply_enabled
+      // For private chats: always reply
+      const shouldReply = !chatId.endsWith('@g.us') || groupAutoReplyEnabled;
+      if (shouldReply && workspace.whatsapp_instance_id && workspace.whatsapp_token) {
         const replyText = buildCreateReply(result, authorizedPhone);
         const sentId = await sendGreenApiReply({
           instanceId: workspace.whatsapp_instance_id,
@@ -479,7 +507,7 @@ export async function POST(req: NextRequest) {
           chatId,
           text: replyText,
           quotedMessageId: idMessage,
-          persist: { admin, workspaceId, senderPhone, groupId },
+          persist: { admin, activeWorkspaceId, senderPhone, groupId },
         });
         // Save outgoing reply id on the record so future replies map back.
         // If this message had an image/document attachment, also persist
@@ -508,7 +536,7 @@ export async function POST(req: NextRequest) {
           try {
             await resolveAndNotifyAssignee({
               admin,
-              workspaceId,
+              activeWorkspaceId,
               recordId: result.recordId,
               tableId: result.tableId,
               tableName: result.tableName,
@@ -536,7 +564,7 @@ export async function POST(req: NextRequest) {
           try {
             await notifyVendorIfApplicable({
               admin,
-              workspaceId,
+              activeWorkspaceId,
               recordId: result.recordId,
               tableId: result.tableId,
               tableName: result.tableName,
@@ -597,7 +625,7 @@ function buildCreateReply(result: any, phone: any): string {
 
 async function classifyAndInsert(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   messageDbId: string;
   text: string;
   businessDescription: string;
@@ -606,17 +634,35 @@ async function classifyAndInsert(opts: {
   chatId: string;
   greenMessageId: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  forcedTableId?: string | null;
+  forcedAssigneePhoneId?: string | null;
+  skipRecordCreation?: boolean;
 }) {
-  const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+  const { admin, activeWorkspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
   const history = opts.history || [];
+  const forcedTableId = opts.forcedTableId || null;
+
+  // Skip everything if record creation is disabled for this group
+  if (opts.skipRecordCreation) {
+    await admin.from('wa_messages').update({
+      status: 'logged',
+      update_action: 'logged_only',
+    }).eq('id', messageDbId);
+    return { recordId: null, tableName: null, fields: {}, status: 'logged' as const };
+  }
 
   // Load workspace tables + fields for the AI prompt
-  const { data: tables } = await admin
+  // If a specific table is forced (group routing), only load that one
+  const tablesQuery = admin
     .from('tables')
     .select('id, name, slug, ai_keywords, description, default_assignee_phone_id')
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', activeWorkspaceId)
     .eq('is_archived', false)
     .order('position');
+
+  const { data: tables } = forcedTableId
+    ? await tablesQuery.eq('id', forcedTableId)
+    : await tablesQuery;
 
   if (!tables || tables.length === 0) {
     throw new Error('לא הוגדרו טבלאות');
@@ -711,7 +757,7 @@ ${JSON.stringify(schema, null, 2)}
   const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
   const classification = JSON.parse(aiRes);
 
-  await incrementAiUsage(admin, workspaceId);
+  await incrementAiUsage(admin, activeWorkspaceId);
 
   if (!classification.table_slug || classification.confidence < 0.5) {
     await admin.from('wa_messages').update({
@@ -730,7 +776,7 @@ ${JSON.stringify(schema, null, 2)}
     .from('records')
     .insert({
       table_id: targetTable.id,
-      workspace_id: workspaceId,
+      workspace_id: activeWorkspaceId,
       data: classification.data || {},
       source: 'whatsapp',
       source_message_id: messageDbId,
@@ -739,7 +785,7 @@ ${JSON.stringify(schema, null, 2)}
       source_phone: opts.senderPhone,
       source_chat_id: opts.chatId,
       source_message_green_id: opts.greenMessageId,
-      assignee_phone_id: targetTable.default_assignee_phone_id || null,
+      assignee_phone_id: opts.forcedAssigneePhoneId || targetTable.default_assignee_phone_id || null,
     }).select('id').single();
 
   if (insertError) throw new Error(insertError.message);
@@ -766,7 +812,7 @@ ${JSON.stringify(schema, null, 2)}
 
 async function processUpdate(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   messageDbId: string;
   record: any;
   replyText: string;
@@ -774,7 +820,7 @@ async function processUpdate(opts: {
   businessDescription: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }) {
-  const { admin, workspaceId, messageDbId, record, replyText, authorizedPhone, businessDescription } = opts;
+  const { admin, activeWorkspaceId, messageDbId, record, replyText, authorizedPhone, businessDescription } = opts;
   const history = opts.history || [];
 
   // Get the table's fields to know what can be updated
@@ -872,7 +918,7 @@ ${JSON.stringify(fieldsSchema, null, 2)}
   const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
   const result = JSON.parse(aiRes);
 
-  await incrementAiUsage(admin, workspaceId);
+  await incrementAiUsage(admin, activeWorkspaceId);
 
   if (result.action === 'ignore' || !result.updates || Object.keys(result.updates).length === 0) {
     await admin.from('wa_messages').update({
@@ -935,21 +981,21 @@ function formatRecord(data: Record<string, any>, fields: any[]): string {
 
 async function handleQuery(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   messageDbId: string;
   text: string;
   businessDescription: string;
   authorizedPhone: any;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }): Promise<{ matched: boolean; responseText: string }> {
-  const { admin, workspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+  const { admin, activeWorkspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
   const history = opts.history || [];
 
   // Load tables + fields so AI knows what's queryable
   const { data: tables } = await admin
     .from('tables')
     .select('id, name, slug, icon, ai_keywords')
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', activeWorkspaceId)
     .eq('is_archived', false)
     .order('position');
 
@@ -1041,7 +1087,7 @@ ${JSON.stringify(schema, null, 2)}
     ];
     const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
     parsed = JSON.parse(aiRes);
-    await incrementAiUsage(admin, workspaceId);
+    await incrementAiUsage(admin, activeWorkspaceId);
   } catch {
     return { matched: false, responseText: '' };
   }
@@ -1232,11 +1278,11 @@ async function downloadMedia(url: string): Promise<{ bytes: ArrayBuffer; content
  */
 async function uploadMediaToStorage(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   bytes: ArrayBuffer;
   contentType: string;
 }): Promise<{ url: string; path: string } | null> {
-  const { admin, workspaceId, bytes, contentType } = opts;
+  const { admin, activeWorkspaceId, bytes, contentType } = opts;
   try {
     // Pick an extension from the content-type. Falls back to .bin if unknown
     // (still uploadable, just not directly previewable).
@@ -1260,7 +1306,7 @@ async function uploadMediaToStorage(opts: {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     // crypto.randomUUID is available in Node 18+
     const uuid = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const path = `workspaces/${workspaceId}/${yyyy}/${mm}/${uuid}.${ext}`;
+    const path = `workspaces/${activeWorkspaceId}/${yyyy}/${mm}/${uuid}.${ext}`;
 
     const { error } = await admin.storage.from('media').upload(path, bytes, {
       contentType,
@@ -1448,13 +1494,13 @@ async function describeImage(
  */
 async function loadConversationHistory(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   senderPhone: string;
   groupId: string | null;
   excludeMessageId: string;
   quotedMessageId: string | null;
 }): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
-  const { admin, workspaceId, senderPhone, groupId, excludeMessageId, quotedMessageId } = opts;
+  const { admin, activeWorkspaceId, senderPhone, groupId, excludeMessageId, quotedMessageId } = opts;
 
   // ── Case 1: Quote chain
   // Walk backwards from the quoted message until we run out of quotes.
@@ -1474,7 +1520,7 @@ async function loadConversationHistory(opts: {
       let query: any = admin
         .from('wa_messages')
         .select('id, text, direction, quoted_message_id')
-        .eq('workspace_id', workspaceId)
+        .eq('workspace_id', activeWorkspaceId)
         .eq('green_api_message_id', nextQuoteId)
         .neq('id', excludeMessageId)
         .not('text', 'is', null)
@@ -1512,7 +1558,7 @@ async function loadConversationHistory(opts: {
   let recentQuery: any = admin
     .from('wa_messages')
     .select('id, text, direction, received_at')
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', activeWorkspaceId)
     .eq('direction', 'in')
     .neq('id', excludeMessageId)
     .not('text', 'is', null)
@@ -1538,8 +1584,8 @@ async function loadConversationHistory(opts: {
   }];
 }
 
-async function incrementAiUsage(admin: any, workspaceId: string) {
-  await admin.rpc('increment_ai_usage', { ws_id: workspaceId });
+async function incrementAiUsage(admin: any, activeWorkspaceId: string) {
+  await admin.rpc('increment_ai_usage', { ws_id: activeWorkspaceId });
 }
 
 // ============================================================================
@@ -1603,7 +1649,7 @@ function phoneToChatId(phone: string): string | null {
  */
 async function resolveAndNotifyAssignee(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   recordId: string;
   tableId: string;
   tableName: string;
@@ -1616,7 +1662,7 @@ async function resolveAndNotifyAssignee(opts: {
   attachmentType?: string | null;
 }): Promise<void> {
   const {
-    admin, workspaceId, recordId, tableId, tableName, recordData,
+    admin, activeWorkspaceId, recordId, tableId, tableName, recordData,
     instanceId, token, senderName, groupName,
     attachmentUrl, attachmentType,
   } = opts;
@@ -1647,7 +1693,7 @@ async function resolveAndNotifyAssignee(opts: {
       assignee_phone_id, raw_phone, raw_name,
       authorized_phones ( id, phone, display_name, job_title )
     `)
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', activeWorkspaceId)
     .eq('table_id', tableId)
     .eq('is_active', true)
     .order('priority', { ascending: true });
@@ -1761,7 +1807,7 @@ async function resolveAndNotifyAssignee(opts: {
     chatId,
     text: notificationText,
     persist: {
-      admin, workspaceId,
+      admin, activeWorkspaceId,
       senderPhone: resolved.phone, // the OTHER party = the assignee
       groupId: null,
     },
@@ -1851,7 +1897,7 @@ function buildAssigneeNotification(opts: {
  */
 async function notifyVendorIfApplicable(opts: {
   admin: any;
-  workspaceId: string;
+  activeWorkspaceId: string;
   recordId: string;
   tableId: string;
   tableName: string;
@@ -1864,7 +1910,7 @@ async function notifyVendorIfApplicable(opts: {
   attachmentType?: string | null;
 }): Promise<void> {
   const {
-    admin, workspaceId, recordId, tableId, tableName, recordData,
+    admin, activeWorkspaceId, recordId, tableId, tableName, recordData,
     instanceId, token, senderName, groupName,
     attachmentUrl, attachmentType,
   } = opts;
@@ -1894,7 +1940,7 @@ async function notifyVendorIfApplicable(opts: {
     .from('records')
     .select('id, data')
     .eq('id', vendorId)
-    .eq('workspace_id', workspaceId)
+    .eq('workspace_id', activeWorkspaceId)
     .maybeSingle();
 
   if (!vendorRecord) return;
@@ -2058,7 +2104,7 @@ async function sendGreenApiReply(opts: {
   quotedMessageId?: string | null;
   persist?: {
     admin: any;
-    workspaceId: string;
+    activeWorkspaceId: string;
     senderPhone: string; // the OTHER party's phone (i.e. the user we're replying to)
     groupId?: string | null;
   };
@@ -2086,7 +2132,7 @@ async function sendGreenApiReply(opts: {
     if (persist) {
       try {
         await persist.admin.from('wa_messages').insert({
-          workspace_id: persist.workspaceId,
+          workspace_id: persist.activeWorkspaceId,
           group_id: persist.groupId || null,
           green_api_message_id: sentMessageId,
           sender_phone: persist.senderPhone,

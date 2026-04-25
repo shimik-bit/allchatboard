@@ -9,6 +9,7 @@ import {
   MessageSquare, Check, AlertCircle, Clock, Copy,
   Zap, ExternalLink, RefreshCw,
 } from 'lucide-react';
+import GroupsManager from '@/components/GroupsManager';
 
 export default function WhatsAppClient({
   workspace,
@@ -193,35 +194,8 @@ export default function WhatsAppClient({
         </div>
       </div>
 
-      {/* Groups */}
-      {initialGroups.length > 0 && (
-        <div className="card p-6 mb-6">
-          <h2 className="font-display font-bold text-lg mb-4">קבוצות פעילות</h2>
-          <div className="space-y-2">
-            {initialGroups.map((g) => (
-              <div
-                key={g.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-gray-50/70 border border-gray-100"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-green-100 text-green-700 grid place-items-center">
-                    <MessageSquare className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm">{g.group_name || 'ללא שם'}</div>
-                    <div className="text-xs text-gray-500 font-mono" dir="ltr">{g.green_api_chat_id}</div>
-                  </div>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  g.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {g.is_active ? 'פעיל' : 'כבוי'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Groups - now with full routing management */}
+      <GroupsManager workspaceId={workspace.id} canEdit={canEdit} />
 
       {/* Recent messages */}
       <div className="card p-6">
