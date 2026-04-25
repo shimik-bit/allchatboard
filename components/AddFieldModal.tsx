@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare } from 'lucide-react';
+import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare, MapPin } from 'lucide-react';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'טקסט קצר', icon: Type },
@@ -17,6 +17,7 @@ const FIELD_TYPES = [
   { value: 'phone', label: 'טלפון', icon: Phone },
   { value: 'email', label: 'אימייל', icon: Mail },
   { value: 'url', label: 'קישור URL', icon: Link },
+  { value: 'city', label: '🇮🇱 עיר בישראל', icon: MapPin },
   { value: 'rating', label: 'דירוג', icon: Star },
   { value: 'attachment', label: 'קובץ מצורף', icon: Paperclip },
   { value: 'relation', label: '🔗 קישור לטבלה אחרת', icon: Database },

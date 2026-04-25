@@ -56,7 +56,7 @@ export type FieldType =
   | 'date' | 'datetime' | 'select' | 'multiselect'
   | 'checkbox' | 'phone' | 'email' | 'url'
   | 'user' | 'attachment' | 'rating' | 'status'
-  | 'relation';
+  | 'relation' | 'city';
 
 export interface Field {
   id: string;

@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 const VALID_FIELD_TYPES = [
   'text', 'longtext', 'number', 'currency', 'date', 'datetime',
   'select', 'multiselect', 'checkbox', 'phone', 'email', 'url',
-  'user', 'attachment', 'rating', 'status', 'relation',
+  'user', 'attachment', 'rating', 'status', 'relation', 'city',
 ];
 
 function slugify(s: string): string {

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow } from '@/lib/types/database';
 import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
+import CityAutocomplete from '@/components/CityAutocomplete';
 
 export default function RecordModal({
   table,
@@ -250,6 +251,20 @@ function FieldInput({
   }
 
   switch (field.type) {
+    case 'city':
+      return (
+        <div>
+          {baseLabel}
+          <CityAutocomplete
+            value={value ?? ''}
+            onChange={(v) => onChange(v)}
+            disabled={disabled}
+            placeholder="התחל להקליד שם עיר..."
+          />
+          {errorMsg}
+        </div>
+      );
+
     case 'text':
     case 'phone':
     case 'email':
