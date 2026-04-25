@@ -238,18 +238,21 @@ function PhoneModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 bg-black/40 animate-fade-in" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] md:max-h-[90vh] flex flex-col animate-slide-up overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 md:px-6 py-3.5 border-b border-gray-200 flex-shrink-0">
           <h2 className="font-display font-bold text-lg">
             {phone ? 'עריכת מספר' : 'הוספת מספר מורשה'}
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100" aria-label="סגור">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-5 md:px-6 py-4 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               מספר טלפון <span className="text-red-500">*</span>
@@ -342,7 +345,7 @@ function PhoneModal({
           </label>
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50/50">
+        <div className="flex items-center justify-end gap-2 px-5 md:px-6 py-3.5 border-t border-gray-200 bg-gray-50/50 flex-shrink-0">
           <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>ביטול</button>
           <button onClick={handleSubmit} disabled={saving} className="btn-primary text-sm">
             {saving ? 'שומר...' : (phone ? 'שמור שינויים' : 'הוסף')}

@@ -19,17 +19,11 @@ export default async function TemplatesPage() {
     redirect('/dashboard');
   }
 
-  const { data: templates } = await supabase
-    .from('templates')
-    .select('*')
-    .eq('is_published', true)
-    .order('name');
-
-  // Get existing tables to show which templates are already installed
-  const { data: existingTables } = await supabase
-    .from('tables')
-    .select('slug')
-    .eq('workspace_id', membership.workspace_id);
+  const [{ data: templates }, { data: packages }, { data: existingTables }] = await Promise.all([
+    supabase.from('templates').select('*').eq('is_published', true).order('name'),
+    supabase.from('table_packages').select('*').eq('is_published', true).order('category').order('position'),
+    supabase.from('tables').select('slug').eq('workspace_id', membership.workspace_id),
+  ]);
 
   const existingSlugs = new Set((existingTables || []).map((t: any) => t.slug));
 
@@ -37,6 +31,7 @@ export default async function TemplatesPage() {
     <TemplatesClient
       workspaceId={membership.workspace_id}
       templates={templates || []}
+      packages={packages || []}
       existingTableSlugs={Array.from(existingSlugs)}
     />
   );
