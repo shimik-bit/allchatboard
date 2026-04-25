@@ -32,23 +32,30 @@ export default function GroupsManager({
   const [tables, setTables] = useState<Table[]>([]);
   const [phones, setPhones] = useState<Phone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
 
   function loadAll() {
     setLoading(true);
+    setError(null);
     fetch(`/api/groups?workspace_id=${workspaceId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.error) {
-          setGroups(d.groups || []);
-          setTables(d.tables || []);
-          setPhones(d.phones || []);
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({ error: 'תגובה לא תקינה מהשרת' }));
+        if (!r.ok || d.error) {
+          setError(d.error || `שגיאה ${r.status}`);
+        } else {
+          setGroups(Array.isArray(d.groups) ? d.groups : []);
+          setTables(Array.isArray(d.tables) ? d.tables : []);
+          setPhones(Array.isArray(d.phones) ? d.phones : []);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => {
+        setError(String(e?.message || e));
+        setLoading(false);
+      });
   }
 
   useEffect(() => { loadAll(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [workspaceId]);
@@ -82,6 +89,19 @@ export default function GroupsManager({
 
   if (loading) {
     return <div className="card p-6 mb-6 text-center text-gray-400 text-sm">טוען קבוצות...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="card p-6 mb-6">
+        <h2 className="font-display font-bold text-lg mb-2">קבוצות WhatsApp</h2>
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+          <strong className="block mb-1">שגיאה בטעינת קבוצות:</strong>
+          {error}
+        </div>
+        <button onClick={loadAll} className="btn-ghost text-sm mt-3">נסה שוב</button>
+      </div>
+    );
   }
 
   if (groups.length === 0) {
