@@ -157,16 +157,15 @@ export default function RecordModal({
               לא הוגדרו שדות עבור הטבלה הזו
             </div>
           ) : (
-            fields.map((f) => (
-              <FieldInput
-                key={f.id}
-                field={f}
-                value={formData[f.slug]}
-                onChange={(v) => updateField(f.slug, v)}
-                error={errors[f.slug]}
-                disabled={!canEdit || saving}
-              />
-            ))
+            <FieldsArea
+              fields={fields}
+              formData={formData}
+              errors={errors}
+              canEdit={canEdit}
+              saving={saving}
+              updateField={updateField}
+              isNew={isNew}
+            />
           )}
 
           {/* Related records - only for existing records */}
@@ -175,9 +174,9 @@ export default function RecordModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-t border-gray-200 bg-gray-50/50">
-          <div>
+        {/* Footer - sticky bottom action bar with mobile-friendly shadow */}
+        <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-3 md:py-4 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none md:bg-gray-50/50">
+          <div className="flex items-center">
             {!isNew && onDelete && canEdit && (
               <button
                 onClick={handleDelete}
@@ -185,19 +184,23 @@ export default function RecordModal({
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
-                מחיקה
+                <span className="hidden md:inline">מחיקה</span>
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>
+          <div className="flex items-center gap-2 flex-1 md:flex-initial justify-end">
+            <button
+              onClick={onClose}
+              className="btn-secondary text-sm px-4 py-2.5 md:py-2"
+              disabled={saving}
+            >
               ביטול
             </button>
             {canEdit && (
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="btn-primary text-sm"
+                className="btn-primary text-sm px-5 py-2.5 md:py-2 flex-1 md:flex-initial font-semibold"
               >
                 {saving ? 'שומר...' : isNew ? 'צור רשומה' : 'שמירה'}
               </button>
@@ -206,6 +209,95 @@ export default function RecordModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function FieldsArea({
+  fields, formData, errors, canEdit, saving, updateField, isNew,
+}: {
+  fields: Field[];
+  formData: Record<string, any>;
+  errors: Record<string, string>;
+  canEdit: boolean;
+  saving: boolean;
+  updateField: (slug: string, value: any) => void;
+  isNew: boolean;
+}) {
+  // Sort fields: primary first → required → has-value → empty
+  const sorted = [...fields].sort((a, b) => {
+    const score = (f: Field) => {
+      if (f.is_primary) return 0;
+      if (f.is_required) return 1;
+      const v = formData[f.slug];
+      if (v !== null && v !== undefined && v !== '') return 2;
+      return 3;
+    };
+    return score(a) - score(b);
+  });
+
+  // Determine which fields are "primary" (always visible) vs "additional" (collapsible)
+  // For NEW records: only show required + primary visible by default; rest collapsed.
+  // For EXISTING records: show everything (people are usually editing one specific thing).
+  const primaryFields = sorted.filter(
+    (f) => f.is_primary || f.is_required
+  );
+  const additionalFields = sorted.filter(
+    (f) => !f.is_primary && !f.is_required
+  );
+
+  // Show all if no required/primary, or if editing existing record
+  const useCollapsible = isNew && additionalFields.length > 2 && primaryFields.length > 0;
+  const fieldsToShowAlways = useCollapsible ? primaryFields : sorted;
+  const fieldsCollapsed = useCollapsible ? additionalFields : [];
+
+  const [showMore, setShowMore] = useState(!useCollapsible);
+
+  return (
+    <>
+      {fieldsToShowAlways.map((f) => (
+        <FieldInput
+          key={f.id}
+          field={f}
+          value={formData[f.slug]}
+          onChange={(v) => updateField(f.slug, v)}
+          error={errors[f.slug]}
+          disabled={!canEdit || saving}
+        />
+      ))}
+
+      {fieldsCollapsed.length > 0 && (
+        <>
+          {!showMore ? (
+            <button
+              type="button"
+              onClick={() => setShowMore(true)}
+              className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50/30 transition-all flex items-center justify-center gap-2"
+            >
+              <ChevronDown className="w-4 h-4" />
+              הצג {fieldsCollapsed.length} שדות נוספים
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-xs text-gray-500 font-medium pt-2">
+                <div className="flex-1 h-px bg-gray-200" />
+                שדות נוספים
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+              {fieldsCollapsed.map((f) => (
+                <FieldInput
+                  key={f.id}
+                  field={f}
+                  value={formData[f.slug]}
+                  onChange={(v) => updateField(f.slug, v)}
+                  error={errors[f.slug]}
+                  disabled={!canEdit || saving}
+                />
+              ))}
+            </>
+          )}
+        </>
+      )}
+    </>
   );
 }
 
