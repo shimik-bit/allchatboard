@@ -238,6 +238,7 @@ function FieldsArea({
   updateField: (slug: string, value: any) => void;
   isNew: boolean;
 }) {
+  const { t } = useT();
   // Sort fields: primary first → required → has-value → empty
   const sorted = [...fields].sort((a, b) => {
     const score = (f: Field) => {
@@ -325,6 +326,7 @@ function FieldInput({
   error?: string;
   disabled?: boolean;
 }) {
+  const { t } = useT();
   const baseLabel = (
     <label className="block text-sm font-medium text-gray-700 mb-1.5">
       {field.name}
