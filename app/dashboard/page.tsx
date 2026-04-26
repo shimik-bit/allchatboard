@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { LayoutGrid, MessageSquare, Database, TrendingUp } from 'lucide-react';
+import { LayoutGrid, MessageSquare, Database, TrendingUp, BookOpen, Code, FileText, ArrowLeft } from 'lucide-react';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -45,6 +45,32 @@ export default async function DashboardPage() {
         <StatCard icon={<Database />} label="טבלאות" value={tablesCount || 0} />
         <StatCard icon={<LayoutGrid />} label="רשומות" value={recordsCount || 0} />
         <StatCard icon={<MessageSquare />} label="הודעות וואטסאפ" value={messagesCount || 0} />
+      </div>
+
+      {/* Resources section - quick access to guide, API, PDF */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
+        <ResourceCard
+          href="/docs"
+          icon={<BookOpen className="w-5 h-5" />}
+          title="מדריך משתמש"
+          desc="כל מה שצריך לדעת על המערכת — 14 מאמרים בעברית"
+          color="from-purple-500 to-purple-700"
+        />
+        <ResourceCard
+          href="/docs/api"
+          icon={<Code className="w-5 h-5" />}
+          title="API למפתחים"
+          desc="חבר את המערכת לאתר, אפליקציה או Zapier"
+          color="from-blue-500 to-blue-700"
+        />
+        <ResourceCard
+          href="/allchatboard-user-guide.pdf"
+          icon={<FileText className="w-5 h-5" />}
+          title="הורד PDF"
+          desc="המדריך המלא, 23 עמודים — לקריאה offline או להדפסה"
+          color="from-amber-500 to-orange-600"
+          external
+        />
       </div>
 
       <div className="card p-6 mb-8">
@@ -130,5 +156,41 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
         </div>
       </div>
     </div>
+  );
+}
+
+function ResourceCard({
+  href, icon, title, desc, color, external,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  color: string;
+  external?: boolean;
+}) {
+  const linkProps = external
+    ? { target: '_blank', rel: 'noopener noreferrer' as const }
+    : {};
+
+  return (
+    <Link
+      href={href}
+      {...linkProps}
+      className="group p-4 rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all bg-white"
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} text-white grid place-items-center flex-shrink-0`}>
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm flex items-center gap-1 group-hover:text-brand-700 transition-colors">
+            {title}
+            <ArrowLeft className="w-3 h-3 opacity-0 group-hover:opacity-100 group-hover:-translate-x-0.5 transition-all" />
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">{desc}</div>
+        </div>
+      </div>
+    </Link>
   );
 }
