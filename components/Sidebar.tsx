@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap,
-  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X,
+  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -104,6 +104,17 @@ export default function Sidebar({
           <X className="w-5 h-5" />
         </button>
 
+        {/* TaskFlow AI brand stripe */}
+        <div className="px-4 pt-3 pb-2 border-b border-gray-100">
+          <Link href="/" className="flex items-center justify-center">
+            <img
+              src="/taskflow-logo.png"
+              alt="TaskFlow AI"
+              className="h-10 w-auto object-contain"
+            />
+          </Link>
+        </div>
+
         {/* Workspace header */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -146,6 +157,18 @@ export default function Sidebar({
         >
           <MessageSquare className="w-4 h-4" />
           {t('nav.whatsapp')}
+        </Link>
+
+        <Link
+          href="/dashboard/groupguard"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-colors ${
+            pathname === '/dashboard/groupguard'
+              ? 'bg-brand-50 text-brand-700'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          הגנה מספאם
         </Link>
 
         <Link
