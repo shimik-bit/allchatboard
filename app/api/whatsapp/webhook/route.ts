@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getClassifyPrompt, getUpdatePrompt, getQueryPrompt } from '@/lib/i18n/prompts';
+import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
     // Load workspace config
     let { data: workspace } = await admin
       .from('workspaces')
-      .select('id, whatsapp_instance_id, whatsapp_token, business_description, ai_messages_used, ai_messages_limit')
+      .select('id, whatsapp_instance_id, whatsapp_token, business_description, ai_messages_used, ai_messages_limit, locale')
       .eq('id', activeWorkspaceId)
       .single();
 
@@ -252,7 +254,8 @@ export async function POST(req: NextRequest) {
               // Group has auto_create_record=false — skip Whisper API call
               // entirely. Saves ~$0.006/min on every voice note.
             } else {
-              const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType);
+              const wsLocale: Locale = isValidLocale((workspace as any).locale) ? (workspace as any).locale : DEFAULT_LOCALE;
+              const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType, wsLocale);
               if (transcript && transcript.trim()) {
                 // Replace text with the transcript (voice notes have no caption anyway)
                 text = transcript.trim();
@@ -354,6 +357,7 @@ export async function POST(req: NextRequest) {
           businessDescription: workspace.business_description || '',
           authorizedPhone,
           history: conversationHistory,
+          locale: (workspace as any).locale,
         });
 
         if (queryResult.matched) {
@@ -467,6 +471,7 @@ export async function POST(req: NextRequest) {
             record: parentRecord, replyText: text,
             authorizedPhone, businessDescription: workspace.business_description || '',
             history: conversationHistory,
+            locale: (workspace as any).locale,
           });
 
           if (workspace.whatsapp_instance_id && workspace.whatsapp_token) {
@@ -516,6 +521,7 @@ export async function POST(req: NextRequest) {
         forcedTableId: groupTargetTableId,
         forcedAssigneePhoneId: groupDefaultAssigneePhoneId,
         skipRecordCreation: !groupAutoCreateRecord,
+        locale: (workspace as any).locale,
       });
 
       // Reply in WhatsApp - but only if configured
@@ -660,10 +666,12 @@ async function classifyAndInsert(opts: {
   forcedTableId?: string | null;
   forcedAssigneePhoneId?: string | null;
   skipRecordCreation?: boolean;
+  locale?: Locale;
 }) {
   const { admin, activeWorkspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
   const history = opts.history || [];
   const forcedTableId = opts.forcedTableId || null;
+  const locale: Locale = isValidLocale(opts.locale) ? opts.locale : DEFAULT_LOCALE;
 
   // Skip everything if record creation is disabled for this group
   if (opts.skipRecordCreation) {
@@ -745,32 +753,7 @@ async function classifyAndInsert(opts: {
     ? `${authorizedPhone.display_name}${authorizedPhone.job_title ? ` (${authorizedPhone.job_title})` : ''}`
     : 'לא ידוע';
 
-  const systemPrompt = `אתה עוזר שמסווג הודעות וואטסאפ בעברית לטבלאות.
-${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
-הטבלאות הזמינות:
-${JSON.stringify(schema, null, 2)}
-
-המשתמש: ${senderInfo}
-
-החזר אך ורק JSON תקין:
-{
-  "table_slug": "<slug או null>",
-  "confidence": <0.0-1.0>,
-  "data": { "<field_slug>": <value> },
-  "reasoning": "<קצר>"
-}
-
-כללים:
-- table_slug: null אם זה לא נתון לשמירה (שיחת חולין, שאלה)
-- select/status: רק ערך מתוך options
-- date: YYYY-MM-DD | datetime: ISO 8601 | number/currency: מספר
-- אל תמציא שדות
-- confidence < 0.5 = לא בטוח
-
-⚠️ חשוב מאוד - הקשר השיחה:
-- הודעות קודמות (אם יש) מוצגות לך רק כדי לפענח התייחסויות והשלמות שהמשתמש מבטא במפורש (כמו "אצל יוסי" כהמשך לתקלה שתואר רגע קודם).
-- אם המשתמש לא מתייחס בבירור להודעה הקודמת (למשל פשוט שולח משימה חדשה) - התעלם מההיסטוריה לחלוטין ואל תעתיק שדות (assignee, property, status וכו') מההודעה הקודמת.
-- דוגמה: היסטוריה="משימה ליוסי לתקן רכב", הודעה נוכחית="לנקות עמוד" → צור משימה חדשה עם description=לנקות עמוד בלבד, ללא assignee.`;
+  const systemPrompt = getClassifyPrompt(locale, schema, businessDescription || null, senderInfo);
 
   // Build messages with history (oldest first) followed by the current message
   const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -842,8 +825,10 @@ async function processUpdate(opts: {
   authorizedPhone: any;
   businessDescription: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  locale?: Locale;
 }) {
   const { admin, activeWorkspaceId, messageDbId, record, replyText, authorizedPhone, businessDescription } = opts;
+  const locale: Locale = isValidLocale(opts.locale) ? opts.locale : DEFAULT_LOCALE;
   const history = opts.history || [];
 
   // Get the table's fields to know what can be updated
@@ -912,27 +897,7 @@ async function processUpdate(opts: {
     ? `${authorizedPhone.display_name}${authorizedPhone.job_title ? ` (${authorizedPhone.job_title})` : ''}`
     : 'לא ידוע';
 
-  const systemPrompt = `אתה עוזר שמעדכן רשומה קיימת לפי תגובת משתמש בוואטסאפ.
-${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
-הרשומה הנוכחית מטבלת "${tableName}":
-${JSON.stringify(record.data, null, 2)}
-
-השדות הזמינים לעדכון:
-${JSON.stringify(fieldsSchema, null, 2)}
-
-המשתמש (${senderInfo}) שלח תגובה. עליך להבין:
-1. אילו שדות הוא רוצה לעדכן
-2. אם יש שדה "סטטוס" / "status" — מילים כמו "טופל", "בוצע", "סגור", "סיימתי", "✅" → סטטוס לערך הסופי
-3. אם הוא רק מבקש מידע (שאלה) — אל תעדכן
-
-⚠️ הודעות קודמות בשיחה הן רק לפענוח כינויים והפניות (כמו "וגם תוסיף הערה"). העדכון חייב להיות מבוסס אך ורק על ההודעה הנוכחית - אל תעדכן שדות שהמשתמש לא הזכיר עכשיו.
-
-החזר אך ורק JSON:
-{
-  "action": "update" | "query" | "ignore",
-  "updates": { "<field_slug>": <new_value> },
-  "summary": "<תיאור קצר בעברית של מה התבצע>"
-}`;
+  const systemPrompt = getUpdatePrompt(locale, tableName, record.data, fieldsSchema, businessDescription || null, senderInfo);
 
   const aiMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
     ...history,
@@ -1010,8 +975,10 @@ async function handleQuery(opts: {
   businessDescription: string;
   authorizedPhone: any;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  locale?: Locale;
 }): Promise<{ matched: boolean; responseText: string }> {
   const { admin, activeWorkspaceId, messageDbId, text, businessDescription, authorizedPhone } = opts;
+  const locale: Locale = isValidLocale(opts.locale) ? opts.locale : DEFAULT_LOCALE;
   const history = opts.history || [];
 
   // Load tables + fields so AI knows what's queryable
@@ -1074,33 +1041,7 @@ async function handleQuery(opts: {
     }),
   }));
 
-  const systemPrompt = `אתה עוזר שמזהה שאילתות-קריאה מהודעות וואטסאפ בעברית ומתרגם אותן לחיפוש בטבלאות.
-${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
-הטבלאות:
-${JSON.stringify(schema, null, 2)}
-
-המשתמש שאל. החזר JSON:
-{
-  "is_query": true | false,
-  "table_slug": "<באיזו טבלה לחפש>",
-  "filters": [
-    { "field_slug": "...", "operator": "eq|neq|in|not_in|gt|lt|contains", "value": <ערך> }
-  ],
-  "intent": "list" | "count" | "detail",
-  "limit": <מספר רשומות מקסימלי, ברירת מחדל 10>,
-  "summary": "<איך לקרוא לתוצאה, לדוגמה: 'תקלות פתוחות' או 'נכסים פנויים'>"
-}
-
-דוגמאות:
-- "רשימת תקלות פתוחות" → table: issues, filter: status neq resolved, intent: list
-- "כמה תקלות דחופות יש?" → table: issues, filter: urgency eq high, intent: count
-- "נכסים פנויים" → table: properties, filter: status eq vacant, intent: list
-- "שוכרים עם חוזה שמסתיים החודש" → table: tenants, filter: lease_end between...
-- "תקלות של יוסי כהן" → מצא את יוסי ב-existing_records של שדה relation, filter: <relation_field> eq "<uuid>", intent: list
-
-⚠️ חשוב: הודעות קודמות בשיחה מוצגות לך רק לצורך פענוח כינויי גוף והפניות (כמו "תוסיף תאריך", "תן לי גם מקום"). כשהמשתמש שואל שאלה חדשה לחלוטין שלא קשורה לשאילתה הקודמת - התעלם מההיסטוריה.
-
-אם זו לא שאילתה-קריאה (מדובר ביצירה/עדכון) → החזר {"is_query": false}`;
+  const systemPrompt = getQueryPrompt(locale, schema, businessDescription || null);
 
   let parsed: any;
   try {
@@ -1355,7 +1296,7 @@ async function uploadMediaToStorage(opts: {
  * dramatically cheaper than running gpt-4o-audio for raw transcription.
  * Returns the transcript text or null on failure.
  */
-async function transcribeAudio(audioBytes: ArrayBuffer, contentType: string): Promise<string | null> {
+async function transcribeAudio(audioBytes: ArrayBuffer, contentType: string, locale: Locale = 'he'): Promise<string | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) return null;
 
@@ -1371,7 +1312,7 @@ async function transcribeAudio(audioBytes: ArrayBuffer, contentType: string): Pr
     const form = new FormData();
     form.append('file', new Blob([audioBytes], { type: contentType }), `voice.${ext}`);
     form.append('model', 'whisper-1');
-    form.append('language', 'he'); // bias toward Hebrew, still works for Hebrew+English mix
+    form.append('language', locale); // bias toward workspace language
 
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
