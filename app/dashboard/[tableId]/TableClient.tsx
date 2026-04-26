@@ -446,6 +446,7 @@ export default function TableClient({
             groupByField={groupByField}
             primaryField={primaryField}
             onRecordClick={openEditModal}
+            onRecordUpdate={canEdit ? (id, patch) => handleInlineUpdate(id, patch) : undefined}
           />
         )}
         {activeView === 'calendar' && (

@@ -224,6 +224,19 @@ export default function TablePermissionsModal({
                   })}
                 </div>
               )}
+
+              {/* Invite new member - dashed link to settings */}
+              <a
+                href="/dashboard/settings"
+                className="mt-3 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-brand-400 hover:bg-brand-50/30 transition-all text-sm text-gray-600 hover:text-brand-700 group"
+              >
+                <span className="w-6 h-6 rounded-full bg-gray-100 group-hover:bg-brand-100 grid place-items-center text-base leading-none transition-colors">+</span>
+                <span className="font-medium">להזמין חבר חדש לסביבת העבודה</span>
+                <span className="text-xs text-gray-400">→ הגדרות</span>
+              </a>
+              <p className="mt-2 text-[11px] text-gray-500 text-center">
+                * רשימה זו מציגה רק חברים קיימים בסביבה. הוספת חבר חדש מתבצעת בעמוד ההגדרות
+              </p>
             </div>
 
             {/* Help */}
