@@ -6,6 +6,7 @@ import type { Table, Field, RecordRow } from '@/lib/types/database';
 import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 import CityAutocomplete from '@/components/CityAutocomplete';
+import { useT } from '@/lib/i18n/useT';
 
 export default function RecordModal({
   table,
@@ -26,6 +27,7 @@ export default function RecordModal({
   onDelete?: (id: string) => Promise<void>;
   onMove?: (record: RecordRow) => void;
 }) {
+  const { t } = useT();
   const [formData, setFormData] = useState<Record<string, any>>(record?.data || {});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,7 +64,7 @@ export default function RecordModal({
         const v = formData[f.slug];
         if (v === null || v === undefined || v === '' ||
             (Array.isArray(v) && v.length === 0)) {
-          newErrors[f.slug] = 'שדה חובה';
+          newErrors[f.slug] = t('common.required');
         }
       }
     }
@@ -92,11 +94,11 @@ export default function RecordModal({
 
   const isNew = !record;
   const sourceLabel = record?.source === 'whatsapp'
-    ? 'נוצר מוואטסאפ'
+    ? t('records.source_whatsapp')
     : record?.source === 'manual'
-    ? 'נוצר ידנית'
+    ? t('records.source_manual')
     : record?.source === 'import'
-    ? 'יובא'
+    ? t('records.source_api')
     : '';
 
   return (
@@ -119,7 +121,7 @@ export default function RecordModal({
             </div>
             <div>
               <h2 className="font-display font-bold text-lg">
-                {isNew ? `רשומה חדשה ב-${table.name}` : 'עריכת רשומה'}
+                {isNew ? t('dashboard.new_record_in', { table: table.name }) : t('records.edit')}
               </h2>
               {sourceLabel && !isNew && (
                 <div className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -156,7 +158,7 @@ export default function RecordModal({
 
           {fields.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              לא הוגדרו שדות עבור הטבלה הזו
+              {t('tables.no_tables')}
             </div>
           ) : (
             <FieldsArea
@@ -186,7 +188,7 @@ export default function RecordModal({
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
-                <span className="hidden md:inline">מחיקה</span>
+                <span className="hidden md:inline">{t('common.delete')}</span>
               </button>
             )}
             {!isNew && onMove && canEdit && record && (
@@ -194,10 +196,10 @@ export default function RecordModal({
                 onClick={() => onMove(record)}
                 disabled={saving}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-brand-600 hover:bg-brand-50 transition-colors disabled:opacity-50"
-                title="העבר לטבלה אחרת"
+                title={t('records.move_to_table')}
               >
                 <ArrowRightLeft className="w-4 h-4" />
-                <span className="hidden md:inline">העבר ל...</span>
+                <span className="hidden md:inline">{t('records.move_to_table')}</span>
               </button>
             )}
           </div>
@@ -207,7 +209,7 @@ export default function RecordModal({
               className="btn-secondary text-sm px-4 py-2.5 md:py-2"
               disabled={saving}
             >
-              ביטול
+              {t('common.cancel')}
             </button>
             {canEdit && (
               <button
@@ -215,7 +217,7 @@ export default function RecordModal({
                 disabled={saving}
                 className="btn-primary text-sm px-5 py-2.5 md:py-2 flex-1 md:flex-initial font-semibold"
               >
-                {saving ? 'שומר...' : isNew ? 'צור רשומה' : 'שמירה'}
+                {saving ? t('common.saving') : isNew ? t('records.save') : t('common.save')}
               </button>
             )}
           </div>
@@ -287,13 +289,13 @@ function FieldsArea({
               className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50/30 transition-all flex items-center justify-center gap-2"
             >
               <ChevronDown className="w-4 h-4" />
-              הצג {fieldsCollapsed.length} שדות נוספים
+              {t('records.show_more_fields')} ({fieldsCollapsed.length})
             </button>
           ) : (
             <>
               <div className="flex items-center gap-2 text-xs text-gray-500 font-medium pt-2">
                 <div className="flex-1 h-px bg-gray-200" />
-                שדות נוספים
+                {t('records.show_more_fields')}
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
               {fieldsCollapsed.map((f) => (
@@ -364,7 +366,7 @@ function FieldInput({
             value={value ?? ''}
             onChange={(v) => onChange(v)}
             disabled={disabled}
-            placeholder="התחל להקליד שם עיר..."
+            placeholder={t('fields.city')}
           />
           {errorMsg}
         </div>
@@ -491,7 +493,7 @@ function FieldInput({
             disabled={disabled}
             className={baseInputCls}
           >
-            <option value="">— בחרו —</option>
+            <option value="">— {t('common.add')} —</option>
             {field.config?.options?.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -598,6 +600,7 @@ interface ReferencingRecord {
 }
 
 function RelatedRecordsSection({ recordId }: { recordId: string }) {
+  const { t } = useT();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ReferencingRecord[]>([]);
@@ -646,7 +649,7 @@ function RelatedRecordsSection({ recordId }: { recordId: string }) {
       <div className="mt-6 pt-5 border-t border-gray-200">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link2 className="w-4 h-4" />
-          <span>טוען רשומות קשורות...</span>
+          <span>{t('common.loading')}</span>
         </div>
       </div>
     );
@@ -670,7 +673,7 @@ function RelatedRecordsSection({ recordId }: { recordId: string }) {
       <div className="flex items-center gap-2 mb-3">
         <Link2 className="w-4 h-4 text-brand-600" />
         <h3 className="text-sm font-semibold text-gray-700">
-          רשומות קשורות
+          {t('fields.relation')}
           <span className="text-gray-400 font-normal mr-1.5">({rows.length})</span>
         </h3>
       </div>
@@ -718,7 +721,7 @@ function RelatedRecordsSection({ recordId }: { recordId: string }) {
                             {item.display_summary || '—'}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">
-                            דרך שדה: {item.field_name}
+                            {t('common.info')}: {item.field_name}
                           </div>
                         </div>
                         <ChevronLeft className="w-4 h-4 text-gray-300 group-hover:text-brand-600 flex-shrink-0 mt-0.5" />
@@ -743,6 +746,7 @@ function RelatedRecordsSection({ recordId }: { recordId: string }) {
  * download link — most browsers handle PDF viewing from the opened tab.
  */
 function AttachmentPreview({ url, type }: { url: string; type: string | null }) {
+  const { t } = useT();
   const isImage = type?.startsWith('image/');
   const isPdf = type === 'application/pdf';
 
@@ -759,19 +763,19 @@ function AttachmentPreview({ url, type }: { url: string; type: string | null }) 
       <div className="mb-4">
         <div className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
           <Paperclip className="w-3 h-3" />
-          קובץ מצורף
+          {t('fields.file')}
         </div>
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
           className="block rounded-lg overflow-hidden border border-gray-200 hover:border-brand-400 transition-colors"
-          title="לחץ לפתיחה במסך מלא"
+          title={t('common.open')}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
-            alt="קובץ מצורף"
+            alt={t('fields.file')}
             className="w-full max-h-80 object-contain bg-gray-50"
             loading="lazy"
           />
@@ -803,7 +807,7 @@ function AttachmentPreview({ url, type }: { url: string; type: string | null }) 
             {filename}
           </div>
           <div className="text-xs text-gray-500">
-            {isPdf ? 'מסמך PDF' : (type || 'קובץ')}
+            {isPdf ? 'PDF' : (type || t('fields.file'))}
           </div>
         </div>
         <Download className="w-4 h-4 text-gray-400 shrink-0" />
