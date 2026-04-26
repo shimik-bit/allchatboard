@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { LayoutGrid, MessageSquare, Database, TrendingUp, BookOpen, Code, FileText, ArrowLeft } from 'lucide-react';
+import { getT } from '@/lib/i18n/server';
+import { formatRelativeTime as i18nFormatRelativeTime } from '@/lib/i18n/format';
+import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -10,13 +13,18 @@ export default async function DashboardPage() {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id')
+    .select('workspace_id, workspaces(locale)')
     .eq('user_id', user.id)
     .limit(1)
     .single();
 
   if (!membership) return null;
   const workspaceId = membership.workspace_id;
+
+  // Resolve locale for this workspace - falls back to Hebrew if missing
+  const ws = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces;
+  const locale: Locale = isValidLocale((ws as any)?.locale) ? (ws as any).locale : DEFAULT_LOCALE;
+  const { t } = getT(locale);
 
   // Stats
   const [{ count: tablesCount }, { count: recordsCount }, { count: messagesCount }, { data: tables }] =
@@ -37,14 +45,14 @@ export default async function DashboardPage() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <div className="mb-6 md:mb-8 pr-12 md:pr-0">
-        <h1 className="font-display font-bold text-xl md:text-3xl mb-1">סקירה</h1>
-        <p className="text-gray-500">מבט מהיר על העסק שלך</p>
+        <h1 className="font-display font-bold text-xl md:text-3xl mb-1">{t('dashboard.overview')}</h1>
+        <p className="text-gray-500">{t('dashboard.overview_subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <StatCard icon={<Database />} label="טבלאות" value={tablesCount || 0} />
-        <StatCard icon={<LayoutGrid />} label="רשומות" value={recordsCount || 0} />
-        <StatCard icon={<MessageSquare />} label="הודעות וואטסאפ" value={messagesCount || 0} />
+        <StatCard icon={<Database />} label={t('dashboard.stat_tables')} value={tablesCount || 0} />
+        <StatCard icon={<LayoutGrid />} label={t('dashboard.stat_records')} value={recordsCount || 0} />
+        <StatCard icon={<MessageSquare />} label={t('dashboard.stat_messages')} value={messagesCount || 0} />
       </div>
 
       {/* Resources section - quick access to guide, API, PDF */}
@@ -52,22 +60,22 @@ export default async function DashboardPage() {
         <ResourceCard
           href="/docs"
           icon={<BookOpen className="w-5 h-5" />}
-          title="מדריך משתמש"
-          desc="כל מה שצריך לדעת על המערכת — 14 מאמרים בעברית"
+          title={t('dashboard.resources_title')}
+          desc={t('dashboard.resources_desc')}
           color="from-purple-500 to-purple-700"
         />
         <ResourceCard
           href="/docs/api"
           icon={<Code className="w-5 h-5" />}
-          title="API למפתחים"
-          desc="חבר את המערכת לאתר, אפליקציה או Zapier"
+          title={t('dashboard.api_title')}
+          desc={t('dashboard.api_desc')}
           color="from-blue-500 to-blue-700"
         />
         <ResourceCard
           href="/allchatboard-user-guide.pdf"
           icon={<FileText className="w-5 h-5" />}
-          title="הורד PDF"
-          desc="המדריך המלא, 23 עמודים — לקריאה offline או להדפסה"
+          title={t('dashboard.pdf_title')}
+          desc={t('dashboard.pdf_desc')}
           color="from-amber-500 to-orange-600"
           external
         />
@@ -75,9 +83,9 @@ export default async function DashboardPage() {
 
       <div className="card p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg">הטבלאות שלי</h2>
+          <h2 className="font-display font-bold text-lg">{t('dashboard.my_tables')}</h2>
           <Link href="/dashboard/whatsapp" className="text-sm text-brand-600 hover:underline">
-            חברו וואטסאפ →
+            {t('dashboard.connect_whatsapp_link')}
           </Link>
         </div>
         {tables && tables.length > 0 ? (
@@ -99,7 +107,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="text-center py-12 text-gray-400">
             <Database className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>אין עדיין טבלאות</p>
+            <p>{t('dashboard.no_tables_short')}</p>
           </div>
         )}
       </div>
@@ -107,7 +115,7 @@ export default async function DashboardPage() {
       <div className="card p-6">
         <h2 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5" />
-          פעילות אחרונה
+          {t('dashboard.recent_activity')}
         </h2>
         {recentRecords && recentRecords.length > 0 ? (
           <div className="space-y-2">
@@ -120,15 +128,15 @@ export default async function DashboardPage() {
                 <div className="text-2xl">{r.tables?.icon || '📋'}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm">
-                    רשומה חדשה ב-{r.tables?.name}
+                    {t('dashboard.new_record_in', { table: r.tables?.name || '' })}
                   </div>
                   <div className="text-xs text-gray-500 truncate">
-                    {Object.values(r.data || {}).slice(0, 2).join(' · ') || 'ללא תוכן'}
+                    {Object.values(r.data || {}).slice(0, 2).join(' · ') || t('dashboard.no_content')}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5 shrink-0">
                   <div className="text-[11px] text-gray-500 whitespace-nowrap">
-                    {formatRelativeTime(r.created_at)}
+                    {i18nFormatRelativeTime(r.created_at, locale)}
                   </div>
                   <div className="text-xs text-gray-400">
                     {r.source === 'whatsapp' && '💬'}
@@ -141,7 +149,7 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-400 text-sm">
-            עדיין אין פעילות. חברו את הוואטסאפ כדי להתחיל!
+            {t('dashboard.no_activity')}
           </div>
         )}
       </div>
@@ -199,55 +207,4 @@ function ResourceCard({
       </div>
     </Link>
   );
-}
-
-/**
- * formatRelativeTime - Human-friendly Hebrew time labels
- *
- * Examples:
- *   30s ago   → "לפני רגע"
- *   5m ago    → "לפני 5 דק׳"
- *   2h ago    → "לפני שעתיים"
- *   today     → "היום, 14:30"
- *   yesterday → "אתמול, 09:15"
- *   < 7 days  → "יום ג׳, 14:30"
- *   > 7 days  → "25.4.26"
- */
-function formatRelativeTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-
-  // Just now
-  if (diffSec < 60) return 'עכשיו';
-  if (diffMin < 5) return 'לפני רגע';
-  if (diffMin < 60) return `לפני ${diffMin} דק׳`;
-  if (diffHr === 1) return 'לפני שעה';
-  if (diffHr === 2) return 'לפני שעתיים';
-  if (diffHr < 12) return `לפני ${diffHr} שעות`;
-
-  const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-
-  // Same calendar day
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return `היום, ${time}`;
-
-  // Yesterday
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return `אתמול, ${time}`;
-
-  // Within a week — show day of week
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 7) {
-    const day = d.toLocaleDateString('he-IL', { weekday: 'long' });
-    return `${day}, ${time}`;
-  }
-
-  // Older — full date
-  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 }

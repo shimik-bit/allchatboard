@@ -133,6 +133,29 @@ export const he = {
     default_assignee: 'אחראי ברירת מחדל',
   },
 
+  /* ────────────── Dashboard Home ────────────── */
+  dashboard: {
+    overview: 'סקירה',
+    overview_subtitle: 'מבט מהיר על העסק שלך',
+    stat_tables: 'טבלאות',
+    stat_records: 'רשומות',
+    stat_messages: 'הודעות וואטסאפ',
+    resources_title: 'מדריך משתמש',
+    resources_desc: 'כל מה שצריך לדעת על המערכת — 14 מאמרים בעברית',
+    api_title: 'API למפתחים',
+    api_desc: 'חבר את המערכת לאתר, אפליקציה או Zapier',
+    pdf_title: 'הורד PDF',
+    pdf_desc: 'המדריך המלא, 23 עמודים — לקריאה offline או להדפסה',
+    my_tables: 'הטבלאות שלי',
+    connect_whatsapp_link: 'חברו וואטסאפ →',
+    no_tables_short: 'אין עדיין טבלאות',
+    recent_activity: 'פעילות אחרונה',
+    new_record_in: 'רשומה חדשה ב-{table}',
+    no_content: 'ללא תוכן',
+    no_activity: 'עדיין אין פעילות. חברו את הוואטסאפ כדי להתחיל!',
+  },
+
+  /* ────────────── Records ────────────── */
   records: {
     new: 'רשומה חדשה',
     edit: 'עריכת רשומה',

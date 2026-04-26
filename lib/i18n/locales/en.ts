@@ -111,6 +111,28 @@ export const en: LocaleDictionary = {
     setting_up: 'Setting up your workspace...',
   },
 
+  /* ────────────── Dashboard Home ────────────── */
+  dashboard: {
+    overview: 'Overview',
+    overview_subtitle: 'A quick look at your business',
+    stat_tables: 'Tables',
+    stat_records: 'Records',
+    stat_messages: 'WhatsApp messages',
+    resources_title: 'User guide',
+    resources_desc: 'Everything you need to know — 14 articles',
+    api_title: 'API for developers',
+    api_desc: 'Connect the system to a website, app, or Zapier',
+    pdf_title: 'Download PDF',
+    pdf_desc: 'Full guide, 23 pages — for offline reading or print',
+    my_tables: 'My tables',
+    connect_whatsapp_link: 'Connect WhatsApp →',
+    no_tables_short: 'No tables yet',
+    recent_activity: 'Recent activity',
+    new_record_in: 'New record in {table}',
+    no_content: 'No content',
+    no_activity: 'No activity yet. Connect WhatsApp to get started!',
+  },
+
   /* ────────────── Tables & Records ────────────── */
   tables: {
     new: 'New table',
