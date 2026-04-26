@@ -5,6 +5,15 @@
   "functions": {
     "app/api/whatsapp/webhook/route.ts": {
       "maxDuration": 30
+    },
+    "app/api/reports/cron/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/reports/cron",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }

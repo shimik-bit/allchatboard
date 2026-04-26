@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BookOpen, Rocket, Database, MessageSquare, Shield, HelpCircle, ArrowLeft, Code } from 'lucide-react';
+import { BookOpen, Rocket, Database, MessageSquare, Shield, HelpCircle, ArrowLeft, Code, Bell } from 'lucide-react';
 
 export const metadata = {
   title: 'מדריך משתמש · AllChatBoard',
@@ -41,6 +41,13 @@ const NAV = [
     items: [
       { href: '/docs/permissions', label: 'תפקידים בסביבה' },
       { href: '/docs/permissions/tables', label: 'הרשאות לטבלה' },
+    ],
+  },
+  {
+    label: 'פיצרים מתקדמים',
+    icon: Bell,
+    items: [
+      { href: '/docs/reports', label: 'דוחות מתוזמנים' },
     ],
   },
   {
