@@ -207,13 +207,24 @@ export async function POST(req: NextRequest) {
     let attachmentUrl: string | null = null;
     let attachmentType: string | null = null;
 
+    // 🚨 COST OPTIMIZATION: Skip ALL AI media processing if this group has
+    // auto_create_record disabled. There's no point spending Whisper/Vision
+    // tokens on messages that won't even create a record. We still upload
+    // images/documents to Storage (cheap) so they're viewable in the chat
+    // history, but skip transcription and image description.
+    const skipAIProcessing = !groupAutoCreateRecord;
+
     if (mediaUrl && mediaType) {
       const isAudio = msgType === 'audioMessage' || mediaType.startsWith('audio');
       const isImage = msgType === 'imageMessage' || mediaType.startsWith('image');
       const isDocument = msgType === 'documentMessage';
 
       if (isAudio || isImage || isDocument) {
-        const downloaded = await downloadMedia(mediaUrl);
+        // For groups with auto_create_record=false, skip download entirely
+        // for audio (no need to even download voice notes we won't transcribe).
+        // For images/docs, still download to upload to storage for the chat log.
+        const shouldDownload = !skipAIProcessing || isImage || isDocument;
+        const downloaded = shouldDownload ? await downloadMedia(mediaUrl) : null;
         if (downloaded) {
           // Upload images and documents to Storage so the user can see the
           // original later from the dashboard. Skip audio — transcripts are
@@ -237,12 +248,21 @@ export async function POST(req: NextRequest) {
           }
 
           if (isAudio) {
-            const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType);
-            if (transcript && transcript.trim()) {
-              // Replace text with the transcript (voice notes have no caption anyway)
-              text = transcript.trim();
+            if (skipAIProcessing) {
+              // Group has auto_create_record=false — skip Whisper API call
+              // entirely. Saves ~$0.006/min on every voice note.
+            } else {
+              const transcript = await transcribeAudio(downloaded.bytes, downloaded.contentType);
+              if (transcript && transcript.trim()) {
+                // Replace text with the transcript (voice notes have no caption anyway)
+                text = transcript.trim();
+              }
             }
           } else if (isImage) {
+            if (skipAIProcessing) {
+              // Group has auto_create_record=false — skip Vision API call
+              // entirely. Saves ~$0.01-0.05 per image.
+            } else {
             // Build a compact schema hint so vision knows what datapoints
             // to extract. Without this, it gives generic "picture of an
             // invoice" descriptions instead of actual numbers/dates.
@@ -290,6 +310,7 @@ export async function POST(req: NextRequest) {
                 ? `${text.trim()}\n[תיאור התמונה: ${description.trim()}]`
                 : `[תיאור התמונה: ${description.trim()}]`;
             }
+            } // end else (skipAIProcessing for image)
           }
 
           // Persist the enriched text back to wa_messages so it shows in admin
@@ -323,7 +344,9 @@ export async function POST(req: NextRequest) {
       .test(text.trim())
       || /\?$/.test(text.trim());
 
-    if (looksLikeQuery && !quotedMessageId && text.trim()) {
+    // 🚨 COST OPTIMIZATION: Don't run AI query for groups marked as logged-only.
+    // The whole point of auto_create_record=false is "just log, don't act on it".
+    if (looksLikeQuery && !quotedMessageId && text.trim() && !skipAIProcessing) {
       // Only run query flow for non-reply messages with actual text
       try {
         const queryResult = await handleQuery({

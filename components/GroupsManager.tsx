@@ -259,6 +259,11 @@ export default function GroupsManager({
                           יצירת רשומות
                         </div>
                         <div className="text-[11px] text-gray-500">צור רשומה אוטומטית מכל הודעה</div>
+                        {!g.auto_create_record && (
+                          <div className="text-[10px] text-emerald-700 mt-1 font-medium">
+                            💰 חיסכון פעיל - אין קריאות AI להודעות מקבוצה זו
+                          </div>
+                        )}
                       </div>
                       <Toggle
                         checked={g.auto_create_record}
