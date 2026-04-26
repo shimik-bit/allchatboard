@@ -1,8 +1,7 @@
 /**
  * Super-admin authorization for AllChatBoard
  * ============================================
- * A super-admin is an email address listed in the GROUPGUARD_SUPER_ADMINS
- * env variable (comma-separated).
+ * A super-admin is an email address listed in the gg_super_admins table.
  *
  * Super-admins can:
  *   - View the global spam blocklist (cross-workspace)
@@ -14,18 +13,30 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/server';
 
 
 /**
- * Returns the list of super-admin emails from env.
- * Empty array if not configured.
+ * Returns the list of super-admin emails from the DB.
+ * Empty array if none configured or query failed.
  */
-export function getSuperAdminEmails(): string[] {
-  const raw = process.env.GROUPGUARD_SUPER_ADMINS || '';
-  return raw
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter((e) => e.length > 0);
+export async function getSuperAdminEmails(): Promise<string[]> {
+  try {
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from('gg_super_admins')
+      .select('email');
+
+    if (error || !data) {
+      console.error('[GG][admin] failed to load super_admins:', error);
+      return [];
+    }
+
+    return data.map((r: { email: string }) => r.email.toLowerCase());
+  } catch (err) {
+    console.error('[GG][admin] super_admins lookup failed:', err);
+    return [];
+  }
 }
 
 
@@ -39,10 +50,10 @@ export async function requireSuperAdmin(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return null;
 
-  const admins = getSuperAdminEmails();
+  const admins = await getSuperAdminEmails();
   if (admins.length === 0) {
     // Failsafe: if no admins configured, deny everyone
-    console.warn('[GG][admin] GROUPGUARD_SUPER_ADMINS env var not set - all admin access denied');
+    console.warn('[GG][admin] No super_admins configured in gg_super_admins table - all admin access denied');
     return null;
   }
 
