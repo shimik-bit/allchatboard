@@ -101,10 +101,12 @@ export default function GroupGuardClient({
   workspaceId,
   workspaceName,
   canEdit,
+  isSuperAdmin,
 }: {
   workspaceId: string;
   workspaceName: string;
   canEdit: boolean;
+  isSuperAdmin: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('dashboard');
 
@@ -113,16 +115,28 @@ export default function GroupGuardClient({
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">GroupGuard</h1>
+                <p className="text-sm text-gray-500">
+                  ניטור אוטומטי של ספאם בקבוצות וואטסאפ
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">GroupGuard</h1>
-              <p className="text-sm text-gray-500">
-                ניטור אוטומטי של ספאם בקבוצות וואטסאפ
-              </p>
-            </div>
+
+            {isSuperAdmin && (
+              <a
+                href="/dashboard/groupguard/admin"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Admin Panel
+              </a>
+            )}
           </div>
           {!canEdit && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">

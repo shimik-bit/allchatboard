@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { requireSuperAdmin } from '@/lib/groupguard/super-admin';
 import GroupGuardClient from './GroupGuardClient';
 
 export default async function GroupGuardPage() {
@@ -22,11 +23,16 @@ export default async function GroupGuardPage() {
 
   const canEdit = membership.role === 'owner' || membership.role === 'admin';
 
+  // Check if super-admin (for showing admin link)
+  const superAdmin = await requireSuperAdmin(supabase);
+  const isSuperAdmin = superAdmin !== null;
+
   return (
     <GroupGuardClient
       workspaceId={workspace.id}
       workspaceName={workspace.name}
       canEdit={canEdit}
+      isSuperAdmin={isSuperAdmin}
     />
   );
 }
