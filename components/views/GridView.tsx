@@ -21,8 +21,8 @@ export default function GridView({
     return (
       <div className="text-center py-20 text-gray-400">
         <div className="text-5xl mb-3">📭</div>
-        <p>אין עדיין רשומות בטבלה הזו</p>
-        <p className="text-sm mt-2">צרו רשומה חדשה או חברו וואטסאפ</p>
+        <p>{t('records.no_records')}</p>
+        <p className="text-sm mt-2">{t('records.no_records_hint')}</p>
       </div>
     );
   }
@@ -45,21 +45,21 @@ export default function GridView({
               </th>
             ))}
             <th className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
-              בטיפול
+              {t('records.assignee')}
             </th>
             <th className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
-              הערות
+              {t('common.notes')}
             </th>
             <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
-              נפתח
+              {t('records.created_at')}
             </th>
             <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
-              ע"י
+              {t('records.assignee')}
             </th>
             <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
-              עודכן סטטוס
+              {t('records.last_updated')}
             </th>
-            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs">מקור</th>
+            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs"  >{t('common.type')}</th>
           </tr>
         </thead>
         <tbody>
@@ -92,7 +92,7 @@ function RecordRowComponent({
     <tr
       onClick={onRowClick}
       className="border-b border-gray-100 hover:bg-brand-50/40 transition-colors group cursor-pointer"
-      title="לחץ לפתיחת הרשומה המלאה"
+      title={t('records.edit')}
     >
       {fields.map((f) => (
         <td
@@ -155,16 +155,16 @@ function RecordRowComponent({
         <button
           onClick={(e) => { e.stopPropagation(); onRowClick(); }}
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors text-xs font-medium"
-          title="פתח רשומה מלאה"
+          title={t('records.edit')}
         >
-          <Pencil className="w-3 h-3" /> פתח
+          <Pencil className="w-3 h-3" /> {t('common.open')}
         </button>
         <div className="mt-1 flex items-center gap-1">
-          {record.source === 'whatsapp' && <span title="מקור: וואטסאפ">💬</span>}
-          {record.source === 'manual' && <span title="מקור: הזנה ידנית">✏️</span>}
-          {record.source === 'import' && <span title="מקור: ייבוא">📥</span>}
+          {record.source === 'whatsapp' && <span title={t('records.source_whatsapp')}>💬</span>}
+          {record.source === 'manual' && <span title={t('records.source_manual')}>✏️</span>}
+          {record.source === 'import' && <span title={t('records.source_api')}>📥</span>}
           {record.attachment_url && (
-            <span title="יש קובץ מצורף" className="text-gray-400">📎</span>
+            <span title={t('fields.file')} className="text-gray-400">📎</span>
           )}
         </div>
       </td>
@@ -204,12 +204,12 @@ function AssigneeCell({
       });
       const json = await res.json();
       if (!res.ok) {
-        alert(json.message || json.error || 'שליחת התראה נכשלה');
+        alert(json.message || json.error || t('errors.generic'));
         return;
       }
       router.refresh();
     } catch (err: any) {
-      alert(`שגיאה: ${err.message}`);
+      alert(t('common.error') + ': ' + err.message);
     } finally {
       setNotifying(false);
     }
@@ -230,7 +230,7 @@ function AssigneeCell({
         }}
         className="px-2 py-1 rounded border border-brand-400 text-xs bg-white"
       >
-        <option value="">— ללא —</option>
+        <option value="">— {t('common.no')} —</option>
         {phones.map((p) => (
           <option key={p.id} value={p.id}>
             {p.display_name}{p.job_title ? ` (${p.job_title})` : ''}
@@ -252,7 +252,7 @@ function AssigneeCell({
         onClick={(e) => { e.stopPropagation(); setEditing(true); }}
         disabled={busy}
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium hover:ring-2 hover:ring-brand-400 transition disabled:opacity-50 text-right"
-        title="שינוי אחראי"
+        title={t('records.assignee')}
       >
         {currentName ? (
           <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -266,7 +266,7 @@ function AssigneeCell({
             ) : (
               <span
                 className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-amber-400 text-white text-[9px] leading-none"
-                title="ממתין להתראת וואטסאפ"
+                title={t('common.loading')}
               >
                 📲
               </span>
@@ -275,7 +275,7 @@ function AssigneeCell({
             <Pencil className="w-3 h-3 opacity-40" />
           </span>
         ) : (
-          <span className="text-gray-300">+ הקצה</span>
+          <span className="text-gray-300">+ {t('common.add')}</span>
         )}
       </button>
 
@@ -287,9 +287,9 @@ function AssigneeCell({
           onClick={handleManualNotify}
           disabled={notifying}
           className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 disabled:opacity-50 transition"
-          title="שלח עכשיו התראת וואטסאפ לנציג"
+          title={t('common.info')}
         >
-          {notifying ? '…' : 'שלח'}
+          {notifying ? '…' : t('common.confirm')}
         </button>
       )}
     </div>
@@ -405,7 +405,7 @@ function SelectCell({
         }}
         className="px-2 py-1 rounded border border-brand-400 text-sm bg-white"
       >
-        <option value="">— ללא —</option>
+        <option value="">— {t('common.no')} —</option>
         {opts.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
@@ -423,7 +423,7 @@ function SelectCell({
           background: currentOpt?.color ? `${currentOpt.color}20` : '#f3f4f6',
           color: currentOpt?.color || '#374151',
         }}
-        title="לחץ לעריכה"
+        title={t('common.edit')}
       >
         {currentOpt?.label || value || '—'}
         <Pencil className="w-3 h-3 opacity-40" />
@@ -433,7 +433,7 @@ function SelectCell({
         <NotifyConfirmDialog
           recordId={record.id}
           newStatusLabel={confirmingNotify.label}
-          phoneName={record._phone_name || 'הפונה'}
+          phoneName={record._phone_name || t('records.assignee')}
           onClose={() => setConfirmingNotify(null)}
           onSend={async (customMsg) => {
             // Send notification — re-uses the same onChange but with notify flag
@@ -508,7 +508,7 @@ function TextCell({
     <div
       onClick={(e) => { e.stopPropagation(); setEditing(true); setDraft(value?.toString() ?? ''); }}
       className="cursor-text hover:bg-gray-100 -mx-1 px-1 py-0.5 rounded min-h-[1.5rem]"
-      title="לחץ לעריכה"
+      title={t('common.edit')}
     >
       <DisplayValue field={field} value={value} />
     </div>
@@ -547,7 +547,7 @@ function NotesCell({
         onBlur={commit}
         rows={2}
         className="px-2 py-1 rounded border border-brand-400 text-sm bg-white w-full max-w-xs"
-        placeholder="הערה..."
+        placeholder={t('common.notes')}
         disabled={busy}
       />
     );
@@ -557,12 +557,12 @@ function NotesCell({
     <div
       onClick={(e) => { e.stopPropagation(); setEditing(true); }}
       className="cursor-text hover:bg-gray-100 -mx-1 px-1 py-0.5 rounded min-h-[1.5rem] text-xs text-gray-600 max-w-xs"
-      title="הוסף הערה"
+      title={t('common.notes')}
     >
       {record.notes ? (
         <span className="line-clamp-2">{record.notes}</span>
       ) : (
-        <span className="text-gray-300">+ הערה</span>
+        <span className="text-gray-300">+ {t('common.notes')}</span>
       )}
     </div>
   );
