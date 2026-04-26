@@ -119,6 +119,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, error: 'insert failed' });
     }
 
+    // ----- שלב 4.5: רשום ראיית חבר קבוצה (לבניית פרופיל) -----
+    // נעשה fire-and-forget כדי לא לעכב את ה-pipeline
+    supabase
+      .rpc('gg_record_member_sighting', {
+        p_workspace_id: group.workspace_id,
+        p_phone: senderPhone,
+        p_display_name: senderName,
+        p_group_id: group.id,
+        p_message_at: new Date().toISOString(),
+      })
+      .then((res: { error?: { message?: string } | null }) => {
+        if (res.error) {
+          console.error('[GG] member sighting failed:', res.error);
+        }
+      });
+
     // ----- שלב 5: אם הקבוצה לא מנוטרת ע"י GG, סיימנו -----
     if (!group.gg_enabled) {
       return NextResponse.json({ ok: true, skipped: 'gg not enabled for group' });

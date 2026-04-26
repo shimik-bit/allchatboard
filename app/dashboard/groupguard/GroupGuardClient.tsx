@@ -21,8 +21,10 @@ import {
   Hash,
   AlertTriangle,
   BarChart3,
+  User,
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
+import MembersTab from './MembersTab';
 
 // ============================================================================
 // Types
@@ -90,7 +92,7 @@ type Summary = {
   by_source: Record<string, number>;
 };
 
-type Tab = 'dashboard' | 'groups' | 'prefixes' | 'whitelist' | 'log';
+type Tab = 'dashboard' | 'members' | 'groups' | 'prefixes' | 'whitelist' | 'log';
 
 
 // ============================================================================
@@ -156,6 +158,12 @@ export default function GroupGuardClient({
               label="דשבורד"
             />
             <TabButton
+              active={tab === 'members'}
+              onClick={() => setTab('members')}
+              icon={<User className="w-4 h-4" />}
+              label="חברי קבוצות"
+            />
+            <TabButton
               active={tab === 'groups'}
               onClick={() => setTab('groups')}
               icon={<Users className="w-4 h-4" />}
@@ -184,6 +192,9 @@ export default function GroupGuardClient({
           <div className="p-4 sm:p-6">
             {tab === 'dashboard' && (
               <DashboardTab workspaceId={workspaceId} />
+            )}
+            {tab === 'members' && (
+              <MembersTab workspaceId={workspaceId} />
             )}
             {tab === 'groups' && (
               <GroupsTab workspaceId={workspaceId} canEdit={canEdit} />
