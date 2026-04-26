@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { LayoutGrid, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,11 +31,12 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen grid place-items-center bg-gradient-to-br from-brand-50 to-white px-4">
       <div className="w-full max-w-md">
-        <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center">
-            <LayoutGrid className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-display font-bold text-2xl">AllChatBoard</span>
+        <Link href="/" className="flex items-center justify-center mb-8">
+          <img
+            src="/taskflow-logo.png"
+            alt="TaskFlow AI"
+            className="h-24 w-auto object-contain"
+          />
         </Link>
 
         <div className="card p-8">

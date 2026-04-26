@@ -104,6 +104,17 @@ export default function Sidebar({
           <X className="w-5 h-5" />
         </button>
 
+        {/* TaskFlow AI brand stripe */}
+        <div className="px-4 pt-3 pb-2 border-b border-gray-100">
+          <Link href="/" className="flex items-center justify-center">
+            <img
+              src="/taskflow-logo.png"
+              alt="TaskFlow AI"
+              className="h-10 w-auto object-contain"
+            />
+          </Link>
+        </div>
+
         {/* Workspace header */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">

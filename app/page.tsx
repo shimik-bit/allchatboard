@@ -6,12 +6,13 @@ export default function HomePage() {
     <main className="min-h-screen bg-gradient-to-b from-white to-brand-50/30">
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center">
-              <LayoutGrid className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-display font-bold text-xl">AllChatBoard</span>
-          </div>
+          <Link href="/" className="flex items-center">
+            <img
+              src="/taskflow-logo.png"
+              alt="TaskFlow AI"
+              className="h-12 w-auto object-contain"
+            />
+          </Link>
           <div className="flex items-center gap-3">
             <Link href="/auth/login" className="btn-ghost">התחברות</Link>
             <Link href="/auth/signup" className="btn-primary">התחל חינם</Link>
@@ -32,7 +33,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-          AllChatBoard לוקח את כל ההודעות מקבוצות הוואטסאפ של העסק שלך, מסווג אותן עם AI,
+          TaskFlow AI לוקח את כל ההודעות מקבוצות הוואטסאפ של העסק שלך, מסווג אותן עם AI,
           וממלא אוטומטית טבלאות מותאמות לתחום שלך.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
@@ -65,7 +66,7 @@ export default function HomePage() {
 
       <footer className="border-t border-gray-100 mt-20 py-8">
         <div className="max-w-6xl mx-auto px-6 text-center text-sm text-gray-500">
-          © 2026 AllChatBoard. נבנה עם <Zap className="w-3.5 h-3.5 inline text-brand-500" /> בישראל.
+          © 2026 TaskFlow AI. מופעל על ידי <a href="https://allchat.co.il" className="hover:underline">AllChat</a>. נבנה עם <Zap className="w-3.5 h-3.5 inline text-brand-500" /> בישראל.
         </div>
       </footer>
     </main>
