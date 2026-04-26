@@ -401,7 +401,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     <DetectionToggle
                       icon={<Bot className="w-4 h-4" />}
                       label="זיהוי AI לתוכן"
-                      description="ניתוח חכם של הודעות חשודות (פאזה 4)"
+                      description="ניתוח חכם של הודעות חשודות (gpt-4o-mini)"
                       checked={g.gg_detections.ai_content}
                       onChange={(v) => {
                         const newDetections = { ...g.gg_detections, ai_content: v };
@@ -409,7 +409,6 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                         saveGroup(g.id, { gg_detections: newDetections });
                       }}
                       disabled={!canEdit}
-                      comingSoon
                     />
                     <DetectionToggle
                       icon={<UserX className="w-4 h-4" />}
@@ -1158,6 +1157,18 @@ function LogRow({ entry }: { entry: LogEntry }) {
     whitelist_skip: 'text-gray-600 bg-gray-50',
   };
 
+  // Build AI details string if this is an AI-triggered action
+  const aiCategories: string[] | null =
+    entry.trigger_source === 'ai' && Array.isArray(entry.trigger_details?.categories)
+      ? entry.trigger_details.categories
+      : null;
+  const aiConfidence: number | null =
+    entry.trigger_source === 'ai' && typeof entry.trigger_details?.confidence === 'number'
+      ? entry.trigger_details.confidence
+      : null;
+  const aiReason: string | null =
+    typeof entry.trigger_details?.reason === 'string' ? entry.trigger_details.reason : null;
+
   return (
     <div className="flex items-start gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
       <div className="flex-shrink-0 mt-0.5">
@@ -1191,6 +1202,28 @@ function LogRow({ entry }: { entry: LogEntry }) {
             </>
           )}
         </div>
+        {/* AI details - categories + confidence */}
+        {aiCategories && aiCategories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+            {aiCategories.map((cat) => (
+              <span
+                key={cat}
+                className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-medium"
+              >
+                {cat}
+              </span>
+            ))}
+            {aiConfidence !== null && (
+              <span className="text-[10px] text-gray-500">
+                ביטחון: {Math.round(aiConfidence * 100)}%
+              </span>
+            )}
+          </div>
+        )}
+        {/* AI reason */}
+        {aiReason && entry.trigger_source === 'ai' && (
+          <div className="text-xs text-gray-600 mt-1 italic">{aiReason}</div>
+        )}
       </div>
     </div>
   );

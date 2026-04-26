@@ -20,6 +20,7 @@ import type {
   AiSensitivity,
 } from '@/lib/types/groupguard';
 import { extractPhonePrefix } from './green-api-client';
+import { classifyMessage, riskToAction } from './ai-classifier';
 
 // ============================================================================
 // Input to the pipeline
@@ -36,6 +37,8 @@ export interface PipelineInput {
   messageText: string | null;
   isQuoted: boolean;
   quotedMessageWaId: string | null;      // אם זו הודעת ציטוט - מה ה-stanzaId המצוטט
+  groupName: string | null;              // לקונטקסט של AI
+  groupContext: string | null;           // hint על נושא הקבוצה (classification_hint)
   // הגדרות הקבוצה (מועברות מבחוץ כדי לא לקרוא ל-DB שוב)
   groupSettings: {
     detections: {
@@ -305,18 +308,61 @@ export async function processManualReport(
 
 
 // ============================================================================
-// LAYER 4 - AI content classification (placeholder for Phase 4)
+// LAYER 4 - AI content classification
 // ============================================================================
-// בפאזה 4 נחבר לפונקציית Edge gg-classify.
-// כאן רק פלייסהולדר.
+// מסווג את התוכן של ההודעה באמצעות OpenAI gpt-4o-mini.
+// אם זוהה כספאם - מחזיר DetectionResult עם action לפי risk level.
 
 async function checkAiContent(
-  _supabase: SupabaseClient,
-  _messageText: string,
-  _sensitivity: AiSensitivity,
+  supabase: SupabaseClient,
+  messageId: string,
+  messageText: string,
+  groupName: string | null,
+  groupContext: string | null,
+  sensitivity: AiSensitivity,
 ): Promise<DetectionResult | null> {
-  // TODO Phase 4: קריאה ל-Edge Function gg-classify
-  return null;
+  const classification = await classifyMessage(messageText, {
+    groupName,
+    groupContext,
+    sensitivity,
+  });
+
+  if (!classification) {
+    // הסיווג נכשל - לא חוסמים, ממשיכים הלאה
+    return null;
+  }
+
+  // שמירת תוצאת ה-AI ב-wa_messages לצורך חקירה/דיבאג
+  await supabase
+    .from('wa_messages')
+    .update({
+      gg_ai_score: classification.confidence,
+      gg_ai_categories: classification,
+      gg_ai_risk: classification.risk,
+    })
+    .eq('id', messageId);
+
+  if (!classification.is_spam || classification.risk === 'none') {
+    return null;
+  }
+
+  // המרת risk level לפעולה
+  const action = riskToAction(classification.risk, sensitivity);
+  if (!action) {
+    return null;
+  }
+
+  return {
+    shouldAct: true,
+    source: 'ai_content',
+    action,
+    reason: `AI: ${classification.risk} risk - ${classification.explanation}`,
+    details: {
+      categories: classification.categories,
+      confidence: classification.confidence,
+      risk: classification.risk,
+    },
+  };
 }
 
 
@@ -399,11 +445,14 @@ export async function runDetectionPipeline(
     }
   }
 
-  // ---- LAYER 4: AI content (Phase 4 - לא פעיל עדיין) ----
+  // ---- LAYER 4: AI content classification ----
   if (detections.ai_content && input.messageText) {
     const result = await checkAiContent(
       supabase,
+      input.messageId,
       input.messageText,
+      input.groupName,
+      input.groupContext,
       groupSettings.ai_sensitivity,
     );
     if (result?.shouldAct) return result;

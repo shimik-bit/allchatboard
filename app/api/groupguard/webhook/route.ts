@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
         id,
         workspace_id,
         green_api_chat_id,
+        group_name,
+        classification_hint,
         gg_enabled,
         gg_is_admin,
         gg_detections,
@@ -134,6 +136,8 @@ export async function POST(req: NextRequest) {
       messageText: messageInfo.text,
       isQuoted: !!messageInfo.quotedMessageId,
       quotedMessageWaId: messageInfo.quotedMessageId,
+      groupName: group.group_name,
+      groupContext: group.classification_hint,
       groupSettings: {
         detections: group.gg_detections,
         manual_tag_threshold: group.gg_manual_tag_threshold,
