@@ -126,9 +126,15 @@ export default async function DashboardPage() {
                     {Object.values(r.data || {}).slice(0, 2).join(' · ') || 'ללא תוכן'}
                   </div>
                 </div>
-                <div className="text-xs text-gray-400 shrink-0">
-                  {r.source === 'whatsapp' && '💬'}
-                  {r.source === 'manual' && '✏️'}
+                <div className="flex flex-col items-end gap-0.5 shrink-0">
+                  <div className="text-[11px] text-gray-500 whitespace-nowrap">
+                    {formatRelativeTime(r.created_at)}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {r.source === 'whatsapp' && '💬'}
+                    {r.source === 'manual' && '✏️'}
+                    {r.source === 'api' && '🔌'}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -193,4 +199,55 @@ function ResourceCard({
       </div>
     </Link>
   );
+}
+
+/**
+ * formatRelativeTime - Human-friendly Hebrew time labels
+ *
+ * Examples:
+ *   30s ago   → "לפני רגע"
+ *   5m ago    → "לפני 5 דק׳"
+ *   2h ago    → "לפני שעתיים"
+ *   today     → "היום, 14:30"
+ *   yesterday → "אתמול, 09:15"
+ *   < 7 days  → "יום ג׳, 14:30"
+ *   > 7 days  → "25.4.26"
+ */
+function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+
+  // Just now
+  if (diffSec < 60) return 'עכשיו';
+  if (diffMin < 5) return 'לפני רגע';
+  if (diffMin < 60) return `לפני ${diffMin} דק׳`;
+  if (diffHr === 1) return 'לפני שעה';
+  if (diffHr === 2) return 'לפני שעתיים';
+  if (diffHr < 12) return `לפני ${diffHr} שעות`;
+
+  const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+  // Same calendar day
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return `היום, ${time}`;
+
+  // Yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `אתמול, ${time}`;
+
+  // Within a week — show day of week
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 7) {
+    const day = d.toLocaleDateString('he-IL', { weekday: 'long' });
+    return `${day}, ${time}`;
+  }
+
+  // Older — full date
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 }
