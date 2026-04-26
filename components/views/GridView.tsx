@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { MessageSquare, Bell, Check, Pencil } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
+import { useT } from '@/lib/i18n/useT';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
@@ -17,6 +18,7 @@ export default function GridView({
   onRecordClick: (r: RecordRow) => void;
   onRecordUpdate?: (recordId: string, patch: { data?: any; notes?: string; assignee_phone_id?: string | null }, opts?: { notify?: boolean }) => Promise<void>;
 }) {
+  const { t } = useT();
   if (records.length === 0) {
     return (
       <div className="text-center py-20 text-gray-400">
@@ -88,6 +90,7 @@ function RecordRowComponent({
   onRowClick: () => void;
   onUpdate?: (recordId: string, patch: { data?: any; notes?: string; assignee_phone_id?: string | null }, opts?: { notify?: boolean }) => Promise<void>;
 }) {
+  const { t } = useT();
   return (
     <tr
       onClick={onRowClick}
@@ -183,6 +186,7 @@ function AssigneeCell({
   phones: { id: string; display_name: string; job_title: string | null }[];
   onChange: (phoneId: string | null) => Promise<void>;
 }) {
+  const { t } = useT();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
