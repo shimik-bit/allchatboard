@@ -3,7 +3,7 @@ import {
   MessageSquare, Sparkles, LayoutGrid, Zap,
   Users, Shield, Search, BarChart3, Award,
   Trash2, UserX, Crown, Check, X, ArrowLeft,
-  Briefcase, Globe,
+  Briefcase, Globe, Bell,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -89,7 +89,7 @@ export default function HomePage() {
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               הוסיפו את הבוט לקבוצות הוואטסאפ שלכם וקבלו AI שלומד מי החברים, מה הם עושים,
-              ומגן על הקבוצה מספאם.
+              ומגן על הקבוצה מספאם - גם בלי הרשאות אדמין.
             </p>
           </div>
 
@@ -137,9 +137,9 @@ export default function HomePage() {
                   desc="עיגול אחוזים שגדל ככל שאוספים יותר מידע על כל חבר"
                 />
                 <BotFeature
-                  icon={<MessageSquare className="w-4 h-4" />}
-                  title="מאגר הודעות חכם"
-                  desc="כל ההודעות נשמרות ומוצגות בפרופיל של השולח"
+                  icon={<Bell className="w-4 h-4" />}
+                  title="🆕 תיוג מנהלים על ספאם"
+                  desc="הבוט מזהה ספאם ומתייג אנשים שאת מגדירה - הם מטפלים ידנית"
                 />
               </ul>
             </div>
@@ -232,6 +232,11 @@ export default function HomePage() {
               />
               <ComparisonRow
                 feature="לוג פעילות מלא"
+                member={true}
+                admin={true}
+              />
+              <ComparisonRow
+                feature="🆕 תיוג מנהלים על ספאם"
                 member={true}
                 admin={true}
               />

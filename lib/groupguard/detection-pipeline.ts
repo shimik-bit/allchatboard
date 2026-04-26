@@ -49,6 +49,9 @@ export interface PipelineInput {
     };
     manual_tag_threshold: number;
     ai_sensitivity: AiSensitivity;
+    is_bot_admin: boolean;               // האם הבוט אדמין (משפיע על איזה action אפשרי)
+    notify_admins: boolean;              // אם הבוט לא אדמין - האם לתייג מנהלים
+    admin_phones: string[];              // מספרים לתייג בהודעת spam
   };
   botPhone: string;                      // המספר של הבוט (לזיהוי תיוג)
 }
@@ -371,6 +374,49 @@ async function checkAiContent(
 // ============================================================================
 
 /**
+ * אם הבוט לא אדמין בקבוצה - אי אפשר למחוק/להסיר משתתפים.
+ * הפונקציה הזאת ממירה את ה-action לחלופה אפשרית:
+ *   - אם notify_admins מופעל ויש מספרים - ממירה ל-'notify_admins'
+ *   - אחרת - ממירה ל-'warn' (אזהרה רגילה בקבוצה)
+ *
+ * action כמו 'warn' שלא דורש אדמין - לא משתנה.
+ */
+function adaptActionToBotPermissions(
+  result: DetectionResult,
+  groupSettings: PipelineInput['groupSettings'],
+): DetectionResult {
+  if (!result.shouldAct || !result.action) {
+    return result;
+  }
+
+  const requiresAdmin = result.action === 'kick' || result.action === 'delete_message';
+  if (!requiresAdmin) {
+    return result; // 'warn' עובד גם בלי הרשאות אדמין
+  }
+
+  if (groupSettings.is_bot_admin) {
+    return result; // הבוט אדמין - הכל בסדר
+  }
+
+  // הבוט לא אדמין. בודקים אם notify_admins מופעל ויש מספרים מוגדרים
+  if (groupSettings.notify_admins && groupSettings.admin_phones.length > 0) {
+    return {
+      ...result,
+      action: 'notify_admins',
+      reason: `${result.reason} (הבוט לא אדמין - מתייג מנהלים במקום)`,
+    };
+  }
+
+  // fallback - שולחים אזהרה רגילה
+  return {
+    ...result,
+    action: 'warn',
+    reason: `${result.reason} (הבוט לא אדמין - שולח אזהרה בלבד)`,
+  };
+}
+
+
+/**
  * מריץ את כל ה-detection pipeline על הודעה אחת.
  * מחזיר את ה-DetectionResult הראשון שדורש פעולה,
  * או null אם הכל נקי.
@@ -401,13 +447,13 @@ export async function runDetectionPipeline(
   // ---- LAYER 1: Global blocklist ----
   if (detections.global_blocklist) {
     const result = await checkGlobalBlocklist(supabase, input.senderPhone);
-    if (result?.shouldAct) return result;
+    if (result?.shouldAct) return adaptActionToBotPermissions(result, groupSettings);
   }
 
   // ---- LAYER 2: Phone prefix ----
   if (detections.phone_prefix) {
     const result = await checkPhonePrefix(supabase, input.workspaceId, input.senderPhone);
-    if (result?.shouldAct) return result;
+    if (result?.shouldAct) return adaptActionToBotPermissions(result, groupSettings);
   }
 
   // ---- LAYER 3: Manual report flow ----
@@ -431,7 +477,7 @@ export async function runDetectionPipeline(
         reporterName: reportContext.reporterName,
         threshold: groupSettings.manual_tag_threshold,
       });
-      if (result?.shouldAct) return result;
+      if (result?.shouldAct) return adaptActionToBotPermissions(result, groupSettings);
       // אם זה היה manual report (גם אם לא הגיע ל-threshold), אנחנו מסיימים פה.
       // ההודעה עצמה היא תיוג, לא ספאם.
       if (reportContext.isReport) {
@@ -455,7 +501,7 @@ export async function runDetectionPipeline(
       input.groupContext,
       groupSettings.ai_sensitivity,
     );
-    if (result?.shouldAct) return result;
+    if (result?.shouldAct) return adaptActionToBotPermissions(result, groupSettings);
   }
 
   // ---- כל הבדיקות עברו - הודעה נקייה ----

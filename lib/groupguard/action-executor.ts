@@ -42,6 +42,9 @@ export interface ExecuteParams {
     instanceId: string;
     apiToken: string;
   };
+  // עבור notify_admins:
+  adminPhones?: string[];                 // מספרים לתייג (ללא suffix)
+  notifyMessage?: string | null;          // הודעה מותאמת אישית
 }
 
 
@@ -86,6 +89,9 @@ export async function executeAction(
       break;
     case 'warn':
       actionResult = await doWarn(params, decision.reason);
+      break;
+    case 'notify_admins':
+      actionResult = await doNotifyAdmins(params, decision.reason);
       break;
     default:
       actionResult = {
@@ -219,6 +225,79 @@ async function doWarn(
   return {
     success: result.ok,
     action: 'warn',
+    targetPhone: params.targetPhone,
+    error: result.error,
+    greenApiResponse: result.data,
+  };
+}
+
+
+/**
+ * doNotifyAdmins - תיוג מנהלי הקבוצה כשמזוהה ספאם.
+ *
+ * זוהי החלופה ל-delete_message / kick שלא דורשת הרשאות אדמין לבוט.
+ * הבוט שולח הודעה בקבוצה שמתייגת את המנהלים שהוגדרו, מציינת את החשוד,
+ * ומאפשרת להם לפעול ידנית (להסיר/לחסום).
+ *
+ * הודעת ברירת מחדל:
+ *   ⚠️ זוהתה הודעת ספאם
+ *   המשתמש: @+972501234567
+ *   סיבה: <reason>
+ *   <admin tags>
+ *
+ * הלקוח יכול להתאים אישית דרך gg_notify_message ולהשתמש ב-{user}, {reason}, {admins}.
+ */
+async function doNotifyAdmins(
+  params: ExecuteParams,
+  reason: string,
+): Promise<ActionResult> {
+  const adminPhones = params.adminPhones ?? [];
+
+  if (adminPhones.length === 0) {
+    return {
+      success: false,
+      action: 'notify_admins',
+      targetPhone: params.targetPhone,
+      error: 'No admin phones configured for this group',
+    };
+  }
+
+  // Build admin tag string: "@972501234567 @972502345678"
+  const adminTags = adminPhones
+    .map((phone) => `@${stripWhatsAppSuffix(phone)}`)
+    .join(' ');
+
+  const userTag = `@${stripWhatsAppSuffix(params.targetPhone)}`;
+  const userName = params.targetName ? `(${params.targetName})` : '';
+
+  // Use custom message if provided, else default
+  let messageText: string;
+  if (params.notifyMessage && params.notifyMessage.trim().length > 0) {
+    messageText = params.notifyMessage
+      .replace(/\{user\}/g, userTag)
+      .replace(/\{userName\}/g, userName)
+      .replace(/\{reason\}/g, reason)
+      .replace(/\{admins\}/g, adminTags);
+  } else {
+    messageText =
+      `🚨 *זוהתה הודעת ספאם*\n` +
+      `\n` +
+      `*משתמש:* ${userTag} ${userName}\n` +
+      `*סיבה:* ${reason}\n` +
+      `\n` +
+      `${adminTags} - לטיפולכם 👆`;
+  }
+
+  const result = await sendMessage(
+    params.greenApi,
+    params.whatsappGroupId,
+    messageText,
+    params.whatsappMessageId ?? undefined,
+  );
+
+  return {
+    success: result.ok,
+    action: 'notify_admins',
     targetPhone: params.targetPhone,
     error: result.error,
     greenApiResponse: result.data,

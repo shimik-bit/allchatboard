@@ -19,6 +19,7 @@ export type ActionType =
   | 'warn'              // אזהרה (תגובה בקבוצה)
   | 'delete_message'    // מחיקת הודעה בלבד
   | 'kick'              // הוצאה מהקבוצה (כולל מחיקה)
+  | 'notify_admins'     // תיוג מנהלי הקבוצה - לא דורש שהבוט יהיה אדמין
   | 'blocklist_add'     // הוספה למאגר גלובלי
   | 'whitelist_skip';   // לא בוצעה פעולה כי המשתמש ב-whitelist
 
@@ -44,6 +45,9 @@ export interface GroupGuardSettings {
   gg_ai_sensitivity: AiSensitivity;
   gg_participants_count: number;
   gg_enabled_at: string | null;          // ISO timestamp
+  gg_notify_admins: boolean;             // האם לתייג מנהלים בעת זיהוי ספאם
+  gg_admin_phones: string[];             // מספרי טלפון של מנהלים לתיוג
+  gg_notify_message: string | null;      // הודעת התיוג המותאמת אישית
 }
 
 

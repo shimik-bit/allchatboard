@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   BarChart3,
   User,
+  Bell,
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
@@ -47,6 +48,9 @@ type GGGroup = {
   gg_ai_sensitivity: 'low' | 'medium' | 'high';
   gg_participants_count: number;
   gg_enabled_at: string | null;
+  gg_notify_admins: boolean;
+  gg_admin_phones: string[];
+  gg_notify_message: string | null;
 };
 
 type Stats = Record<string, { kicks: number; deletes: number; reports: number }>;
@@ -535,6 +539,16 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     ))}
                   </div>
                 </div>
+
+                {/* Notify admins on spam (alternative when bot is not admin) */}
+                <NotifyAdminsBlock
+                  group={g}
+                  canEdit={canEdit}
+                  onUpdate={(patch) => {
+                    updateLocal(g.id, patch);
+                    saveGroup(g.id, patch);
+                  }}
+                />
 
                 {/* Status indicator */}
                 <div className="text-xs text-gray-500 flex items-center justify-between pt-2 border-t border-gray-100">
@@ -1261,6 +1275,194 @@ function LogRow({ entry }: { entry: LogEntry }) {
           <div className="text-xs text-gray-600 mt-1 italic">{aiReason}</div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// NotifyAdminsBlock - הגדרת תיוג מנהלים כשהבוט לא אדמין
+// ============================================================================
+
+function NotifyAdminsBlock({
+  group,
+  canEdit,
+  onUpdate,
+}: {
+  group: GGGroup;
+  canEdit: boolean;
+  onUpdate: (patch: Partial<GGGroup>) => void;
+}) {
+  const [phoneInput, setPhoneInput] = useState('');
+  const [showCustomMsg, setShowCustomMsg] = useState(!!group.gg_notify_message);
+
+  function addPhone() {
+    const cleaned = phoneInput.replace(/\D/g, '');
+    if (cleaned.length < 8) return;
+    if (group.gg_admin_phones.includes(cleaned)) {
+      setPhoneInput('');
+      return;
+    }
+    if (group.gg_admin_phones.length >= 20) return;
+    onUpdate({ gg_admin_phones: [...group.gg_admin_phones, cleaned] });
+    setPhoneInput('');
+  }
+
+  function removePhone(phone: string) {
+    onUpdate({
+      gg_admin_phones: group.gg_admin_phones.filter((p) => p !== phone),
+    });
+  }
+
+  // Show recommendation if bot is NOT admin and notify_admins is OFF
+  const showRecommendation = !group.gg_is_admin && !group.gg_notify_admins;
+
+  return (
+    <div className={`rounded-lg border p-3 ${
+      group.gg_notify_admins
+        ? 'border-amber-300 bg-amber-50/40'
+        : 'border-gray-200 bg-gray-50/40'
+    }`}>
+      {/* Header with toggle */}
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5 text-amber-600" />
+            תיוג מנהלים בעת זיהוי ספאם
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            הבוט יתייג אנשים שתגדירו במקום למחוק/להוציא בעצמו
+          </div>
+        </div>
+        <input
+          type="checkbox"
+          checked={group.gg_notify_admins}
+          disabled={!canEdit}
+          onChange={(e) => onUpdate({ gg_notify_admins: e.target.checked })}
+          className="w-5 h-5 rounded text-amber-600 disabled:opacity-50"
+        />
+      </div>
+
+      {/* Recommendation when bot is not admin */}
+      {showRecommendation && (
+        <div className="text-xs bg-amber-100 text-amber-800 rounded p-2 mb-2 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            הבוט לא אדמין בקבוצה - הפעילי את האופציה הזו כדי לקבל התראות במקום
+            ניסיונות מחיקה שייכשלו.
+          </span>
+        </div>
+      )}
+
+      {/* Configuration when enabled */}
+      {group.gg_notify_admins && (
+        <div className="space-y-2.5 mt-3">
+          {/* Phone list */}
+          <div>
+            <div className="text-xs font-medium text-gray-700 mb-1">
+              מספרים לתיוג ({group.gg_admin_phones.length}/20)
+            </div>
+
+            {/* Existing phones */}
+            {group.gg_admin_phones.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {group.gg_admin_phones.map((phone) => (
+                  <div
+                    key={phone}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-gray-300 rounded text-xs"
+                    dir="ltr"
+                  >
+                    <span>+{phone}</span>
+                    {canEdit && (
+                      <button
+                        onClick={() => removePhone(phone)}
+                        className="text-gray-400 hover:text-red-600"
+                        type="button"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add input */}
+            {canEdit && group.gg_admin_phones.length < 20 && (
+              <div className="flex gap-1">
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addPhone();
+                    }
+                  }}
+                  placeholder="972501234567"
+                  dir="ltr"
+                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={addPhone}
+                  disabled={phoneInput.replace(/\D/g, '').length < 8}
+                  className="px-2.5 py-1 text-xs bg-amber-600 text-white rounded disabled:opacity-50 hover:bg-amber-700"
+                >
+                  הוסף
+                </button>
+              </div>
+            )}
+            <div className="text-[10px] text-gray-400 mt-1">
+              💡 פורמט בינלאומי בלי + (לדוגמה: 972501234567).
+              המספרים חייבים להיות חברים בקבוצה כדי שהתיוג יעבוד.
+            </div>
+          </div>
+
+          {/* Custom message toggle */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowCustomMsg(!showCustomMsg)}
+              className="text-xs text-gray-600 hover:text-gray-900 underline"
+            >
+              {showCustomMsg ? 'הסתר' : 'התאמה אישית של הודעת התיוג'}
+            </button>
+
+            {showCustomMsg && (
+              <div className="mt-2">
+                <textarea
+                  value={group.gg_notify_message || ''}
+                  disabled={!canEdit}
+                  onChange={(e) => onUpdate({ gg_notify_message: e.target.value || null })}
+                  placeholder="🚨 ספאם זוהה!&#10;משתמש: {user} {userName}&#10;סיבה: {reason}&#10;{admins} - לטיפולכם"
+                  rows={4}
+                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 resize-none"
+                />
+                <div className="text-[10px] text-gray-400 mt-1">
+                  משתנים זמינים: <code className="bg-gray-100 px-1">{'{user}'}</code> -
+                  תיוג השולח,
+                  <code className="bg-gray-100 px-1 mx-1">{'{userName}'}</code> -
+                  שם השולח,
+                  <code className="bg-gray-100 px-1 mx-1">{'{reason}'}</code> -
+                  סיבה,
+                  <code className="bg-gray-100 px-1">{'{admins}'}</code> -
+                  תיוג המנהלים.
+                  השאירי ריק להודעת ברירת מחדל.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Info note */}
+          <div className="text-xs text-gray-500 bg-white/60 rounded p-2 border border-amber-200">
+            💡 כשהבוט אדמין: ימחק/יסיר אוטומטית.
+            <br />
+            כשהבוט לא אדמין: יתייג את המספרים כאן עם פרטי המקרה.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -49,7 +49,10 @@ export async function GET(req: NextRequest) {
       gg_manual_tag_threshold,
       gg_ai_sensitivity,
       gg_participants_count,
-      gg_enabled_at
+      gg_enabled_at,
+      gg_notify_admins,
+      gg_admin_phones,
+      gg_notify_message
     `)
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false });
@@ -135,6 +138,24 @@ export async function PATCH(req: NextRequest) {
   }
   if (['low', 'medium', 'high'].includes(body.gg_ai_sensitivity)) {
     patch.gg_ai_sensitivity = body.gg_ai_sensitivity;
+  }
+  if (typeof body.gg_notify_admins === 'boolean') {
+    patch.gg_notify_admins = body.gg_notify_admins;
+  }
+  if (Array.isArray(body.gg_admin_phones)) {
+    // Sanitize: only digits, max 20 phones, each up to 20 chars
+    const phones = body.gg_admin_phones
+      .filter((p: unknown): p is string => typeof p === 'string')
+      .map((p: string) => p.replace(/\D/g, '').substring(0, 20))
+      .filter((p: string) => p.length >= 8)
+      .slice(0, 20);
+    patch.gg_admin_phones = phones;
+  }
+  if (typeof body.gg_notify_message === 'string' || body.gg_notify_message === null) {
+    const msg = typeof body.gg_notify_message === 'string'
+      ? body.gg_notify_message.trim().substring(0, 1000)
+      : null;
+    patch.gg_notify_message = msg && msg.length > 0 ? msg : null;
   }
 
   if (Object.keys(patch).length === 0) {

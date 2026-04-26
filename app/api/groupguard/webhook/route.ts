@@ -68,7 +68,10 @@ export async function POST(req: NextRequest) {
         gg_is_admin,
         gg_detections,
         gg_manual_tag_threshold,
-        gg_ai_sensitivity
+        gg_ai_sensitivity,
+        gg_notify_admins,
+        gg_admin_phones,
+        gg_notify_message
       `)
       .eq('green_api_chat_id', chatId)
       .maybeSingle();
@@ -158,6 +161,9 @@ export async function POST(req: NextRequest) {
         detections: group.gg_detections,
         manual_tag_threshold: group.gg_manual_tag_threshold,
         ai_sensitivity: group.gg_ai_sensitivity,
+        is_bot_admin: group.gg_is_admin ?? false,
+        notify_admins: group.gg_notify_admins ?? false,
+        admin_phones: group.gg_admin_phones ?? [],
       },
       botPhone: payload.instanceData.wid,
     });
@@ -192,6 +198,8 @@ export async function POST(req: NextRequest) {
           instanceId: workspace.whatsapp_instance_id ?? '',
           apiToken: workspace.whatsapp_token ?? '',
         },
+        adminPhones: group.gg_admin_phones ?? [],
+        notifyMessage: group.gg_notify_message ?? null,
       });
     }
 
