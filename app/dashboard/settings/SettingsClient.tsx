@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, WorkspaceMember, MemberRole } from '@/lib/types/database';
 import { Users, Palette, Building2, Check, Crown, Shield, Edit3, Eye } from 'lucide-react';
+import LanguageSettings from './LanguageSettings';
+import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
 
 const COLORS = [
   '#7c3aed', '#2563eb', '#0891b2', '#059669',
@@ -168,6 +170,13 @@ export default function SettingsClient({
           )}
         </div>
       </div>
+
+      {/* Language settings */}
+      <LanguageSettings
+        workspaceId={workspace.id}
+        currentLocale={isValidLocale((workspace as any).locale) ? (workspace as any).locale : DEFAULT_LOCALE}
+        canEdit={canEdit}
+      />
 
       {/* Team members */}
       <div className="card p-6 mb-6">

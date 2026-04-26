@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/Sidebar';
 import OnboardingTour from '@/components/OnboardingTour';
 import { DevModeIndicator } from '@/components/DevMode';
+import { LanguageProvider } from '@/lib/i18n/provider';
+import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -24,6 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ? membership.workspaces[0]
     : membership.workspaces;
 
+  // Pick locale from workspace (defaults to Hebrew)
+  const locale = isValidLocale((workspace as any).locale) ? (workspace as any).locale : DEFAULT_LOCALE;
+
   // Get tables
   const { data: tables } = await supabase
     .from('tables')
@@ -33,19 +38,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .order('position');
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar
-        workspace={workspace}
-        tables={tables || []}
-        userEmail={user.email || ''}
-      />
-      {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
-          overlap content. Reset on md+ where the hamburger is hidden. */}
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
-        <DevModeIndicator />
-        {children}
-      </main>
-      <OnboardingTour />
-    </div>
+    <LanguageProvider locale={locale}>
+      <div className="flex h-screen bg-gray-50" dir={locale === 'he' ? 'rtl' : 'ltr'}>
+        <Sidebar
+          workspace={workspace}
+          tables={tables || []}
+          userEmail={user.email || ''}
+        />
+        {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
+            overlap content. Reset on md+ where the hamburger is hidden. */}
+        <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+          <DevModeIndicator />
+          {children}
+        </main>
+        <OnboardingTour />
+      </div>
+    </LanguageProvider>
   );
 }
