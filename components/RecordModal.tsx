@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow } from '@/lib/types/database';
-import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip } from 'lucide-react';
+import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 import CityAutocomplete from '@/components/CityAutocomplete';
 
@@ -15,6 +15,7 @@ export default function RecordModal({
   onClose,
   onSave,
   onDelete,
+  onMove,
 }: {
   table: Table;
   fields: Field[];
@@ -23,6 +24,7 @@ export default function RecordModal({
   onClose: () => void;
   onSave: (data: Record<string, any>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onMove?: (record: RecordRow) => void;
 }) {
   const [formData, setFormData] = useState<Record<string, any>>(record?.data || {});
   const [saving, setSaving] = useState(false);
@@ -176,7 +178,7 @@ export default function RecordModal({
 
         {/* Footer - sticky bottom action bar with mobile-friendly shadow */}
         <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-3 md:py-4 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none md:bg-gray-50/50">
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
             {!isNew && onDelete && canEdit && (
               <button
                 onClick={handleDelete}
@@ -185,6 +187,17 @@ export default function RecordModal({
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="hidden md:inline">מחיקה</span>
+              </button>
+            )}
+            {!isNew && onMove && canEdit && record && (
+              <button
+                onClick={() => onMove(record)}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-brand-600 hover:bg-brand-50 transition-colors disabled:opacity-50"
+                title="העבר לטבלה אחרת"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                <span className="hidden md:inline">העבר ל...</span>
               </button>
             )}
           </div>

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
-  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell,
+  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
@@ -144,6 +144,18 @@ export default function Sidebar({
         >
           <MessageSquare className="w-4 h-4" />
           וואטסאפ
+        </Link>
+
+        <Link
+          href="/dashboard/automations"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-colors ${
+            pathname === '/dashboard/automations'
+              ? 'bg-brand-50 text-brand-700'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Zap className="w-4 h-4" />
+          אוטומציות
         </Link>
 
         <Link

@@ -8,6 +8,7 @@ import GridView from '@/components/views/GridView';
 import KanbanView from '@/components/views/KanbanView';
 import CalendarView from '@/components/views/CalendarView';
 import RecordModal from '@/components/RecordModal';
+import MoveRecordModal from '@/components/MoveRecordModal';
 import TablePermissionsModal from '@/components/TablePermissionsModal';
 import FieldsManagerModal from '@/components/FieldsManagerModal';
 import {
@@ -53,6 +54,30 @@ export default function TableClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
+
+  // For "Move record" feature - load list of other tables in workspace lazily
+  const [otherTables, setOtherTables] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
+  const [moveTargetRecord, setMoveTargetRecord] = useState<RecordRow | null>(null);
+
+  // Load other tables when needed (called when user clicks "Move to...")
+  const loadOtherTables = useCallback(async () => {
+    if (otherTables.length > 0) return;  // already loaded
+    const { data } = await supabase
+      .from('tables')
+      .select('id, name, icon')
+      .eq('workspace_id', table.workspace_id)
+      .eq('is_archived', false)
+      .neq('id', table.id)
+      .order('position');
+    setOtherTables(data || []);
+  }, [supabase, table.workspace_id, table.id, otherTables.length]);
+
+  function openMoveModal(record: RecordRow) {
+    loadOtherTables();
+    setMoveTargetRecord(record);
+    setModalOpen(false);  // Close the record modal
+    setEditingRecord(null);
+  }
 
   // When the URL has ?focus=<recordId> (e.g. from a WhatsApp short link
   // /r/<recordId>), open that record's detail modal automatically.
@@ -472,6 +497,25 @@ export default function TableClient({
           }}
           onSave={handleSave}
           onDelete={editingRecord ? handleDelete : undefined}
+          onMove={canEdit ? openMoveModal : undefined}
+        />
+      )}
+
+      {/* Move record modal */}
+      {moveTargetRecord && (
+        <MoveRecordModal
+          record={moveTargetRecord}
+          sourceTable={{ id: table.id, name: table.name }}
+          sourceFields={fields.map(f => ({ id: f.id, name: f.name, slug: f.slug, type: f.type, is_primary: f.is_primary }))}
+          allTables={otherTables}
+          onClose={() => setMoveTargetRecord(null)}
+          onMoved={(newRecordId, newTableId) => {
+            setMoveTargetRecord(null);
+            // Refresh records (the source might have changed status or been archived)
+            router.refresh();
+            // Optional: navigate to new record
+            // router.push(`/dashboard/${newTableId}?focus=${newRecordId}`);
+          }}
         />
       )}
 
