@@ -157,7 +157,7 @@ export default function Sidebar({
           }`}
         >
           <Shield className="w-4 h-4" />
-          GroupGuard
+          הגנה מספאם
         </Link>
 
         <Link
