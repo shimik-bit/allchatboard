@@ -20,7 +20,9 @@ import {
   UserX,
   Hash,
   AlertTriangle,
+  BarChart3,
 } from 'lucide-react';
+import DashboardTab from './DashboardTab';
 
 // ============================================================================
 // Types
@@ -88,7 +90,7 @@ type Summary = {
   by_source: Record<string, number>;
 };
 
-type Tab = 'groups' | 'prefixes' | 'whitelist' | 'log';
+type Tab = 'dashboard' | 'groups' | 'prefixes' | 'whitelist' | 'log';
 
 
 // ============================================================================
@@ -104,7 +106,7 @@ export default function GroupGuardClient({
   workspaceName: string;
   canEdit: boolean;
 }) {
-  const [tab, setTab] = useState<Tab>('groups');
+  const [tab, setTab] = useState<Tab>('dashboard');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -134,6 +136,12 @@ export default function GroupGuardClient({
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="border-b border-gray-200 flex overflow-x-auto">
             <TabButton
+              active={tab === 'dashboard'}
+              onClick={() => setTab('dashboard')}
+              icon={<BarChart3 className="w-4 h-4" />}
+              label="דשבורד"
+            />
+            <TabButton
               active={tab === 'groups'}
               onClick={() => setTab('groups')}
               icon={<Users className="w-4 h-4" />}
@@ -160,6 +168,9 @@ export default function GroupGuardClient({
           </div>
 
           <div className="p-4 sm:p-6">
+            {tab === 'dashboard' && (
+              <DashboardTab workspaceId={workspaceId} />
+            )}
             {tab === 'groups' && (
               <GroupsTab workspaceId={workspaceId} canEdit={canEdit} />
             )}
