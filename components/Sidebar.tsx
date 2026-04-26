@@ -10,6 +10,7 @@ import {
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
+import { useT } from '@/lib/i18n/useT';
 
 export default function Sidebar({
   workspace, tables, userEmail,
@@ -21,6 +22,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useT();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Mobile drawer state. The sidebar is hidden by default on mobile (<md) and
@@ -63,7 +65,7 @@ export default function Sidebar({
       {!mobileOpen && (
         <button
           onClick={() => setMobileOpen(true)}
-          aria-label="פתח תפריט"
+          aria-label={t('common.open')}
           className="md:hidden fixed top-3 right-3 z-40 w-10 h-10 grid place-items-center bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition"
         >
           <Menu className="w-5 h-5 text-gray-700" />
@@ -96,7 +98,7 @@ export default function Sidebar({
         {/* Mobile-only close button inside the drawer header */}
         <button
           onClick={() => setMobileOpen(false)}
-          aria-label="סגור תפריט"
+          aria-label={t('common.close')}
           className="md:hidden absolute top-3 left-3 z-10 w-8 h-8 grid place-items-center text-gray-500 hover:bg-gray-100 rounded-lg transition"
         >
           <X className="w-5 h-5" />
@@ -114,7 +116,7 @@ export default function Sidebar({
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm truncate">{workspace.name}</div>
               <div className="text-xs text-gray-500">
-                {workspace.plan === 'trial' ? `ניסיון - ${trialDays} ימים` : workspace.plan}
+                {workspace.plan === 'trial' ? `${t('common.optional')} - ${trialDays}d` : workspace.plan}
               </div>
             </div>
           </div>
@@ -131,7 +133,7 @@ export default function Sidebar({
           }`}
         >
           <LayoutGrid className="w-4 h-4" />
-          סקירה
+          {t('nav.overview')}
         </Link>
 
         <Link
@@ -143,7 +145,7 @@ export default function Sidebar({
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          וואטסאפ
+          {t('nav.whatsapp')}
         </Link>
 
         <Link
@@ -155,7 +157,7 @@ export default function Sidebar({
           }`}
         >
           <Zap className="w-4 h-4" />
-          אוטומציות
+          {t('nav.automations')}
         </Link>
 
         <Link
@@ -167,7 +169,7 @@ export default function Sidebar({
           }`}
         >
           <Bell className="w-4 h-4" />
-          דוחות מתוזמנים
+          {t('nav.reports')}
         </Link>
 
         <Link
@@ -179,7 +181,7 @@ export default function Sidebar({
           }`}
         >
           <Key className="w-4 h-4" />
-          מפתחות API
+          {t('nav.api_keys')}
         </Link>
 
         <Link
@@ -191,7 +193,7 @@ export default function Sidebar({
           }`}
         >
           <Phone className="w-4 h-4" />
-          מספרים מורשים
+          {t('nav.phones')}
         </Link>
 
         <Link
@@ -203,25 +205,25 @@ export default function Sidebar({
           }`}
         >
           <UserCheck className="w-4 h-4" />
-          שיוך פניות
+          {t('nav.assignments')}
         </Link>
 
         <div className="mt-6 mb-2 px-3 flex items-center justify-between">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            הטבלאות שלי
+            {t('nav.tables')}
           </span>
           <div className="flex items-center gap-0.5">
             <Link
               href="/dashboard/templates"
               className="p-1 rounded hover:bg-gray-100"
-              title="הוסף תבנית מוכנה"
+              title={t('tables.new')}
             >
               <FileText className="w-3.5 h-3.5 text-gray-500" />
             </Link>
             <Link
               href="/dashboard/tables/new"
               className="p-1 rounded hover:bg-gray-100"
-              title="הוסף טבלה חדשה"
+              title={t('tables.new')}
             >
               <Plus className="w-3.5 h-3.5 text-gray-500" />
             </Link>
@@ -230,7 +232,7 @@ export default function Sidebar({
 
         {tables.length === 0 ? (
           <div className="px-3 py-4 text-xs text-gray-400 text-center">
-            אין טבלאות עדיין
+            {t('tables.no_tables')}
           </div>
         ) : (
           tables.map((t) => {
@@ -256,7 +258,7 @@ export default function Sidebar({
         <div className="mt-6 mx-2 p-3 rounded-xl bg-gradient-to-br from-brand-50 to-purple-50 border border-brand-100">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-700 mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            שימוש ב-AI החודש
+            {t('common.info')}
           </div>
           <div className="flex items-end justify-between text-xs text-gray-600 mb-1.5">
             <span>{workspace.ai_messages_used.toLocaleString()}</span>
@@ -300,7 +302,7 @@ export default function Sidebar({
               onClick={() => setShowUserMenu(false)}
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
             >
-              <Settings className="w-4 h-4" /> הגדרות
+              <Settings className="w-4 h-4" /> {t('nav.settings')}
             </Link>
             <button
               onClick={() => {
@@ -310,7 +312,7 @@ export default function Sidebar({
               }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-left"
             >
-              <HelpCircle className="w-4 h-4" /> סיור הכרות
+              <HelpCircle className="w-4 h-4" /> {t('nav.help')}
             </button>
             <a
               href="https://docs.allchatboard.vercel.app"
@@ -319,13 +321,13 @@ export default function Sidebar({
               onClick={() => setShowUserMenu(false)}
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
             >
-              <BookOpen className="w-4 h-4" /> מדריך משתמש
+              <BookOpen className="w-4 h-4" /> {t('nav.docs')}
             </a>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 text-red-600"
             >
-              <LogOut className="w-4 h-4" /> התנתקות
+              <LogOut className="w-4 h-4" /> {t('nav.logout')}
             </button>
           </div>
         )}
