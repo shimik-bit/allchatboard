@@ -7,6 +7,7 @@ import type { Workspace, WorkspaceMember, MemberRole } from '@/lib/types/databas
 import { Users, Palette, Building2, Check, Crown, Shield, Edit3, Eye } from 'lucide-react';
 import LanguageSettings from './LanguageSettings';
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { useT } from '@/lib/i18n/useT';
 
 const COLORS = [
   '#7c3aed', '#2563eb', '#0891b2', '#059669',
@@ -31,6 +32,7 @@ export default function SettingsClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useT();
 
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.business_description || '');
@@ -56,9 +58,9 @@ export default function SettingsClient({
 
     setSaving(false);
     if (error) {
-      setSavedMsg('שגיאה: ' + error.message);
+      setSavedMsg(t('errors.save_failed') + ': ' + error.message);
     } else {
-      setSavedMsg('נשמר בהצלחה ✓');
+      setSavedMsg(t('records.saved') + ' ✓');
       setTimeout(() => setSavedMsg(''), 3000);
       router.refresh();
     }
@@ -71,15 +73,15 @@ export default function SettingsClient({
   return (
     <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-display font-bold text-3xl mb-1">הגדרות</h1>
-        <p className="text-gray-500">ניהול הsworkspace והצוות</p>
+        <h1 className="font-display font-bold text-3xl mb-1">{t('settings.title')}</h1>
+        <p className="text-gray-500">{t('settings.workspace')}</p>
       </div>
 
       {/* Plan */}
       <div className="card p-6 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-display font-bold text-lg mb-1">התוכנית שלך</h2>
+            <h2 className="font-display font-bold text-lg mb-1">{t('settings.title')}</h2>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 uppercase">
                 {workspace.plan}
@@ -103,7 +105,7 @@ export default function SettingsClient({
       {/* Workspace details */}
       <div className="card p-6 mb-6">
         <h2 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-          <Building2 className="w-5 h-5" /> פרטי העסק
+          <Building2 className="w-5 h-5" /> {t('settings.workspace_name')}
         </h2>
 
         <div className="space-y-4">
@@ -159,10 +161,10 @@ export default function SettingsClient({
           {canEdit && (
             <div className="flex items-center gap-2 pt-2">
               <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">
-                {saving ? 'שומר...' : 'שמירה'}
+                {saving ? t('common.saving') : t('common.save')}
               </button>
               {savedMsg && (
-                <span className={`text-sm ${savedMsg.includes('שגיאה') ? 'text-red-600' : 'text-green-600'}`}>
+                <span className={`text-sm ${savedMsg.includes(t('errors.save_failed')) ? 'text-red-600' : 'text-green-600'}`}>
                   {savedMsg}
                 </span>
               )}
@@ -182,7 +184,7 @@ export default function SettingsClient({
       <div className="card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold text-lg flex items-center gap-2">
-            <Users className="w-5 h-5" /> חברי צוות
+            <Users className="w-5 h-5" /> {t('settings.members')}
           </h2>
           <span className="text-xs text-gray-500">{members.length} חברים</span>
         </div>
@@ -226,7 +228,7 @@ export default function SettingsClient({
       {/* Danger zone */}
       {isOwner && (
         <div className="card p-6 border-red-200">
-          <h2 className="font-display font-bold text-lg text-red-700 mb-2">אזור מסוכן</h2>
+          <h2 className="font-display font-bold text-lg text-red-700 mb-2">{t('common.warning')}</h2>
           <p className="text-sm text-gray-600 mb-4">
             מחיקת ה-workspace תמחק את כל הטבלאות, הרשומות וההודעות. פעולה זו בלתי הפיכה.
           </p>
