@@ -445,10 +445,10 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-medium">הבוט אינו אדמין בקבוצה</div>
+                      <div className="font-medium">{t('groupguard.groups.bot_not_admin_title')}</div>
                       <div className="text-xs mt-1">
-                        בלי הרשאת אדמין הבוט לא יוכל למחוק הודעות או להוציא משתמשים.
-                        הוסף את המספר שלך כאדמין בקבוצה ולחץ על &quot;רענן&quot; כדי לעדכן.
+                        {t('groupguard.groups.bot_not_admin_desc1')}{' '}
+                        {t('groupguard.groups.bot_not_admin_desc2')}
                       </div>
                     </div>
                   </div>
@@ -456,12 +456,12 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
 
                 {/* 4 detection toggles */}
                 <div>
-                  <div className="text-sm font-medium text-gray-700 mb-2">רמות זיהוי</div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">{t('groupguard.groups.detection_layers')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <DetectionToggle
                       icon={<Bot className="w-4 h-4" />}
-                      label="זיהוי AI לתוכן"
-                      description="ניתוח חכם של הודעות חשודות (gpt-4o-mini)"
+                      label={t('groupguard.groups.detection_ai_label')}
+                      description={t('groupguard.groups.detection_ai_desc')}
                       checked={g.gg_detections.ai_content}
                       onChange={(v) => {
                         const newDetections = { ...g.gg_detections, ai_content: v };
@@ -472,8 +472,8 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     />
                     <DetectionToggle
                       icon={<UserX className="w-4 h-4" />}
-                      label="תיוג ידני של חברים"
-                      description="חברי קבוצה מתייגים את הבוט לדיווח"
+                      label={t('groupguard.groups.detection_manual_label')}
+                      description={t('groupguard.groups.detection_manual_desc')}
                       checked={g.gg_detections.manual_tagging}
                       onChange={(v) => {
                         const newDetections = { ...g.gg_detections, manual_tagging: v };
@@ -484,8 +484,8 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     />
                     <DetectionToggle
                       icon={<Hash className="w-4 h-4" />}
-                      label="קידומות חסומות"
-                      description="חסימה לפי קוד מדינה"
+                      label={t('groupguard.groups.detection_prefix_label')}
+                      description={t('groupguard.groups.detection_prefix_desc')}
                       checked={g.gg_detections.phone_prefix}
                       onChange={(v) => {
                         const newDetections = { ...g.gg_detections, phone_prefix: v };
@@ -496,8 +496,8 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     />
                     <DetectionToggle
                       icon={<Globe className="w-4 h-4" />}
-                      label="מאגר ספאמרים גלובלי"
-                      description="שיתוף בין כל לקוחות AllChatBoard"
+                      label={t('groupguard.groups.detection_blocklist_label')}
+                      description={t('groupguard.groups.detection_blocklist_desc')}
                       checked={g.gg_detections.global_blocklist}
                       onChange={(v) => {
                         const newDetections = { ...g.gg_detections, global_blocklist: v };
@@ -512,10 +512,10 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                 {/* Manual tag threshold */}
                 <div>
                   <div className="text-sm font-medium text-gray-700 mb-2">
-                    סף תיוגים ידני: <span className="text-purple-600">{g.gg_manual_tag_threshold}</span>
+                    {t('groupguard.groups.manual_threshold_label')}: <span className="text-purple-600">{g.gg_manual_tag_threshold}</span>
                   </div>
                   <div className="text-xs text-gray-500 mb-2">
-                    כמה אנשים שונים צריכים לתייג את הבוט על אותה הודעה כדי להוציא את השולח
+                    {t('groupguard.groups.manual_threshold_desc')}
                   </div>
                   <input
                     type="range"
@@ -529,14 +529,14 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     className="w-full accent-purple-600"
                   />
                   <div className="flex justify-between text-xs text-gray-400">
-                    <span>1 (רגיש)</span>
-                    <span>10 (סלחני)</span>
+                    <span>{t('groupguard.groups.threshold_sensitive')}</span>
+                    <span>{t('groupguard.groups.threshold_lenient')}</span>
                   </div>
                 </div>
 
                 {/* AI sensitivity */}
                 <div>
-                  <div className="text-sm font-medium text-gray-700 mb-2">רגישות AI</div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">{t('groupguard.groups.ai_sensitivity_label')}</div>
                   <div className="grid grid-cols-3 gap-2">
                     {(['low', 'medium', 'high'] as const).map((level) => (
                       <button
@@ -552,9 +552,9 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                             : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                         }`}
                       >
-                        {level === 'low' && 'נמוכה'}
-                        {level === 'medium' && 'בינונית'}
-                        {level === 'high' && 'גבוהה'}
+                        {level === 'low' && t('groupguard.groups.sensitivity_low')}
+                        {level === 'medium' && t('groupguard.groups.sensitivity_medium')}
+                        {level === 'high' && t('groupguard.groups.sensitivity_high')}
                       </button>
                     ))}
                   </div>
@@ -575,16 +575,16 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                   <div>
                     {g.gg_enabled_at && (
                       <span>
-                        פעיל מאז: {new Date(g.gg_enabled_at).toLocaleDateString('he-IL')}
+                        {t('groupguard.groups.enabled_since')}: {new Date(g.gg_enabled_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isSaving && <span className="text-purple-600">שומר...</span>}
+                    {isSaving && <span className="text-purple-600">{t('groupguard.groups.saving')}</span>}
                     {isSaved && (
                       <span className="text-green-600 flex items-center gap-1">
                         <Check className="w-3 h-3" />
-                        נשמר
+                        {t('groupguard.groups.saved')}
                       </span>
                     )}
                   </div>
@@ -624,6 +624,7 @@ function DetectionToggle({
   disabled?: boolean;
   comingSoon?: boolean;
 }) {
+  const { t } = useT();
   return (
     <label
       className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -647,7 +648,7 @@ function DetectionToggle({
           {label}
           {comingSoon && (
             <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-normal">
-              בקרוב
+              {t('groupguard.groups.coming_soon')}
             </span>
           )}
         </div>
@@ -663,6 +664,7 @@ function DetectionToggle({
 // ============================================================================
 
 function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
+  const { t } = useT();
   const [rules, setRules] = useState<PrefixRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -707,7 +709,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
       });
       const d = await res.json();
       if (!res.ok) {
-        alert(`שגיאה: ${d.error}`);
+        alert(`Error: ${d.error}`);
       } else {
         setRules((rs) => [d.rule, ...rs]);
         setNewPrefix('');
@@ -721,13 +723,13 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
   }
 
   async function deleteRule(id: string) {
-    if (!confirm('למחוק קידומת זו?')) return;
+    if (!confirm(t('groupguard.prefixes.delete_confirm'))) return;
     const res = await fetch(`/api/groupguard/prefixes?id=${id}`, { method: 'DELETE' });
     if (res.ok) {
       setRules((rs) => rs.filter((r) => r.id !== id));
     } else {
       const d = await res.json();
-      alert(`שגיאה: ${d.error}`);
+      alert(`Error: ${d.error}`);
     }
   }
 
@@ -744,7 +746,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
     }
   }
 
-  if (loading) return <div className="text-center py-8 text-gray-500">טוען...</div>;
+  if (loading) return <div className="text-center py-8 text-gray-500">{t('groupguard.common.loading')}</div>;
   if (error)
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -756,7 +758,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-gray-600">
-          חסום מספרים לפי קידומת מדינה. למשל: 234 (ניגריה), 92 (פקיסטן), 1 (ארה״ב).
+          {t('groupguard.prefixes.description')}
         </p>
         {canEdit && !showForm && (
           <button
@@ -764,7 +766,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
             className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
-            הוסף קידומת
+            {t('groupguard.prefixes.add_prefix')}
           </button>
         )}
       </div>
@@ -773,7 +775,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
         <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">קידומת *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.prefixes.prefix_label')} *</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -785,25 +787,25 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">שם מדינה</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.prefixes.country_name')}</label>
               <input
                 type="text"
                 value={newCountry}
                 onChange={(e) => setNewCountry(e.target.value)}
-                placeholder="ניגריה"
+                placeholder={t('groupguard.prefixes.country_placeholder')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">פעולה</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.prefixes.action_label')}</label>
               <select
                 value={newAction}
                 onChange={(e) => setNewAction(e.target.value as any)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
               >
-                <option value="kick">הוצאה מהקבוצה</option>
-                <option value="delete">מחיקת הודעה בלבד</option>
-                <option value="warn">אזהרה (תגובה)</option>
+                <option value="kick">{t('groupguard.prefixes.action_kick')}</option>
+                <option value="delete">{t('groupguard.prefixes.action_delete')}</option>
+                <option value="warn">{t('groupguard.prefixes.action_warn')}</option>
               </select>
             </div>
           </div>
@@ -813,7 +815,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
               disabled={submitting || !newPrefix.trim()}
               className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm font-medium"
             >
-              {submitting ? 'מוסיף...' : 'הוסף'}
+              {submitting ? t('groupguard.prefixes.adding') : t('groupguard.prefixes.add_button')}
             </button>
             <button
               onClick={() => {
@@ -823,7 +825,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
               }}
               className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
             >
-              ביטול
+              {t('groupguard.prefixes.cancel')}
             </button>
           </div>
         </div>
@@ -832,7 +834,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
       {rules.length === 0 ? (
         <div className="text-center py-12">
           <Globe className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">אין קידומות חסומות עדיין</p>
+          <p className="text-gray-500">{t('groupguard.prefixes.no_prefixes')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -849,12 +851,12 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-900 truncate">
-                    {r.country_name || 'ללא שם'}
+                    {r.country_name || t('groupguard.prefixes.no_name')}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {r.action === 'kick' && 'הוצאה מהקבוצה'}
-                    {r.action === 'delete' && 'מחיקת הודעה'}
-                    {r.action === 'warn' && 'אזהרה'}
+                    {r.action === 'kick' && t('groupguard.prefixes.action_kick')}
+                    {r.action === 'delete' && t('groupguard.prefixes.action_delete')}
+                    {r.action === 'warn' && t('groupguard.prefixes.action_warn')}
                   </div>
                 </div>
               </div>
@@ -891,6 +893,7 @@ function PrefixesTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: b
 // ============================================================================
 
 function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
+  const { t } = useT();
   const [entries, setEntries] = useState<WhitelistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -935,7 +938,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
       });
       const d = await res.json();
       if (!res.ok) {
-        alert(`שגיאה: ${d.error}`);
+        alert(`Error: ${d.error}`);
       } else {
         setEntries((es) => [d.entry, ...es]);
         setNewPhone('');
@@ -949,14 +952,14 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
   }
 
   async function remove(id: string) {
-    if (!confirm('להסיר מספר זה מהרשימה הלבנה?')) return;
+    if (!confirm(t('groupguard.whitelist.delete_confirm'))) return;
     const res = await fetch(`/api/groupguard/whitelist?id=${id}`, { method: 'DELETE' });
     if (res.ok) {
       setEntries((es) => es.filter((e) => e.id !== id));
     }
   }
 
-  if (loading) return <div className="text-center py-8 text-gray-500">טוען...</div>;
+  if (loading) return <div className="text-center py-8 text-gray-500">{t('groupguard.common.loading')}</div>;
   if (error)
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -968,7 +971,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-gray-600">
-          מספרים ברשימה לבנה לעולם לא יוצאו מהקבוצות, גם אם דווחו או נמצאים במאגר. שימושי לאדמינים, VIPs או לעצמך.
+          {t('groupguard.whitelist.description')}
         </p>
         {canEdit && !showForm && (
           <button
@@ -976,7 +979,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
             className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
-            הוסף מספר
+            {t('groupguard.whitelist.add_phone')}
           </button>
         )}
       </div>
@@ -985,7 +988,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
         <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">טלפון *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.whitelist.phone_label')} *</label>
               <input
                 type="text"
                 inputMode="tel"
@@ -996,26 +999,26 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">שם תצוגה</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.whitelist.display_name_label')}</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="שימיק (admin)"
+                placeholder={t('groupguard.whitelist.display_name_placeholder')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">סיבה</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('groupguard.whitelist.reason_label')}</label>
               <select
                 value={newReason}
                 onChange={(e) => setNewReason(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
               >
-                <option value="admin">אדמין</option>
-                <option value="owner">בעלים</option>
+                <option value="admin">{t('groupguard.whitelist.reason_admin')}</option>
+                <option value="owner">{t('groupguard.whitelist.reason_owner')}</option>
                 <option value="vip">VIP</option>
-                <option value="other">אחר</option>
+                <option value="other">{t('groupguard.whitelist.reason_other')}</option>
               </select>
             </div>
           </div>
@@ -1025,7 +1028,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
               disabled={submitting || !newPhone.trim()}
               className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
             >
-              {submitting ? 'מוסיף...' : 'הוסף'}
+              {submitting ? t('groupguard.whitelist.adding') : t('groupguard.whitelist.add_button')}
             </button>
             <button
               onClick={() => {
@@ -1035,7 +1038,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
               }}
               className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
             >
-              ביטול
+              {t('groupguard.whitelist.cancel')}
             </button>
           </div>
         </div>
@@ -1044,8 +1047,8 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
       {entries.length === 0 ? (
         <div className="text-center py-12">
           <ShieldCheck className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">אין מספרים ברשימה הלבנה</p>
-          <p className="text-xs text-gray-400 mt-1">מומלץ להוסיף את עצמך כדי לא להוצא בטעות</p>
+          <p className="text-gray-500">{t('groupguard.whitelist.no_entries')}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('groupguard.whitelist.no_entries_hint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -1095,6 +1098,7 @@ function WhitelistTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: 
 // ============================================================================
 
 function LogTab({ workspaceId }: { workspaceId: string }) {
+  const { t } = useT();
   const [log, setLog] = useState<LogEntry[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1122,7 +1126,7 @@ function LogTab({ workspaceId }: { workspaceId: string }) {
     }
   }
 
-  if (loading) return <div className="text-center py-8 text-gray-500">טוען...</div>;
+  if (loading) return <div className="text-center py-8 text-gray-500">{t('groupguard.common.loading')}</div>;
   if (error)
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -1137,25 +1141,25 @@ function LogTab({ workspaceId }: { workspaceId: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <SummaryCard
             icon={<TrendingUp className="w-4 h-4" />}
-            label="סה״כ פעולות (7 ימים)"
+            label={t('groupguard.log.total_actions')}
             value={summary.total}
             color="purple"
           />
           <SummaryCard
             icon={<UserX className="w-4 h-4" />}
-            label="הוצאות מקבוצות"
+            label={t('groupguard.log.kicks')}
             value={summary.kicks}
             color="red"
           />
           <SummaryCard
             icon={<X className="w-4 h-4" />}
-            label="הודעות שנמחקו"
+            label={t('groupguard.log.deletes')}
             value={summary.deletes}
             color="orange"
           />
           <SummaryCard
             icon={<AlertCircle className="w-4 h-4" />}
-            label="כשלים"
+            label={t('groupguard.log.failures')}
             value={summary.failed}
             color="gray"
           />
@@ -1166,8 +1170,8 @@ function LogTab({ workspaceId }: { workspaceId: string }) {
       {log.length === 0 ? (
         <div className="text-center py-12">
           <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">אין פעולות עדיין</p>
-          <p className="text-xs text-gray-400 mt-1">פעולות יופיעו כאן כשיתבצעו</p>
+          <p className="text-gray-500">{t('groupguard.log.no_actions')}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('groupguard.log.no_actions_hint')}</p>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -1211,20 +1215,21 @@ function SummaryCard({
 
 
 function LogRow({ entry }: { entry: LogEntry }) {
+  const { t, locale } = useT();
   const sourceLabels: Record<string, string> = {
-    ai: 'AI',
-    manual_report: 'תיוג ידני',
-    phone_prefix: 'קידומת',
-    global_blocklist: 'מאגר',
-    whitelist: 'whitelist',
+    ai: t('groupguard.log.trigger_ai'),
+    manual_report: t('groupguard.log.trigger_manual_report'),
+    phone_prefix: t('groupguard.log.trigger_phone_prefix'),
+    global_blocklist: t('groupguard.log.trigger_global_blocklist'),
+    whitelist: t('groupguard.log.trigger_whitelist'),
   };
 
   const actionLabels: Record<string, string> = {
-    kick: 'הוצאה',
-    delete_message: 'מחיקת הודעה',
-    warn: 'אזהרה',
-    blocklist_add: 'הוספה למאגר',
-    whitelist_skip: 'דילוג (whitelist)',
+    kick: t('groupguard.log.action_kick'),
+    delete_message: t('groupguard.log.action_delete_message'),
+    warn: t('groupguard.log.action_warn'),
+    blocklist_add: t('groupguard.log.action_blocklist_add'),
+    whitelist_skip: t('groupguard.log.action_whitelist_skip'),
   };
 
   const actionColors: Record<string, string> = {
@@ -1266,13 +1271,13 @@ function LogRow({ entry }: { entry: LogEntry }) {
               <span dir="ltr" className="font-mono text-xs">+{entry.target_phone}</span>
             )}
           </span>
-          <span className="text-gray-400 text-xs">בקבוצה</span>
+          <span className="text-gray-400 text-xs">{t('groupguard.log.in_group')}</span>
           <span className="text-gray-700 text-sm truncate">{entry.group_name}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-0.5">
           <span>{sourceLabels[entry.trigger_source] || entry.trigger_source}</span>
           <span>•</span>
-          <span>{new Date(entry.created_at).toLocaleString('he-IL')}</span>
+          <span>{new Date(entry.created_at).toLocaleString(locale === 'he' ? 'he-IL' : 'en-US')}</span>
           {entry.error_message && (
             <>
               <span>•</span>
@@ -1293,7 +1298,7 @@ function LogRow({ entry }: { entry: LogEntry }) {
             ))}
             {aiConfidence !== null && (
               <span className="text-[10px] text-gray-500">
-                ביטחון: {Math.round(aiConfidence * 100)}%
+                {t('groupguard.log.confidence')}: {Math.round(aiConfidence * 100)}%
               </span>
             )}
           </div>
@@ -1321,6 +1326,7 @@ function NotifyAdminsBlock({
   canEdit: boolean;
   onUpdate: (patch: Partial<GGGroup>) => void;
 }) {
+  const { t } = useT();
   const [phoneInput, setPhoneInput] = useState('');
   const [showCustomMsg, setShowCustomMsg] = useState(!!group.gg_notify_message);
 
@@ -1356,10 +1362,10 @@ function NotifyAdminsBlock({
         <div>
           <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
             <Bell className="w-3.5 h-3.5 text-amber-600" />
-            תיוג מנהלים בעת זיהוי ספאם
+            {t('groupguard.groups.notify_admins_block.title')}
           </div>
           <div className="text-xs text-gray-500 mt-0.5">
-            הבוט יתייג אנשים שתגדירו במקום למחוק/להוציא בעצמו
+            {t('groupguard.groups.notify_admins_block.description')}
           </div>
         </div>
         <input
@@ -1376,8 +1382,7 @@ function NotifyAdminsBlock({
         <div className="text-xs bg-amber-100 text-amber-800 rounded p-2 mb-2 flex items-start gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>
-            הבוט לא אדמין בקבוצה - הפעילי את האופציה הזו כדי לקבל התראות במקום
-            ניסיונות מחיקה שייכשלו.
+            {t('groupguard.groups.notify_admins_block.warning_not_admin')}
           </span>
         </div>
       )}
@@ -1388,7 +1393,7 @@ function NotifyAdminsBlock({
           {/* Phone list */}
           <div>
             <div className="text-xs font-medium text-gray-700 mb-1">
-              מספרים לתיוג ({group.gg_admin_phones.length}/20)
+              {t('groupguard.groups.notify_admins_block.admin_phones_label')} ({group.gg_admin_phones.length}/20)
             </div>
 
             {/* Existing phones */}
@@ -1428,7 +1433,7 @@ function NotifyAdminsBlock({
                       addPhone();
                     }
                   }}
-                  placeholder="972501234567"
+                  placeholder={t('groupguard.groups.notify_admins_block.admin_phones_placeholder')}
                   dir="ltr"
                   className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-amber-500"
                 />
@@ -1438,13 +1443,12 @@ function NotifyAdminsBlock({
                   disabled={phoneInput.replace(/\D/g, '').length < 8}
                   className="px-2.5 py-1 text-xs bg-amber-600 text-white rounded disabled:opacity-50 hover:bg-amber-700"
                 >
-                  הוסף
+                  {t('groupguard.common.add')}
                 </button>
               </div>
             )}
             <div className="text-[10px] text-gray-400 mt-1">
-              💡 פורמט בינלאומי בלי + (לדוגמה: 972501234567).
-              המספרים חייבים להיות חברים בקבוצה כדי שהתיוג יעבוד.
+              {t('groupguard.groups.notify_admins_block.admin_phones_format_hint')}
             </div>
           </div>
 
@@ -1455,7 +1459,9 @@ function NotifyAdminsBlock({
               onClick={() => setShowCustomMsg(!showCustomMsg)}
               className="text-xs text-gray-600 hover:text-gray-900 underline"
             >
-              {showCustomMsg ? 'הסתר' : 'התאמה אישית של הודעת התיוג'}
+              {showCustomMsg
+                ? t('groupguard.groups.notify_admins_block.custom_message_hide')
+                : t('groupguard.groups.notify_admins_block.custom_message_show')}
             </button>
 
             {showCustomMsg && (
@@ -1464,20 +1470,20 @@ function NotifyAdminsBlock({
                   value={group.gg_notify_message || ''}
                   disabled={!canEdit}
                   onChange={(e) => onUpdate({ gg_notify_message: e.target.value || null })}
-                  placeholder="🚨 ספאם זוהה!&#10;משתמש: {user} {userName}&#10;סיבה: {reason}&#10;{admins} - לטיפולכם"
+                  placeholder={t('groupguard.groups.notify_admins_block.message_placeholder')}
                   rows={4}
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 resize-none"
                 />
                 <div className="text-[10px] text-gray-400 mt-1">
-                  משתנים זמינים: <code className="bg-gray-100 px-1">{'{user}'}</code> -
-                  תיוג השולח,
+                  {t('groupguard.groups.notify_admins_block.variables_label')}: <code className="bg-gray-100 px-1">{'{user}'}</code> -
+                  {' '}{t('groupguard.groups.notify_admins_block.variable_user')},
                   <code className="bg-gray-100 px-1 mx-1">{'{userName}'}</code> -
-                  שם השולח,
+                  {' '}{t('groupguard.groups.notify_admins_block.variable_userName')},
                   <code className="bg-gray-100 px-1 mx-1">{'{reason}'}</code> -
-                  סיבה,
+                  {' '}{t('groupguard.groups.notify_admins_block.variable_reason')},
                   <code className="bg-gray-100 px-1">{'{admins}'}</code> -
-                  תיוג המנהלים.
-                  השאירי ריק להודעת ברירת מחדל.
+                  {' '}{t('groupguard.groups.notify_admins_block.variable_admins')}.
+                  {' '}{t('groupguard.groups.notify_admins_block.empty_default')}.
                 </div>
               </div>
             )}
@@ -1485,9 +1491,9 @@ function NotifyAdminsBlock({
 
           {/* Info note */}
           <div className="text-xs text-gray-500 bg-white/60 rounded p-2 border border-amber-200">
-            💡 כשהבוט אדמין: ימחק/יסיר אוטומטית.
+            {t('groupguard.groups.notify_admins_block.bot_admin_will_kick')}
             <br />
-            כשהבוט לא אדמין: יתייג את המספרים כאן עם פרטי המקרה.
+            {t('groupguard.groups.notify_admins_block.bot_not_admin_will_tag')}
           </div>
         </div>
       )}
@@ -1530,6 +1536,7 @@ function ScanGroupModal({
   group: GGGroup;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const [phase, setPhase] = useState<'scanning' | 'results' | 'removing' | 'done'>('scanning');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -1547,7 +1554,7 @@ function ScanGroupModal({
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) {
-          setError(data.error || `שגיאה ${res.status}`);
+          setError(data.error || `Error ${res.status}`);
           setPhase('results');
           return;
         }
@@ -1600,7 +1607,7 @@ function ScanGroupModal({
 
   async function handleRemove() {
     if (selectedPhones.size === 0) return;
-    if (!confirm(`האם להסיר ${selectedPhones.size} משתתפים מהקבוצה?`)) return;
+    if (!confirm(t('groupguard.scan_modal.confirm_remove', { count: selectedPhones.size }))) return;
 
     setPhase('removing');
     try {
@@ -1611,7 +1618,7 @@ function ScanGroupModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || `שגיאה ${res.status}`);
+        setError(data.error || `Error ${res.status}`);
         setPhase('results');
         return;
       }
@@ -1637,7 +1644,7 @@ function ScanGroupModal({
           <div>
             <h2 className="font-display font-bold text-xl text-gray-900 flex items-center gap-2">
               <Search className="w-5 h-5 text-purple-600" />
-              סריקת חברי קבוצה
+              {t('groupguard.scan_modal.title')}
             </h2>
             <p className="text-sm text-gray-500 mt-0.5">
               {group.group_name || group.green_api_chat_id}
@@ -1656,9 +1663,9 @@ function ScanGroupModal({
           {phase === 'scanning' && (
             <div className="p-12 text-center">
               <div className="inline-block w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4" />
-              <p className="text-gray-700 font-medium">סורק את חברי הקבוצה...</p>
+              <p className="text-gray-700 font-medium">{t('groupguard.scan_modal.scanning')}</p>
               <p className="text-sm text-gray-500 mt-1">
-                מצליב מול מאגר הספאמרים הגלובלי
+                {t('groupguard.scan_modal.scanning_subtitle')}
               </p>
             </div>
           )}
@@ -1666,8 +1673,8 @@ function ScanGroupModal({
           {phase === 'removing' && (
             <div className="p-12 text-center">
               <div className="inline-block w-12 h-12 border-4 border-red-200 border-t-red-600 rounded-full animate-spin mb-4" />
-              <p className="text-gray-700 font-medium">מסיר {selectedPhones.size} משתתפים...</p>
-              <p className="text-sm text-gray-500 mt-1">זה עלול לקחת כמה שניות</p>
+              <p className="text-gray-700 font-medium">{t('groupguard.scan_modal.removing', { count: selectedPhones.size })}</p>
+              <p className="text-sm text-gray-500 mt-1">{t('groupguard.scan_modal.removing_subtitle')}</p>
             </div>
           )}
 
@@ -1677,7 +1684,7 @@ function ScanGroupModal({
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-medium text-red-900">שגיאה בסריקה</div>
+                    <div className="font-medium text-red-900">{t('groupguard.scan_modal.scan_error')}</div>
                     <div className="text-sm text-red-700 mt-1">{error}</div>
                   </div>
                 </div>
@@ -1694,7 +1701,7 @@ function ScanGroupModal({
                     <div className="text-2xl font-bold text-gray-900">
                       {result.scan_summary.total_members}
                     </div>
-                    <div className="text-xs text-gray-600">סך חברי הקבוצה</div>
+                    <div className="text-xs text-gray-600">{t('groupguard.scan_modal.total_members')}</div>
                   </div>
                   <div>
                     <div
@@ -1706,7 +1713,7 @@ function ScanGroupModal({
                     >
                       {result.scan_summary.flagged_count}
                     </div>
-                    <div className="text-xs text-gray-600">נמצאו במאגר ספאמרים</div>
+                    <div className="text-xs text-gray-600">{t('groupguard.scan_modal.flagged_count')}</div>
                   </div>
                 </div>
               </div>
@@ -1718,11 +1725,10 @@ function ScanGroupModal({
                     <Shield className="w-8 h-8" />
                   </div>
                   <h3 className="font-display font-bold text-lg text-gray-900">
-                    הקבוצה נקייה!
+                    {t('groupguard.scan_modal.group_clean')}
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    אף אחד מ-{result.scan_summary.total_members} החברים לא נמצא במאגר
-                    הספאמרים הגלובלי.
+                    {t('groupguard.scan_modal.group_clean_message', { total: result.scan_summary.total_members })}
                   </p>
                 </div>
               )}
@@ -1744,12 +1750,12 @@ function ScanGroupModal({
                         className="w-4 h-4 rounded text-purple-600"
                       />
                       <span className="text-sm font-medium text-gray-700">
-                        בחר הכל ({result.members.filter((m) => !m.is_admin).length}{' '}
-                        ניתנים להסרה)
+                        {t('groupguard.scan_modal.select_all')}{' '}
+                        {t('groupguard.scan_modal.removable_count', { count: result.members.filter((m) => !m.is_admin).length })}
                       </span>
                     </label>
                     <span className="text-xs text-gray-500">
-                      {selectedPhones.size} נבחרו
+                      {t('groupguard.scan_modal.selected_count', { count: selectedPhones.size })}
                     </span>
                   </div>
 
@@ -1781,31 +1787,30 @@ function ScanGroupModal({
                             )}
                             {m.is_admin && (
                               <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
-                                אדמין - אי אפשר להסיר
+                                {t('groupguard.scan_modal.admin_cannot_remove')}
                               </span>
                             )}
                             {m.is_confirmed && (
                               <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-medium rounded flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3" />
-                                ספאמר מאושר
+                                {t('groupguard.scan_modal.confirmed_spammer')}
                               </span>
                             )}
                           </div>
                           <div className="text-xs text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span>
-                              <strong>{m.report_count}</strong> דיווחים
+                              <strong>{m.report_count}</strong> {t('groupguard.scan_modal.reports')}
                             </span>
                             <span>
-                              ב-<strong>{m.unique_groups_count}</strong> קבוצות
+                              {t('groupguard.scan_modal.in_groups')} <strong>{m.unique_groups_count}</strong>
                             </span>
                             <span>
-                              ע&quot;י <strong>{m.unique_workspaces_count}</strong>{' '}
-                              לקוחות
+                              {t('groupguard.scan_modal.by_clients')} <strong>{m.unique_workspaces_count}</strong>
                             </span>
                           </div>
                           {m.reason_summary && (
                             <div className="text-xs text-gray-500 mt-1 italic">
-                              סיבה: {m.reason_summary}
+                              {t('groupguard.scan_modal.reason')}: {m.reason_summary}
                             </div>
                           )}
                         </div>
@@ -1824,12 +1829,12 @@ function ScanGroupModal({
                   <Check className="w-8 h-8" />
                 </div>
                 <h3 className="font-display font-bold text-lg text-gray-900">
-                  ההסרה הושלמה
+                  {t('groupguard.scan_modal.done_title')}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  {removalResults.filter((r) => r.success).length} הוסרו בהצלחה
+                  {t('groupguard.scan_modal.done_subtitle_success', { count: removalResults.filter((r) => r.success).length })}
                   {removalResults.filter((r) => !r.success).length > 0 &&
-                    `, ${removalResults.filter((r) => !r.success).length} נכשלו`}
+                    t('groupguard.scan_modal.done_subtitle_failures', { failed: removalResults.filter((r) => !r.success).length })}
                 </p>
               </div>
 
@@ -1837,7 +1842,7 @@ function ScanGroupModal({
               {removalResults.filter((r) => !r.success).length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <div className="font-medium text-sm text-red-900 mb-2">
-                    הסרות שנכשלו:
+                    {t('groupguard.scan_modal.failed_removals')}
                   </div>
                   <ul className="space-y-1 text-xs text-red-700">
                     {removalResults
@@ -1849,7 +1854,7 @@ function ScanGroupModal({
                       ))}
                   </ul>
                   <div className="text-xs text-red-600 mt-2">
-                    💡 כשלים נפוצים: הבוט לא אדמין בקבוצה, או המשתתף כבר לא בקבוצה
+                    {t('groupguard.scan_modal.failure_hint')}
                   </div>
                 </div>
               )}
@@ -1865,7 +1870,7 @@ function ScanGroupModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
               >
-                ביטול
+                {t('groupguard.scan_modal.cancel')}
               </button>
               <button
                 onClick={handleRemove}
@@ -1873,7 +1878,9 @@ function ScanGroupModal({
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <UserX className="w-4 h-4" />
-                הסר {selectedPhones.size > 0 ? `${selectedPhones.size} ` : ''}משתתפים
+                {selectedPhones.size > 0
+                  ? t('groupguard.scan_modal.remove_button_count', { count: selectedPhones.size })
+                  : t('groupguard.scan_modal.remove_button_default')}
               </button>
             </>
           )}
@@ -1882,7 +1889,7 @@ function ScanGroupModal({
               onClick={onClose}
               className="ml-auto px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
             >
-              סגירה
+              {t('groupguard.scan_modal.close')}
             </button>
           )}
           {(phase === 'scanning' || phase === 'removing') && (
@@ -1890,7 +1897,7 @@ function ScanGroupModal({
               onClick={onClose}
               className="ml-auto px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
             >
-              סגור (פעולה ממשיכה ברקע)
+              {t('groupguard.scan_modal.close_continues_bg')}
             </button>
           )}
         </div>

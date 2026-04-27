@@ -11,6 +11,7 @@ import {
   PieChart,
   BarChart3,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 // ============================================================================
 // Types
@@ -44,10 +45,28 @@ type DashboardData = {
 // ============================================================================
 
 export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
+  const { t, locale } = useT();
   const [days, setDays] = useState<7 | 30 | 90>(7);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Translation maps - need to be inside component to use t()
+  const sourceLabels: Record<string, string> = {
+    ai: t('groupguard.log.trigger_ai'),
+    manual_report: t('groupguard.log.trigger_manual_report'),
+    phone_prefix: t('groupguard.log.trigger_phone_prefix'),
+    global_blocklist: t('groupguard.log.trigger_global_blocklist'),
+    whitelist: t('groupguard.log.trigger_whitelist'),
+  };
+
+  const actionLabels: Record<string, string> = {
+    kick: t('groupguard.log.action_kick'),
+    delete_message: t('groupguard.log.action_delete_message'),
+    warn: t('groupguard.log.action_warn'),
+    blocklist_add: t('groupguard.log.action_blocklist_add'),
+    whitelist_skip: t('groupguard.log.action_whitelist_skip'),
+  };
 
   useEffect(() => {
     load();
@@ -74,7 +93,7 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
   }
 
   if (loading && !data) {
-    return <div className="text-center py-8 text-gray-500">טוען נתונים...</div>;
+    return <div className="text-center py-8 text-gray-500">{t('groupguard.dashboard.loading') || t('groupguard.common.loading')}</div>;
   }
   if (error && !data) {
     return (
@@ -93,7 +112,7 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Calendar className="w-4 h-4" />
-          טווח זמן:
+          {t('groupguard.dashboard.time_range') || 'Time range:'}
         </div>
         <div className="flex bg-gray-100 rounded-lg p-1">
           {([7, 30, 90] as const).map((d) => (
@@ -106,7 +125,7 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              {d} ימים
+              {d} {t('groupguard.dashboard.days') || 'days'}
             </button>
           ))}
         </div>
@@ -115,9 +134,9 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
       {!hasData ? (
         <div className="text-center py-12">
           <BarChart3 className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">אין נתונים לטווח הזה</p>
+          <p className="text-gray-500">{t('groupguard.dashboard.no_data_range')}</p>
           <p className="text-xs text-gray-400 mt-1">
-            פעולות יופיעו כאן כש-GroupGuard יזהה ספאמרים בקבוצות
+            {t('groupguard.dashboard.no_data_hint') || 'Actions will appear here when GroupGuard detects spammers'}
           </p>
         </div>
       ) : (
@@ -125,77 +144,84 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
           {/* Top stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard
-              label="סה״כ פעולות"
+              label={t('groupguard.dashboard.total_actions') || 'Total actions'}
               value={data.summary.total}
               icon={<TrendingUp className="w-4 h-4" />}
               color="purple"
+              locale={locale}
             />
             <StatCard
-              label="הצליחו"
+              label={t('groupguard.dashboard.successful') || 'Successful'}
               value={data.summary.successful}
               icon={<UserX className="w-4 h-4" />}
               color="green"
+              locale={locale}
             />
             <StatCard
-              label="כשלים"
+              label={t('groupguard.log.failures')}
               value={data.summary.failed}
               icon={<AlertCircle className="w-4 h-4" />}
               color="red"
+              locale={locale}
             />
             <StatCard
-              label="ממוצע יומי"
+              label={t('groupguard.dashboard.daily_avg') || 'Daily avg'}
               value={Math.round(data.summary.total / data.days)}
               icon={<Calendar className="w-4 h-4" />}
               color="blue"
+              locale={locale}
             />
           </div>
 
           {/* Daily timeseries chart */}
-          <ChartCard title="פעולות לפי יום" icon={<TrendingUp className="w-4 h-4" />}>
+          <ChartCard title={t('groupguard.dashboard.actions_per_day') || 'Actions per day'} icon={<TrendingUp className="w-4 h-4" />}>
             <DailyChart data={data.daily_timeseries} />
           </ChartCard>
 
           {/* Two-column: source + action breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <ChartCard title="לפי מקור זיהוי" icon={<PieChart className="w-4 h-4" />}>
+            <ChartCard title={t('groupguard.dashboard.by_source') || 'By detection source'} icon={<PieChart className="w-4 h-4" />}>
               <BreakdownList
                 items={data.by_source.map((s) => ({
                   label: sourceLabels[s.source] || s.source,
                   value: s.count,
                   color: sourceColors[s.source] || '#6b7280',
                 }))}
+                emptyText={t('groupguard.common.no_data')}
               />
             </ChartCard>
 
-            <ChartCard title="לפי סוג פעולה" icon={<BarChart3 className="w-4 h-4" />}>
+            <ChartCard title={t('groupguard.dashboard.by_action') || 'By action type'} icon={<BarChart3 className="w-4 h-4" />}>
               <BreakdownList
                 items={data.by_action.map((s) => ({
                   label: actionLabels[s.action] || s.action,
                   value: s.count,
                   color: actionColors[s.action] || '#6b7280',
                 }))}
+                emptyText={t('groupguard.common.no_data')}
               />
             </ChartCard>
           </div>
 
           {/* AI categories - only if AI was active */}
           {data.ai_categories.length > 0 && (
-            <ChartCard title="קטגוריות AI" icon={<PieChart className="w-4 h-4" />}>
+            <ChartCard title={t('groupguard.dashboard.ai_categories') || 'AI categories'} icon={<PieChart className="w-4 h-4" />}>
               <BreakdownList
                 items={data.ai_categories.map((c) => ({
                   label: c.category,
                   value: c.count,
                   color: '#a855f7',
                 }))}
+                emptyText={t('groupguard.common.no_data')}
               />
             </ChartCard>
           )}
 
           {/* Two-column: top groups + top spammers */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <ChartCard title="קבוצות פעילות ביותר" icon={<Users className="w-4 h-4" />}>
+            <ChartCard title={t('groupguard.dashboard.top_groups') || 'Most active groups'} icon={<Users className="w-4 h-4" />}>
               {data.top_groups.length === 0 ? (
-                <EmptyMini text="אין נתונים" />
+                <EmptyMini text={t('groupguard.common.no_data')} />
               ) : (
                 <div className="space-y-2">
                   {data.top_groups.map((g) => (
@@ -210,9 +236,9 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
               )}
             </ChartCard>
 
-            <ChartCard title="ספאמרים מובילים" icon={<UserX className="w-4 h-4" />}>
+            <ChartCard title={t('groupguard.dashboard.top_spammers') || 'Top spammers'} icon={<UserX className="w-4 h-4" />}>
               {data.top_spammers.length === 0 ? (
-                <EmptyMini text="אין נתונים" />
+                <EmptyMini text={t('groupguard.common.no_data')} />
               ) : (
                 <div className="space-y-2">
                   {data.top_spammers.slice(0, 5).map((s) => (
@@ -261,11 +287,13 @@ function StatCard({
   value,
   icon,
   color,
+  locale,
 }: {
   label: string;
   value: number;
   icon: React.ReactNode;
   color: 'purple' | 'green' | 'red' | 'blue';
+  locale?: string;
 }) {
   const colorClasses = {
     purple: 'bg-purple-50 border-purple-200 text-purple-700',
@@ -279,7 +307,7 @@ function StatCard({
         {icon}
         {label}
       </div>
-      <div className="text-2xl font-bold">{value.toLocaleString('he-IL')}</div>
+      <div className="text-2xl font-bold">{value.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US')}</div>
     </div>
   );
 }
@@ -326,6 +354,7 @@ function DailyChart({
     warns: number;
   }>;
 }) {
+  const { t } = useT();
   const maxValue = Math.max(...data.map((d) => d.total), 1);
   const width = 100;
   const barWidth = 100 / data.length;
@@ -334,9 +363,9 @@ function DailyChart({
     <div>
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs mb-3 justify-end">
-        <LegendItem color="#dc2626" label="הוצאות" />
-        <LegendItem color="#ea580c" label="מחיקות" />
-        <LegendItem color="#d97706" label="אזהרות" />
+        <LegendItem color="#dc2626" label={t('groupguard.dashboard.legend_kicks')} />
+        <LegendItem color="#ea580c" label={t('groupguard.dashboard.legend_deletes')} />
+        <LegendItem color="#d97706" label={t('groupguard.dashboard.legend_warns')} />
       </div>
 
       {/* Chart - using percentage-based viewBox so it's responsive */}
@@ -465,11 +494,13 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 function BreakdownList({
   items,
+  emptyText,
 }: {
   items: Array<{ label: string; value: number; color: string }>;
+  emptyText?: string;
 }) {
   const total = items.reduce((sum, i) => sum + i.value, 0);
-  if (total === 0) return <EmptyMini text="אין נתונים" />;
+  if (total === 0) return <EmptyMini text={emptyText || 'No data'} />;
 
   // Sort descending by value
   const sorted = [...items].sort((a, b) => b.value - a.value);
@@ -504,16 +535,8 @@ function BreakdownList({
 
 
 // ============================================================================
-// Labels
+// Color maps (labels are now internal to the component for i18n)
 // ============================================================================
-
-const sourceLabels: Record<string, string> = {
-  ai: 'AI',
-  manual_report: 'תיוג ידני',
-  phone_prefix: 'קידומת',
-  global_blocklist: 'מאגר',
-  whitelist: 'whitelist',
-};
 
 const sourceColors: Record<string, string> = {
   ai: '#a855f7',
@@ -521,14 +544,6 @@ const sourceColors: Record<string, string> = {
   phone_prefix: '#10b981',
   global_blocklist: '#f59e0b',
   whitelist: '#6b7280',
-};
-
-const actionLabels: Record<string, string> = {
-  kick: 'הוצאה',
-  delete_message: 'מחיקה',
-  warn: 'אזהרה',
-  blocklist_add: 'הוספה למאגר',
-  whitelist_skip: 'דילוג',
 };
 
 const actionColors: Record<string, string> = {
