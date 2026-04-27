@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const { data: instances } = await supabase
     .from('whatsapp_instances')
-    .select('id, display_name, provider, provider_instance_id, phone_number, state, state_message, state_updated_at, authorized_at, expires_at, messages_received_total, messages_sent_total, last_message_at, created_at')
+    .select('id, display_name, provider, provider_instance_id, phone_number, state, state_message, state_updated_at, authorized_at, expires_at, messages_received_total, messages_sent_total, last_message_at, created_at, is_primary, is_shared')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false });
 
@@ -91,6 +91,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check if this workspace already has any instance — if not, mark the new one as primary
+    const { count: existingCount } = await service
+      .from('whatsapp_instances')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspace_id);
+
+    const shouldBePrimary = !existingCount || existingCount === 0;
+
     const { data: instance, error } = await service
       .from('whatsapp_instances')
       .insert({
@@ -101,6 +109,7 @@ export async function POST(req: NextRequest) {
         display_name,
         state: 'authorized', // Assume working since user provided credentials
         created_by: user.id,
+        is_primary: shouldBePrimary,
       })
       .select()
       .single();

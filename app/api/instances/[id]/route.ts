@@ -181,6 +181,21 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Safeguard: block deletion of primary if other instances exist (must promote first)
+  if (instance.is_primary) {
+    const { count: siblingCount } = await supabase
+      .from('whatsapp_instances')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', instance.workspace_id)
+      .neq('id', params.id);
+
+    if ((siblingCount || 0) > 0) {
+      return NextResponse.json({
+        error: 'לא ניתן למחוק את ה-instance הראשי כשיש instances נוספים בסביבה. הפוך instance אחר לראשי קודם.'
+      }, { status: 400 });
+    }
+  }
+
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

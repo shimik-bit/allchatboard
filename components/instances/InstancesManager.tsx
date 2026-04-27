@@ -29,6 +29,8 @@ type Instance = {
   messages_sent_total: number;
   last_message_at: string | null;
   created_at: string;
+  is_primary?: boolean;
+  is_shared?: boolean;
 };
 
 const STATE_CONFIG: Record<string, { color: string; bg: string; icon: any; label: string }> = {
@@ -200,6 +202,28 @@ function InstanceCard({
   const StateIcon = config.icon;
   const isAuthorized = instance.state === 'authorized';
   const needsQr = ['awaiting_qr', 'scanning', 'expired'].includes(instance.state);
+  const isPrimary = instance.is_primary === true;
+
+  async function handleSetPrimary() {
+    if (!canEdit || busy || isPrimary) return;
+    if (!isAuthorized) {
+      alert('צריך להתחבר ל-WhatsApp לפני שאפשר להגדיר instance כראשי');
+      return;
+    }
+    if (!confirm(`להגדיר את "${instance.display_name}" כ-instance הראשי?\n\nכל ההודעות היוצאות (תגובות, התראות, דוחות) יישלחו ממנו. הinstance הקודם יישאר פעיל לקבלת הודעות בלבד.`)) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/instances/${instance.id}/set-primary`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'שגיאה');
+      } else {
+        onChange();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handlePause() {
     if (!canEdit || busy) return;
@@ -263,6 +287,16 @@ function InstanceCard({
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${config.bg} ${config.color}`}>
               {config.label}
             </span>
+            {isPrimary && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gradient-to-l from-purple-100 to-pink-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                ⭐ ראשי
+              </span>
+            )}
+            {!isPrimary && isAuthorized && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600 inline-flex items-center gap-1">
+                📥 קליטה בלבד
+              </span>
+            )}
           </div>
           <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
             {instance.phone_number && <span>📞 {instance.phone_number}</span>}
@@ -309,6 +343,41 @@ function InstanceCard({
                 ⏰ תקף עד {new Date(instance.expires_at).toLocaleDateString('he-IL')}
               </p>
             )}
+          </div>
+
+          {/* Role explanation - primary vs inbound-only */}
+          <div className={`rounded-lg border p-3 ${isPrimary ? 'bg-gradient-to-l from-purple-50 to-pink-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <p className="text-xs font-bold text-gray-800 mb-1">
+                  {isPrimary ? '⭐ Instance ראשי' : '📥 Instance לקליטה בלבד'}
+                </p>
+                <p className="text-[11px] text-gray-700 leading-relaxed">
+                  {isPrimary ? (
+                    <>
+                      כל ההודעות היוצאות נשלחות מ-instance זה: תגובות לקבוצות, התראות לעובדים,
+                      דוחות יומיים, והודעות תזמון. הוא גם קולט הודעות שמגיעות אליו.
+                    </>
+                  ) : (
+                    <>
+                      Instance זה <strong>קולט</strong> הודעות מקבוצות וDM, אבל לא שולח כלום.
+                      כל ההודעות היוצאות עוברות דרך ה-instance הראשי של הסביבה.
+                    </>
+                  )}
+                </p>
+              </div>
+              {!isPrimary && canEdit && isAuthorized && (
+                <button
+                  onClick={handleSetPrimary}
+                  disabled={busy}
+                  className="px-3 py-1.5 bg-gradient-to-l from-purple-600 to-pink-600 text-white rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-50 whitespace-nowrap inline-flex items-center gap-1"
+                  title="הגדר כ-instance הראשי לשליחת הודעות"
+                >
+                  {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : '⭐'}
+                  הפוך לראשי
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Webhook URL display */}
