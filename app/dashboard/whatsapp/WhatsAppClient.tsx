@@ -8,23 +8,34 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   MessageSquare, Check, AlertCircle, Clock, Copy,
-  Zap, ExternalLink, RefreshCw, Lock,
+  Zap, ExternalLink, RefreshCw, Lock, Share2,
 } from 'lucide-react';
 import GroupsManager from '@/components/GroupsManager';
 import InstancesManager from '@/components/instances/InstancesManager';
 import { useDevMode } from '@/lib/hooks/useDevMode';
+
+type InstanceInfo = {
+  id: string;
+  display_name: string;
+  provider_instance_id: string;
+  state: string;
+  is_shared: boolean;
+  phone_number: string | null;
+};
 
 export default function WhatsAppClient({
   workspace,
   allWorkspaces,
   initialMessages,
   initialGroups,
+  instances = [],
   canEdit,
 }: {
   workspace: Workspace;
   allWorkspaces?: Array<{ id: string; name: string; icon: string | null }>;
   initialMessages: WaMessage[];
   initialGroups: WhatsAppGroup[];
+  instances?: InstanceInfo[];
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -122,6 +133,28 @@ export default function WhatsAppClient({
           </div>
         )}
       </div>
+
+      {/* Shared instance warning - users see it when their workspace is on a shared instance */}
+      {instances.some(i => i.is_shared) && (
+        <div className="mb-6 bg-gradient-to-l from-purple-50 to-pink-50 border-2 border-purple-300 rounded-2xl p-4 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 grid place-items-center flex-shrink-0">
+            <Share2 className="w-5 h-5 text-purple-700" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-purple-900 mb-1">
+              סביבה זו פועלת על instance משותף
+            </h3>
+            <p className="text-sm text-purple-800 leading-relaxed">
+              ה-WhatsApp instance שמחובר לסביבה הזאת חולק על ידי סופר אדמין עם סביבות נוספות.
+              הודעות מקבוצות מנותבות לפי הגדרה ידנית של המנהל,
+              והודעות פרטיות (DM) לא ינותבו אוטומטית.
+            </p>
+            <div className="text-xs text-purple-700 mt-2 font-medium">
+              💡 אם משימות לא מגיעות אליך מהקבוצה, פנה לסופר אדמין כדי שיוודא שהקבוצה ממופה לסביבה הנוכחית.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp Instances Manager */}
       <div className="mb-6">

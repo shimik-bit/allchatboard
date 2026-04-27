@@ -56,7 +56,7 @@ export default async function WhatsAppPage({
     ? chosenMembership.workspaces[0]
     : chosenMembership.workspaces;
 
-  const [{ data: messages }, { data: groups }] = await Promise.all([
+  const [{ data: messages }, { data: groups }, { data: instances }] = await Promise.all([
     supabase
       .from('wa_messages')
       .select('*')
@@ -66,6 +66,11 @@ export default async function WhatsAppPage({
     supabase
       .from('whatsapp_groups')
       .select('*')
+      .eq('workspace_id', workspace.id)
+      .order('created_at'),
+    supabase
+      .from('whatsapp_instances')
+      .select('id, display_name, provider_instance_id, state, is_shared, phone_number')
       .eq('workspace_id', workspace.id)
       .order('created_at'),
   ]);
@@ -82,6 +87,7 @@ export default async function WhatsAppPage({
       allWorkspaces={allWorkspaces}
       initialMessages={messages || []}
       initialGroups={groups || []}
+      instances={instances || []}
       canEdit={chosenMembership.role === 'owner' || chosenMembership.role === 'admin'}
     />
   );
