@@ -32,7 +32,7 @@ export default async function WorkspaceLimitsPage({ params }: { params: { id: st
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-3 sm:p-6">
         {/* Header */}
         <div className="mb-6">
           <Link href={`/admin/workspaces/${params.id}`} className="text-xs text-slate-500 hover:text-amber-500 inline-flex items-center gap-1 mb-2">
@@ -40,15 +40,15 @@ export default async function WorkspaceLimitsPage({ params }: { params: { id: st
             חזרה לדף הסביבה
           </Link>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 grid place-items-center text-amber-400">
-              <Settings className="w-6 h-6" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-500/20 grid place-items-center text-amber-400 flex-shrink-0">
+              <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <span className="text-2xl">{ws.icon || '📊'}</span>
-                {ws.name}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2 break-words">
+                <span className="text-xl sm:text-2xl flex-shrink-0">{ws.icon || '📊'}</span>
+                <span className="truncate">{ws.name}</span>
               </h1>
-              <p className="text-sm text-slate-400">הגדרת מגבלות, תכונות ותוכנית</p>
+              <p className="text-xs sm:text-sm text-slate-400">הגדרת מגבלות, תכונות ותוכנית</p>
             </div>
           </div>
         </div>

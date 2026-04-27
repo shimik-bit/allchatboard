@@ -201,12 +201,12 @@ export default function LimitsEditor({
       )}
 
       {/* Plan selector */}
-      <div className="bg-slate-900 rounded-xl border border-slate-800 p-5">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 p-3 sm:p-5">
         <h2 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-amber-500" />
           תוכנית (Plan)
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
           {allPlans.map(p => (
             <button
               key={p.plan}
@@ -217,8 +217,8 @@ export default function LimitsEditor({
                   : 'border-slate-700 hover:border-slate-600 bg-slate-800'
               }`}
             >
-              <div className="font-bold text-sm">{p.display_name}</div>
-              <div className="text-xs text-slate-400 mt-0.5">
+              <div className="font-bold text-sm truncate">{p.display_name}</div>
+              <div className="text-xs text-slate-400 mt-0.5 truncate">
                 {p.price_ils_monthly && Number(p.price_ils_monthly) > 0
                   ? `₪${p.price_ils_monthly}/חודש`
                   : 'חינם'}
@@ -281,20 +281,22 @@ export default function LimitsEditor({
               const pctColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
               return (
-                <div key={field.key as string} className="p-4 flex items-center gap-3">
-                  <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-200">{field.label}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      ברירת מחדל ({plan}): {planDefault.toLocaleString()} {field.unit}
-                      {' · '}
-                      בשימוש: {actualUsed.toLocaleString()}
-                    </div>
-                    <div className="mt-1.5 h-1 bg-slate-800 rounded-full overflow-hidden">
-                      <div className={`h-full ${pctColor}`} style={{ width: `${pct}%` }} />
+                <div key={field.key as string} className="p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-200">{field.label}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 break-words">
+                        ברירת מחדל ({plan}): {planDefault.toLocaleString()} {field.unit}
+                        {' · '}
+                        בשימוש: {actualUsed.toLocaleString()}
+                      </div>
+                      <div className="mt-1.5 h-1 bg-slate-800 rounded-full overflow-hidden">
+                        <div className={`h-full ${pctColor}`} style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0 self-end sm:self-auto">
                     <input
                       type="number"
                       value={hasOverride ? String(overrideValue) : ''}
@@ -367,14 +369,14 @@ export default function LimitsEditor({
       </div>
 
       {/* Save button */}
-      <div className="sticky bottom-4 bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl p-3 flex items-center justify-between shadow-2xl">
-        <div className="text-xs text-slate-400">
+      <div className="sticky bottom-2 sm:bottom-4 bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 sm:justify-between shadow-2xl">
+        <div className="text-xs text-slate-400 text-center sm:text-right">
           שינויים יחולו מיד ויחסמו פעולות שחורגות מהמגבלות
         </div>
         <button
           onClick={handleSave}
           disabled={busy}
-          className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 rounded-lg text-sm font-bold flex items-center gap-1.5"
+          className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 rounded-lg text-sm font-bold flex items-center justify-center gap-1.5 flex-shrink-0"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           שמור שינויים
