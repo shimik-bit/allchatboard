@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, Sparkles, AlertTriangle,
-  CreditCard, Activity, ShieldAlert, ArrowLeft, LogOut,
+  CreditCard, Activity, ShieldAlert, ArrowLeft, LogOut, Smartphone,
 } from 'lucide-react';
 import type { PlatformAdmin } from '@/lib/admin/auth';
 
@@ -29,6 +29,7 @@ export default function AdminShell({
       items: [
         { href: '/admin/workspaces', icon: Building2, label: 'סביבות' },
         { href: '/admin/users', icon: Users, label: 'משתמשים' },
+        { href: '/admin/instances', icon: Smartphone, label: 'WhatsApp Instances' },
       ],
     },
     {

@@ -11,6 +11,7 @@ import {
   Zap, ExternalLink, RefreshCw, Lock,
 } from 'lucide-react';
 import GroupsManager from '@/components/GroupsManager';
+import InstancesManager from '@/components/instances/InstancesManager';
 import { useDevMode } from '@/lib/hooks/useDevMode';
 
 export default function WhatsAppClient({
@@ -122,112 +123,13 @@ export default function WhatsAppClient({
         )}
       </div>
 
-      {/* Connection status */}
-      <div className="card p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg">סטטוס חיבור</h2>
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-            isConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-          }`}>
-            {isConnected ? <><Check className="w-3.5 h-3.5" /> מחובר</> : <><Clock className="w-3.5 h-3.5" /> לא מחובר</>}
-          </div>
-        </div>
-
-        {!devMode && canEdit && (
-          <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-            <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div>
-              <strong className="block mb-0.5">הגדרות חיבור נעולות</strong>
-              עריכת Instance ID או Token דורשת הפעלת "מצב מפתח" מהסיידבר.
-              שינוי שגוי כאן יכול לנתק את כל המערכת מ-WhatsApp.
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Green API Instance ID
-            </label>
-            <input
-              type="text"
-              value={instanceId}
-              onChange={(e) => setInstanceId(e.target.value)}
-              disabled={!canEditCredentials || saving}
-              placeholder="1103xxxxxxx"
-              dir="ltr"
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Green API Token (API Token Instance)
-            </label>
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              disabled={!canEditCredentials || saving}
-              placeholder="••••••••••••••••"
-              dir="ltr"
-              className="input-field"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 pt-2">
-            <button
-              onClick={handleSaveConnection}
-              disabled={!canEditCredentials || saving}
-              className="btn-primary text-sm"
-            >
-              {saving ? 'שומר...' : 'שמירה'}
-            </button>
-            <button
-              onClick={handleTestConnection}
-              disabled={testingConn || !instanceId.trim() || !token.trim()}
-              className="btn-secondary text-sm"
-            >
-              {testingConn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              בדיקת חיבור
-            </button>
-            {savedMsg && <span className="text-sm text-green-600">{savedMsg}</span>}
-            {testResult && (
-              <span className={`text-sm inline-flex items-center gap-1 ${testResult.ok ? 'text-green-600' : 'text-red-600'}`}>
-                {testResult.ok ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                {testResult.msg}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 pt-5 border-t border-gray-100">
-          <a
-            href="https://green-api.com/docs/before-start/"
-            target="_blank"
-            rel="noopener"
-            className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1"
-          >
-            איך מקבלים Instance ID ו-Token מ-Green API
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-      </div>
-
-      {/* Webhook URL */}
-      <div className="card p-6 mb-6">
-        <h2 className="font-display font-bold text-lg mb-2">כתובת Webhook</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          הדביקו את הכתובת הזאת בהגדרות ה-Green API תחת &quot;הגדרות התראות&quot; והפעילו את
-          <span className="font-mono mx-1" dir="ltr">incomingMessageReceived</span>.
-        </p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 px-3 py-2.5 bg-gray-50 rounded-lg text-xs font-mono border border-gray-200 overflow-x-auto" dir="ltr">
-            {webhookUrl}
-          </code>
-          <button onClick={copyWebhook} className="btn-secondary text-sm whitespace-nowrap">
-            <Copy className="w-4 h-4" /> העתק
-          </button>
-        </div>
+      {/* WhatsApp Instances Manager */}
+      <div className="mb-6">
+        <InstancesManager
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+          canEdit={canEdit}
+        />
       </div>
 
       {/* Groups - full routing management */}
