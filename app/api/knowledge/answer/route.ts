@@ -68,7 +68,13 @@ export async function POST(req: NextRequest) {
     wasFallback = true;
   } else {
     // Call Claude
-    try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      // No API key - use fallback
+      const { data: botRow } = await service
+        .from('knowledge_bots').select('fallback_message').eq('id', data.bot_id).maybeSingle();
+      answerText = botRow?.fallback_message || 'מצטער, נתקלתי בבעיה. אעביר אותך לנציג בהקדם.';
+      wasFallback = true;
+    } else try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
