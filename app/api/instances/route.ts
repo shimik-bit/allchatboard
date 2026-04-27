@@ -99,6 +99,45 @@ export async function POST(req: NextRequest) {
 
     const shouldBePrimary = !existingCount || existingCount === 0;
 
+    // ─── REACTIVATION: if this instance ID was previously connected to THIS workspace
+    // and is currently in 'deleted' state, reactivate it instead of creating a new row ───
+    const { data: existingDeleted } = await service
+      .from('whatsapp_instances')
+      .select('id, workspace_id, state')
+      .eq('provider', 'green_api')
+      .eq('provider_instance_id', String(manual_instance_id))
+      .maybeSingle();
+
+    if (existingDeleted && existingDeleted.workspace_id === workspace_id && existingDeleted.state === 'deleted') {
+      // Reactivate it
+      const { data: reactivated, error: reactErr } = await service
+        .from('whatsapp_instances')
+        .update({
+          state: 'authorized',
+          provider_token: manual_token,
+          display_name,
+          is_primary: shouldBePrimary,
+          is_shared: false,
+        })
+        .eq('id', existingDeleted.id)
+        .select()
+        .single();
+      if (reactErr) {
+        return NextResponse.json({ error: reactErr.message }, { status: 500 });
+      }
+      // Sync to legacy fields if primary
+      if (shouldBePrimary) {
+        await service
+          .from('workspaces')
+          .update({
+            whatsapp_instance_id: String(manual_instance_id),
+            whatsapp_token: manual_token,
+          })
+          .eq('id', workspace_id);
+      }
+      return NextResponse.json({ instance: reactivated, reactivated: true });
+    }
+
     const { data: instance, error } = await service
       .from('whatsapp_instances')
       .insert({
