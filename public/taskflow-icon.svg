@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- TaskFlow AI logo - Variant A: U-bubble with checkmark inside -->
+  <!-- Inspired by AllChat's U-shape, but with a checkmark to signal "tasks done" -->
+
+  <!-- Pink dot (left "eye") -->
+  <circle cx="55" cy="32" r="18" fill="#FF2D8A"/>
+
+  <!-- Gold dot (right "eye") -->
+  <circle cx="145" cy="32" r="18" fill="#FFB800"/>
+
+  <!-- Purple U-shape speech bubble -->
+  <path d="M 30 78
+           C 30 60, 45 50, 100 50
+           C 155 50, 170 60, 170 78
+           L 170 130
+           C 170 160, 145 178, 100 178
+           L 85 178
+           L 70 195
+           L 73 175
+           C 50 168, 30 152, 30 130
+           Z"
+        fill="#7B3FE4"/>
+
+  <!-- Checkmark inside (white) -->
+  <path d="M 65 118 L 88 138 L 138 88"
+        stroke="white"
+        stroke-width="14"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+</svg>

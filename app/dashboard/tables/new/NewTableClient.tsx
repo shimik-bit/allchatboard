@@ -5,23 +5,24 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { FieldType } from '@/lib/types/database';
 import { Plus, Trash2, ArrowRight, Link2 } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
-const FIELD_TYPES: { value: FieldType; label: string; needsOptions?: boolean; needsRelation?: boolean }[] = [
-  { value: 'text', label: 'טקסט קצר' },
-  { value: 'longtext', label: 'טקסט ארוך' },
-  { value: 'number', label: 'מספר' },
-  { value: 'currency', label: 'מטבע (₪)' },
-  { value: 'date', label: 'תאריך' },
-  { value: 'datetime', label: 'תאריך + שעה' },
-  { value: 'select', label: 'בחירה אחת', needsOptions: true },
-  { value: 'multiselect', label: 'בחירה מרובה', needsOptions: true },
-  { value: 'status', label: 'סטטוס', needsOptions: true },
-  { value: 'checkbox', label: 'תיבת סימון' },
-  { value: 'phone', label: 'טלפון' },
-  { value: 'email', label: 'אימייל' },
-  { value: 'url', label: 'קישור URL' },
-  { value: 'rating', label: 'דירוג כוכבים' },
-  { value: 'relation', label: '🔗 קישור לרשומה', needsRelation: true },
+const FIELD_TYPE_KEYS: { value: FieldType; needsOptions?: boolean; needsRelation?: boolean }[] = [
+  { value: 'text' },
+  { value: 'longtext' },
+  { value: 'number' },
+  { value: 'currency' },
+  { value: 'date' },
+  { value: 'datetime' },
+  { value: 'select', needsOptions: true },
+  { value: 'multiselect', needsOptions: true },
+  { value: 'status', needsOptions: true },
+  { value: 'checkbox' },
+  { value: 'phone' },
+  { value: 'email' },
+  { value: 'url' },
+  { value: 'rating' },
+  { value: 'relation', needsRelation: true },
 ];
 
 const ICONS = ['📋', '🏠', '👥', '🔧', '📦', '💰', '📅', '✅', '🚗', '🍕', '📞', '⚙️', '🎯', '📊'];
@@ -32,14 +33,15 @@ interface FieldDraft {
   slug: string;
   type: FieldType;
   is_required: boolean;
-  options: string;        // comma-separated for select-types
+  options: string;
   ai_extraction_hint: string;
-  relation_table_id?: string;  // for relation type
+  relation_table_id?: string;
 }
 
 export default function NewTableClient({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useT();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -53,53 +55,39 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load existing tables in workspace (for relation dropdowns)
   useEffect(() => {
-    supabase
-      .from('tables')
-      .select('id, name, icon')
-      .eq('workspace_id', workspaceId)
-      .eq('is_archived', false)
-      .order('position')
-      .then(({ data }) => setExistingTables(data || []));
-  }, [workspaceId]);
+    (async () => {
+      const { data } = await supabase
+        .from('tables')
+        .select('id, name, icon')
+        .eq('workspace_id', workspaceId)
+        .eq('is_active', true)
+        .order('display_order');
+      if (data) setExistingTables(data);
+    })();
+  }, [workspaceId, supabase]);
 
-  function slugify(s: string, idx?: number): string {
-    let base = s.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')   // strip non-ascii to '_' — Hebrew gets removed
-      .replace(/^_|_$/g, '');
-    if (!base) {
-      // Hebrew/empty: use a stable fallback
-      base = `field_${(idx ?? 0) + 1}`;
-    }
-    return base;
+  function slugify(s: string, fallback?: number): string {
+    return (
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || (fallback !== undefined ? `f${fallback}` : '')
+    );
   }
 
-  // Ensure all field slugs are unique within the table
-  function ensureUniqueSlugs(fieldsList: FieldDraft[]): FieldDraft[] {
-    const seen = new Map<string, number>();
-    return fieldsList.map((f, i) => {
-      let slug = f.slug || slugify(f.name, i);
-      if (!slug) slug = `field_${i + 1}`;
-      const count = seen.get(slug) || 0;
-      seen.set(slug, count + 1);
-      const finalSlug = count === 0 ? slug : `${slug}_${count + 1}`;
-      // re-track final to prevent recursive collisions
-      seen.set(finalSlug, (seen.get(finalSlug) || 0) + 1);
-      return { ...f, slug: finalSlug };
-    });
-  }
-
-  function updateField(idx: number, patch: Partial<FieldDraft>) {
-    setFields((prev) => prev.map((f, i) => {
-      if (i !== idx) return f;
-      const next = { ...f, ...patch };
-      // auto-update slug when name changes (unless slug was manually edited)
-      if (patch.name !== undefined && (f.slug === '' || f.slug === slugify(f.name, idx))) {
-        next.slug = slugify(patch.name, idx);
+  function ensureUniqueSlugs(items: FieldDraft[]): FieldDraft[] {
+    const used = new Set<string>();
+    return items.map((f, i) => {
+      let base = slugify(f.name, i) || `f${i}`;
+      let s = base;
+      let n = 1;
+      while (used.has(s)) {
+        s = `${base}_${n++}`;
       }
-      return next;
-    }));
+      used.add(s);
+      return { ...f, slug: s };
+    });
   }
 
   function addField() {
@@ -109,33 +97,50 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
     ]);
   }
 
+  function updateField(idx: number, patch: Partial<FieldDraft>) {
+    setFields((prev) => prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)));
+  }
+
   function removeField(idx: number) {
     setFields((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSubmit() {
     setError(null);
-    if (!name.trim()) { setError('שם הטבלה הוא שדה חובה'); return; }
-    if (fields.length === 0) { setError('חייב לפחות שדה אחד'); return; }
-    if (fields.some((f) => !f.name.trim())) { setError('כל השדות חייבים שם'); return; }
-    // Validate relation fields have a target table
+    if (!name.trim()) {
+      setError(t('tables.new_page.error_name_required'));
+      return;
+    }
+    if (fields.length === 0) {
+      setError(t('tables.new_page.error_at_least_one_field'));
+      return;
+    }
+    if (fields.some((f) => !f.name.trim())) {
+      setError(t('tables.new_page.error_field_name_required'));
+      return;
+    }
     const badRelation = fields.find((f) => f.type === 'relation' && !f.relation_table_id);
-    if (badRelation) { setError(`לשדה "${badRelation.name}" מסוג קישור חייב לבחור טבלה יעד`); return; }
+    if (badRelation) {
+      setError(t('tables.new_page.error_relation_target', { name: badRelation.name }));
+      return;
+    }
 
     setSaving(true);
     const tableSlug = slugify(name) || `table_${Date.now()}`;
-
-    // Ensure unique slugs across all fields
     const uniqueFields = ensureUniqueSlugs(fields);
 
     const fieldsPayload = uniqueFields.map((f, i) => {
       const cfg: any = {};
-      if (FIELD_TYPES.find((t) => t.value === f.type)?.needsOptions) {
-        cfg.options = f.options.split(',').map((o) => o.trim()).filter(Boolean).map((label, idx) => ({
-          value: slugify(label, idx) || `opt_${idx}`,
-          label,
-          color: ['#7C3AED', '#059669', '#DC2626', '#D97706'][idx % 4],
-        }));
+      if (FIELD_TYPE_KEYS.find((tt) => tt.value === f.type)?.needsOptions) {
+        cfg.options = f.options
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
+          .map((label, idx) => ({
+            value: slugify(label, idx) || `opt_${idx}`,
+            label,
+            color: ['#7C3AED', '#059669', '#DC2626', '#D97706'][idx % 4],
+          }));
       }
       if (f.type === 'relation' && f.relation_table_id) {
         cfg.relation_table_id = f.relation_table_id;
@@ -163,7 +168,10 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
     });
 
     setSaving(false);
-    if (rpcError) { setError(rpcError.message); return; }
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
+    }
 
     router.push(`/dashboard/${tableId}`);
     router.refresh();
@@ -171,35 +179,58 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
 
   return (
     <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-3xl mx-auto">
-      <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-flex items-center gap-1">
-        <ArrowRight className="w-4 h-4" /> חזור
+      <button
+        onClick={() => router.back()}
+        className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-flex items-center gap-1"
+      >
+        <ArrowRight className="w-4 h-4" /> {t('tables.new_page.back')}
       </button>
 
-      <h1 className="font-display font-bold text-3xl mb-1">טבלה חדשה</h1>
-      <p className="text-gray-500 mb-8">הגדר טבלה חדשה עם השדות שאתה צריך</p>
+      <h1 className="font-display font-bold text-3xl mb-1">{t('tables.new_page.title')}</h1>
+      <p className="text-gray-500 mb-8">{t('tables.new_page.subtitle')}</p>
 
       {/* Basic info */}
       <div className="card p-6 mb-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">שם הטבלה <span className="text-red-500">*</span></label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="לדוגמה: ספקים" className="input-field" />
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            {t('tables.new_page.table_name_label')} <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('tables.new_page.table_name_placeholder')}
+            className="input-field"
+          />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">תיאור (אופציונלי)</label>
-          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
-            placeholder="עוזר ל-AI להבין מה הטבלה הזו מכילה" className="input-field" />
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            {t('tables.new_page.description_label')}
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('tables.new_page.description_placeholder')}
+            className="input-field"
+          />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">אייקון</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            {t('tables.new_page.icon_label')}
+          </label>
           <div className="flex flex-wrap gap-2">
             {ICONS.map((i) => (
-              <button key={i} onClick={() => setIcon(i)} type="button"
+              <button
+                key={i}
+                onClick={() => setIcon(i)}
+                type="button"
                 className={`w-10 h-10 rounded-lg text-xl transition-all ${
                   icon === i ? 'bg-brand-100 ring-2 ring-brand-500' : 'bg-gray-100 hover:bg-gray-200'
-                }`}>
+                }`}
+              >
                 {i}
               </button>
             ))}
@@ -207,40 +238,47 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">צבע</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('common.color') || 'Color'}</label>
           <div className="flex items-center gap-2">
             {COLORS.map((c) => (
-              <button key={c} onClick={() => setColor(c)} type="button"
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                type="button"
                 className={`w-9 h-9 rounded-lg ${color === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
-                style={{ background: c }} />
+                style={{ background: c }}
+              />
             ))}
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            מילות מפתח ל-AI (מופרדות בפסיק)
+            {t('tables.ai_keywords')}
           </label>
-          <input type="text" value={aiKeywords} onChange={(e) => setAiKeywords(e.target.value)}
-            placeholder="ספק, חשבונית, רכישה" className="input-field" />
-          <div className="text-xs text-gray-500 mt-1">
-            המילים האלה עוזרות ל-AI להחליט מתי הודעת וואטסאפ שייכת לטבלה הזו
-          </div>
+          <input
+            type="text"
+            value={aiKeywords}
+            onChange={(e) => setAiKeywords(e.target.value)}
+            placeholder={t('tables.ai_keywords_hint')}
+            className="input-field"
+          />
+          <div className="text-xs text-gray-500 mt-1">{t('tables.ai_keywords_hint')}</div>
         </div>
       </div>
 
       {/* Fields */}
       <div className="card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg">שדות</h2>
+          <h2 className="font-display font-bold text-lg">{t('tables.new_page.fields_title')}</h2>
           <button onClick={addField} className="btn-secondary text-sm">
-            <Plus className="w-4 h-4" /> שדה
+            <Plus className="w-4 h-4" /> {t('tables.new_page.add_field')}
           </button>
         </div>
 
         <div className="space-y-3">
           {fields.map((f, i) => {
-            const typeInfo = FIELD_TYPES.find((t) => t.value === f.type);
+            const typeInfo = FIELD_TYPE_KEYS.find((tt) => tt.value === f.type);
             return (
               <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/40">
                 <div className="flex items-center gap-2">
@@ -249,7 +287,7 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                     type="text"
                     value={f.name}
                     onChange={(e) => updateField(i, { name: e.target.value })}
-                    placeholder="שם השדה"
+                    placeholder={t('tables.new_page.field_name')}
                     className="input-field flex-1 text-sm"
                   />
                   <select
@@ -257,12 +295,18 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                     onChange={(e) => updateField(i, { type: e.target.value as FieldType })}
                     className="input-field text-sm w-40"
                   >
-                    {FIELD_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+                    {FIELD_TYPE_KEYS.map((tt) => (
+                      <option key={tt.value} value={tt.value}>
+                        {t(`tables.new_page.field_types.${tt.value}`)}
+                      </option>
                     ))}
                   </select>
                   {fields.length > 1 && (
-                    <button onClick={() => removeField(i)} className="p-2 text-red-600 hover:bg-red-50 rounded">
+                    <button
+                      onClick={() => removeField(i)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      title={t('tables.new_page.remove_field')}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
@@ -274,7 +318,7 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                       type="text"
                       value={f.options}
                       onChange={(e) => updateField(i, { options: e.target.value })}
-                      placeholder="אפשרויות מופרדות בפסיק (פתוח, סגור, בעבודה)"
+                      placeholder={t('tables.new_page.options_placeholder')}
                       className="input-field text-sm flex-1 min-w-[200px]"
                     />
                   )}
@@ -284,10 +328,10 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                       onChange={(e) => updateField(i, { relation_table_id: e.target.value })}
                       className="input-field text-sm flex-1 min-w-[200px]"
                     >
-                      <option value="">— בחר טבלה לקשר אליה —</option>
-                      {existingTables.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.icon} {t.name}
+                      <option value="">— {t('tables.new_page.select_table')} —</option>
+                      {existingTables.map((tt) => (
+                        <option key={tt.id} value={tt.id}>
+                          {tt.icon} {tt.name}
                         </option>
                       ))}
                     </select>
@@ -296,7 +340,7 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                     type="text"
                     value={f.ai_extraction_hint}
                     onChange={(e) => updateField(i, { ai_extraction_hint: e.target.value })}
-                    placeholder="רמז ל-AI (אופציונלי)"
+                    placeholder={`${t('tables.ai_keywords')} (${t('common.optional')})`}
                     className="input-field text-sm flex-1 min-w-[200px]"
                   />
                   <label className="flex items-center gap-1.5 text-xs text-gray-700">
@@ -306,11 +350,11 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
                       onChange={(e) => updateField(i, { is_required: e.target.checked })}
                       className="w-3.5 h-3.5 rounded border-gray-300 text-brand-600"
                     />
-                    חובה
+                    {t('common.required')}
                   </label>
                   {i === 0 && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">
-                      שדה ראשי
+                      {t('tables.primary_field')}
                     </span>
                   )}
                 </div>
@@ -325,7 +369,7 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
       )}
 
       <button onClick={handleSubmit} disabled={saving} className="btn-primary w-full py-3">
-        {saving ? 'יוצר...' : 'צור טבלה'}
+        {saving ? t('tables.new_page.creating') : t('tables.new_page.create_table')}
       </button>
     </div>
   );

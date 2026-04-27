@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
+import { useT } from '@/lib/i18n/useT';
 
 // ============================================================================
 // Types
@@ -116,6 +117,7 @@ export default function GroupGuardClient({
   isSuperAdmin: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('dashboard');
+  const { t } = useT();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -128,9 +130,9 @@ export default function GroupGuardClient({
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">GroupGuard</h1>
+                <h1 className="text-2xl font-bold text-gray-900">{t('groupguard.title')}</h1>
                 <p className="text-sm text-gray-500">
-                  ניטור אוטומטי של ספאם בקבוצות וואטסאפ
+                  {t('groupguard.subtitle')}
                 </p>
               </div>
             </div>
@@ -148,7 +150,7 @@ export default function GroupGuardClient({
           {!canEdit && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              אין לך הרשאה לעריכה. רק owner/admin יכולים לשנות הגדרות.
+              {t('groupguard.no_edit_permission')}
             </div>
           )}
         </div>
@@ -160,37 +162,37 @@ export default function GroupGuardClient({
               active={tab === 'dashboard'}
               onClick={() => setTab('dashboard')}
               icon={<BarChart3 className="w-4 h-4" />}
-              label="דשבורד"
+              label={t('groupguard.tabs.dashboard')}
             />
             <TabButton
               active={tab === 'members'}
               onClick={() => setTab('members')}
               icon={<User className="w-4 h-4" />}
-              label="חברי קבוצות"
+              label={t('groupguard.tabs.members')}
             />
             <TabButton
               active={tab === 'groups'}
               onClick={() => setTab('groups')}
               icon={<Users className="w-4 h-4" />}
-              label="קבוצות"
+              label={t('groupguard.tabs.groups')}
             />
             <TabButton
               active={tab === 'prefixes'}
               onClick={() => setTab('prefixes')}
               icon={<Globe className="w-4 h-4" />}
-              label="קידומות חסומות"
+              label={t('groupguard.tabs.prefixes')}
             />
             <TabButton
               active={tab === 'whitelist'}
               onClick={() => setTab('whitelist')}
               icon={<ShieldCheck className="w-4 h-4" />}
-              label="רשימה לבנה"
+              label={t('groupguard.tabs.whitelist')}
             />
             <TabButton
               active={tab === 'log'}
               onClick={() => setTab('log')}
               icon={<Activity className="w-4 h-4" />}
-              label="לוג פעולות"
+              label={t('groupguard.tabs.log')}
             />
           </div>
 
@@ -253,6 +255,7 @@ function TabButton({
 // ============================================================================
 
 function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
+  const { t } = useT();
   const [groups, setGroups] = useState<GGGroup[]>([]);
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
@@ -274,7 +277,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
       const res = await fetch(`/api/groupguard/groups?workspace_id=${workspaceId}`);
       const d = await res.json();
       if (!res.ok) {
-        setError(d.error || `שגיאה ${res.status}`);
+        setError(d.error || `Error ${res.status}`);
       } else {
         setGroups(d.groups || []);
         setStats(d.stats || {});
@@ -304,7 +307,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
         setTimeout(() => setSavedId(null), 2000);
       } else {
         const j = await res.json();
-        alert(`שגיאה: ${j.error}`);
+        alert(`Error: ${j.error}`);
       }
     } finally {
       setSavingId(null);
@@ -312,7 +315,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
   }
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-500">טוען קבוצות...</div>;
+    return <div className="text-center py-8 text-gray-500">{t('groupguard.common.loading')}</div>;
   }
 
   if (error) {
@@ -327,9 +330,9 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
     return (
       <div className="text-center py-12">
         <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-600 mb-2">אין קבוצות וואטסאפ רשומות עדיין</p>
+        <p className="text-gray-600 mb-2">{t('groupguard.groups.no_groups')}</p>
         <p className="text-sm text-gray-500">
-          קבוצות מתווספות אוטומטית כשהבוט מקבל הודעה ראשונה מהן
+          {t('groupguard.groups.no_groups_hint')}
         </p>
       </div>
     );
@@ -338,7 +341,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-600 mb-4">
-        הפעל את GroupGuard בכל קבוצה שאתה רוצה לנטר. ⚠️ הבוט חייב להיות אדמין בקבוצה כדי לבצע פעולות.
+        ⚠️ {t('groupguard.groups.enable_hint')}
       </p>
 
       {groups.map((g) => {
@@ -373,17 +376,17 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                   <div className="text-xs text-gray-500 flex items-center gap-3 mt-0.5">
                     <span>
                       {g.gg_enabled ? (
-                        <span className="text-green-600 font-medium">פעיל</span>
+                        <span className="text-green-600 font-medium">{t('groupguard.common.enabled')}</span>
                       ) : (
-                        <span>כבוי</span>
+                        <span>{t('groupguard.common.disabled')}</span>
                       )}
                     </span>
                     {g.gg_enabled && (
                       <>
                         <span>•</span>
-                        <span>{s.kicks} הוצאות השבוע</span>
+                        <span>{s.kicks} {t('groupguard.groups.kicks_this_week')}</span>
                         <span>•</span>
-                        <span>{s.deletes} מחיקות</span>
+                        <span>{s.deletes} {t('groupguard.groups.deletes')}</span>
                       </>
                     )}
                   </div>
@@ -399,10 +402,10 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                       setScanModalGroup(g);
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-                    title="סרוק את חברי הקבוצה ובדוק מי במאגר הספאמרים"
+                    title={t('groupguard.groups.scan_tooltip')}
                   >
                     <Search className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">סרוק חברים</span>
+                    <span className="hidden sm:inline">{t('groupguard.groups.scan_members')}</span>
                   </button>
                 )}
 
