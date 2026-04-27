@@ -48,6 +48,53 @@ export async function POST(req: NextRequest) {
   try {
     const context = await gatherFocusContext(serviceClient, user.id, workspaceId);
 
+    // ─── Early return if there's not enough data ───
+    // Don't waste AI tokens generating fake tasks for an empty workspace
+    if (context.stats.total_records === 0) {
+      const emptyBriefing = {
+        greeting: `שלום ${context.user.name}! 👋`,
+        summary: 'הסביבה הזאת עדיין ריקה - אין נתונים שאוכל להתבסס עליהם.',
+        tasks: [],
+        empty_state: true,
+        empty_reason: 'no_records',
+        suggestions: context.tables.length === 0
+          ? [
+              { title: 'צור טבלה ראשונה', href: '/dashboard/tables/new', icon: '📋' },
+              { title: 'התחבר לקבוצת WhatsApp', href: '/dashboard/whatsapp', icon: '💬' },
+            ]
+          : [
+              { title: 'הוסף רשומות ידנית בטבלאות', href: '/dashboard', icon: '✏️' },
+              { title: 'חבר קבוצת WhatsApp שתזרים מידע', href: '/dashboard/whatsapp', icon: '💬' },
+              { title: 'הזמן חברי צוות שיוסיפו מידע', href: '/dashboard/settings', icon: '👥' },
+            ],
+        closing: 'ברגע שיהיה מידע במערכת, ה-AI יוכל לתת לך פוקוס אמיתי על מה שחשוב.',
+      };
+
+      // Save the session for analytics
+      const { data: session } = await serviceClient
+        .from('focus_sessions')
+        .insert({
+          workspace_id: workspaceId,
+          user_id: user.id,
+          source: 'manual',
+          user_prompt: userPrompt,
+          ai_response: emptyBriefing,
+          context_snapshot: { stats: context.stats, table_count: context.tables.length, skipped_ai: true },
+          tokens_input: 0,
+          tokens_output: 0,
+          model_used: 'none',
+          cost_usd: 0,
+        })
+        .select('id')
+        .single();
+
+      return NextResponse.json({
+        session_id: session?.id,
+        briefing: emptyBriefing,
+        stats: context.stats,
+      });
+    }
+
     const { briefing, tokensInput, tokensOutput, costUsd } = await generateFocusBriefing(
       context,
       userPrompt,

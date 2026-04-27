@@ -38,6 +38,9 @@ type Briefing = {
   summary: string;
   tasks: BriefingTask[];
   closing?: string;
+  empty_state?: boolean;
+  empty_reason?: string;
+  suggestions?: Array<{ title: string; href: string; icon: string }>;
 };
 
 const PRIORITY_CONFIG = {
@@ -237,11 +240,39 @@ export default function FocusClient({
 
             {/* Tasks */}
             {briefing.tasks.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-                <Coffee className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-700 font-medium">הכל בשליטה!</p>
-                <p className="text-sm text-gray-500 mt-1">אין משימות דחופות עכשיו. תיהנה מהיום ☕</p>
-              </div>
+              briefing.empty_state ? (
+                // Empty workspace - no records to base tasks on
+                <div className="bg-white rounded-2xl border-2 border-amber-200 p-8 text-center">
+                  <div className="text-5xl mb-3">📭</div>
+                  <p className="text-gray-900 font-bold text-lg mb-1">אין מספיק מידע</p>
+                  <p className="text-sm text-gray-600 mb-5 max-w-md mx-auto">
+                    {briefing.summary}
+                  </p>
+                  {briefing.suggestions && briefing.suggestions.length > 0 && (
+                    <div className="space-y-2 max-w-sm mx-auto">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-2">איך מתחילים?</p>
+                      {briefing.suggestions.map((s, i) => (
+                        <Link
+                          key={i}
+                          href={s.href}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-100 text-right transition-colors"
+                        >
+                          <span className="text-2xl flex-shrink-0">{s.icon}</span>
+                          <span className="flex-1 text-sm font-medium text-purple-900">{s.title}</span>
+                          <ArrowLeft className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Has data but no tasks needed
+                <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+                  <Coffee className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-700 font-medium">הכל בשליטה!</p>
+                  <p className="text-sm text-gray-500 mt-1">אין משימות דחופות עכשיו. תיהנה מהיום ☕</p>
+                </div>
+              )
             ) : (
               <div className="space-y-3">
                 {briefing.tasks.map((task, i) => (
@@ -249,9 +280,12 @@ export default function FocusClient({
                     key={i}
                     task={task}
                     index={i}
+                    workspaceId={workspaceId}
+                    sessionId={sessionId}
                     workspaceIcon={currentWorkspace?.icon}
                     actionTaken={taskActions[i]}
                     onAction={(action) => handleAction(i, task, action)}
+                    onAddedToTasks={(taskIdx) => setTaskActions(prev => ({ ...prev, [taskIdx]: 'added_to_table' }))}
                   />
                 ))}
               </div>
@@ -283,14 +317,18 @@ export default function FocusClient({
 // ─────────────────────────────────────────────────────────────────────────
 
 function TaskCard({
-  task, index, workspaceIcon, actionTaken, onAction,
+  task, index, workspaceId, sessionId, workspaceIcon, actionTaken, onAction, onAddedToTasks,
 }: {
   task: BriefingTask;
   index: number;
+  workspaceId: string;
+  sessionId: string | null;
   workspaceIcon?: string | null;
   actionTaken?: string;
   onAction: (action: string) => void;
+  onAddedToTasks: (idx: number) => void;
 }) {
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const config = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const PriorityIcon = config.icon;
   const ActionIcon = task.action_hint ? (ACTION_HINT_ICONS as any)[task.action_hint] : null;
@@ -352,6 +390,13 @@ function TaskCard({
           עשיתי
         </button>
         <button
+          onClick={() => setShowAddDialog(true)}
+          className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-800 hover:bg-purple-200 rounded-lg text-xs font-bold transition-colors"
+        >
+          <Save className="w-3.5 h-3.5" />
+          הוסף למשימות
+        </button>
+        <button
           onClick={() => onAction('snoozed')}
           className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
         >
@@ -367,7 +412,7 @@ function TaskCard({
         </button>
         {task.record_id && (
           <a
-            href={`/dashboard/${task.record_id}`} // This is approximate - would need table_id context
+            href={`/dashboard/${task.record_id}`}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-purple-700 hover:bg-purple-50 rounded-lg text-xs font-medium transition-colors mr-auto"
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -375,6 +420,20 @@ function TaskCard({
           </a>
         )}
       </div>
+
+      {showAddDialog && (
+        <AddToTasksDialog
+          task={task}
+          taskIndex={index}
+          sessionId={sessionId}
+          workspaceId={workspaceId}
+          onClose={() => setShowAddDialog(false)}
+          onSuccess={() => {
+            setShowAddDialog(false);
+            onAddedToTasks(index);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -488,6 +547,311 @@ function RoleSettings({
           <Save className="w-3.5 h-3.5" />
           {busy ? 'שומר...' : 'שמור'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dialog: Add task to "tasks" table with assignee picker
+// ─────────────────────────────────────────────────────────────────────────
+
+function AddToTasksDialog({
+  task, taskIndex, sessionId, workspaceId, onClose, onSuccess,
+}: {
+  task: BriefingTask;
+  taskIndex: number;
+  sessionId: string | null;
+  workspaceId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [options, setOptions] = useState<{
+    members: Array<{ user_id: string; role: string; display_name: string; email?: string; is_self: boolean }>;
+    phones: Array<{ id: string; phone: string; display_name: string; job_title?: string }>;
+    tables: Array<{ id: string; name: string; icon: string | null }>;
+    can_delegate: boolean;
+    my_user_id: string;
+    my_display_name: string;
+  } | null>(null);
+
+  // Form state
+  const [tableId, setTableId] = useState<string>('');
+  const [assigneeType, setAssigneeType] = useState<'me' | 'member' | 'phone'>('me');
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string>('');
+
+  // Load options on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/focus/add-to-tasks?workspace_id=${workspaceId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load options');
+        setOptions(data);
+        // Auto-select tasks table if available
+        const tasksTable = data.tables.find((t: any) =>
+          /משימ|task/i.test(t.name)
+        );
+        if (tasksTable) setTableId(tasksTable.id);
+        // Default due date based on priority
+        const days = task.priority === 'critical' ? 1 : task.priority === 'high' ? 2 : 3;
+        const due = new Date();
+        due.setDate(due.getDate() + days);
+        setDueDate(due.toISOString().split('T')[0]);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [workspaceId, task.priority]);
+
+  async function handleSubmit() {
+    if (!tableId) {
+      setError('צריך לבחור טבלה');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+
+    const payload: any = {
+      workspace_id: workspaceId,
+      session_id: sessionId,
+      task_index: taskIndex,
+      task_title: task.title,
+      task_reason: task.reason,
+      priority: task.priority,
+      table_id: tableId,
+      due_date: dueDate || null,
+    };
+
+    if (assigneeType === 'member' && assigneeId) {
+      payload.assignee_user_id = assigneeId;
+    } else if (assigneeType === 'phone' && assigneeId) {
+      payload.assignee_phone_id = assigneeId;
+    }
+    // 'me' - no assignee_user_id, will default to current user in API
+
+    try {
+      const res = await fetch('/api/focus/add-to-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'שגיאה בהוספה');
+        setBusy(false);
+        return;
+      }
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h3 className="font-display font-bold text-lg flex items-center gap-2">
+              <Save className="w-5 h-5 text-purple-600" />
+              הוסף לטבלת משימות
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              המשימה תיווצר כרשומה חדשה ותופיע בטבלת המשימות
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+            <p className="text-sm">טוען אפשרויות...</p>
+          </div>
+        ) : !options ? (
+          <div className="py-8 text-center text-red-600 text-sm">{error || 'שגיאה בטעינה'}</div>
+        ) : (
+          <div className="space-y-4">
+            {/* Task preview */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="text-sm font-bold text-gray-900">{task.title}</p>
+              <p className="text-xs text-gray-600 mt-1">{task.reason}</p>
+            </div>
+
+            {/* Table picker */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                טבלת יעד <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={tableId}
+                onChange={(e) => setTableId(e.target.value)}
+                className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
+              >
+                <option value="">— בחר טבלה —</option>
+                {options.tables.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.icon || '📋'} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Assignee */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                למי לשייך?
+              </label>
+
+              {/* Quick options as radio buttons */}
+              <div className="space-y-2">
+                {/* Me */}
+                <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="assignee"
+                    checked={assigneeType === 'me'}
+                    onChange={() => { setAssigneeType('me'); setAssigneeId(''); }}
+                    className="text-purple-600"
+                  />
+                  <span className="text-sm flex-1">
+                    <strong>לי</strong> ({options.my_display_name})
+                  </span>
+                  <span className="text-xs text-gray-500">ברירת מחדל</span>
+                </label>
+
+                {/* Delegate to member - only if user has permission */}
+                {options.can_delegate && options.members.filter(m => !m.is_self).length > 0 && (
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignee"
+                      checked={assigneeType === 'member'}
+                      onChange={() => setAssigneeType('member')}
+                      className="text-purple-600"
+                    />
+                    <span className="text-sm flex-1">
+                      <strong>חבר צוות</strong>
+                    </span>
+                  </label>
+                )}
+
+                {assigneeType === 'member' && (
+                  <select
+                    value={assigneeId}
+                    onChange={(e) => setAssigneeId(e.target.value)}
+                    className="w-full text-sm p-2 border border-purple-200 rounded-lg mr-6 mt-1 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  >
+                    <option value="">— בחר חבר צוות —</option>
+                    {options.members
+                      .filter((m) => !m.is_self)
+                      .map((m) => (
+                        <option key={m.user_id} value={m.user_id}>
+                          {m.display_name} ({m.role})
+                        </option>
+                      ))}
+                  </select>
+                )}
+
+                {/* Authorized phone */}
+                {options.phones.length > 0 && (
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignee"
+                      checked={assigneeType === 'phone'}
+                      onChange={() => setAssigneeType('phone')}
+                      className="text-purple-600"
+                    />
+                    <span className="text-sm flex-1">
+                      <strong>טלפון מורשה</strong> (יקבל הודעת WA)
+                    </span>
+                  </label>
+                )}
+
+                {assigneeType === 'phone' && (
+                  <select
+                    value={assigneeId}
+                    onChange={(e) => setAssigneeId(e.target.value)}
+                    className="w-full text-sm p-2 border border-purple-200 rounded-lg mr-6 mt-1 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  >
+                    <option value="">— בחר טלפון —</option>
+                    {options.phones.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.display_name} ({p.phone})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {!options.can_delegate && (
+                <p className="text-[10px] text-gray-500 mt-2">
+                  💡 רק בעלים ומנהלים יכולים להאציל משימות לאחרים
+                </p>
+              )}
+            </div>
+
+            {/* Due date */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                תאריך יעד
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-800">
+                {error}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+                disabled={busy}
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={busy || !tableId || (assigneeType !== 'me' && !assigneeId)}
+                className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    יוצר...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    הוסף לטבלה
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
