@@ -135,6 +135,22 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3">
+        {/* Focus Mode - prominent */}
+        <Link
+          href="/dashboard/focus"
+          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold mb-2 transition-all ${
+            pathname === '/dashboard/focus'
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+              : 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 hover:shadow-sm border border-purple-100'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>תפקס אותי</span>
+          <span className={`mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
+            pathname === '/dashboard/focus' ? 'bg-white/20' : 'bg-purple-200 text-purple-700'
+          }`}>AI</span>
+        </Link>
+
         <Link
           href="/dashboard"
           className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-colors ${
