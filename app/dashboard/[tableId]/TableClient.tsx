@@ -14,7 +14,9 @@ import FieldsManagerModal from '@/components/FieldsManagerModal';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, UserCircle, Settings2, Shield, Database, Trash2,
+  Activity,
 } from 'lucide-react';
+import Link from 'next/link';
 import { DevModeOnly } from '@/components/DevMode';
 
 type PhoneOption = {
@@ -337,6 +339,14 @@ export default function TableClient({
                   <Settings2 className="w-4 h-4" />
                 </button>
               )}
+              <Link
+                href={`/dashboard/${table.id}/report`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs md:text-sm rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium transition-colors"
+                title="הצג דוח ויזואלי של הטבלה"
+              >
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">דוח</span>
+              </Link>
               {canEdit && (
                 <button onClick={openCreateModal} className="btn-primary text-xs md:text-sm">
                   <Plus className="w-4 h-4" />
