@@ -23,6 +23,7 @@ import {
   BarChart3,
   User,
   Bell,
+  Search,
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
@@ -259,6 +260,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [scanModalGroup, setScanModalGroup] = useState<GGGroup | null>(null);
 
   useEffect(() => {
     loadGroups();
@@ -389,6 +391,21 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Scan button - finds spammers in group */}
+                {g.gg_enabled && canEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setScanModalGroup(g);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                    title="סרוק את חברי הקבוצה ובדוק מי במאגר הספאמרים"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">סרוק חברים</span>
+                  </button>
+                )}
+
                 {/* Master toggle */}
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -574,6 +591,14 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
           </div>
         );
       })}
+
+      {/* Scan modal - shown when user clicks "סרוק חברים" on a group */}
+      {scanModalGroup && (
+        <ScanGroupModal
+          group={scanModalGroup}
+          onClose={() => setScanModalGroup(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1463,6 +1488,410 @@ function NotifyAdminsBlock({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ============================================================================
+// ScanGroupModal - סריקת חברי קבוצה מול מאגר ספאמרים גלובלי
+// ============================================================================
+
+interface ScanResult {
+  members: Array<{
+    phone: string;
+    whatsapp_id: string;
+    is_admin: boolean;
+    report_count: number;
+    unique_groups_count: number;
+    unique_workspaces_count: number;
+    reason_summary: string | null;
+    is_confirmed: boolean;
+    first_reported_at: string | null;
+    last_reported_at: string | null;
+    has_member_profile: boolean;
+    member_name: string | null;
+  }>;
+  scan_summary: {
+    total_members: number;
+    flagged_count: number;
+    scanned_at: string;
+    group_name?: string;
+  };
+}
+
+function ScanGroupModal({
+  group,
+  onClose,
+}: {
+  group: GGGroup;
+  onClose: () => void;
+}) {
+  const [phase, setPhase] = useState<'scanning' | 'results' | 'removing' | 'done'>('scanning');
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [selectedPhones, setSelectedPhones] = useState<Set<string>>(new Set());
+  const [removalResults, setRemovalResults] = useState<{ phone: string; success: boolean; error?: string }[]>([]);
+
+  // Trigger scan on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/groupguard/groups/${group.id}/scan`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(data.error || `שגיאה ${res.status}`);
+          setPhase('results');
+          return;
+        }
+        setResult(data);
+        // Pre-select all confirmed spammers (high-confidence ones)
+        const confirmedPhones = new Set<string>(
+          data.members
+            .filter((m: ScanResult['members'][0]) => m.is_confirmed && !m.is_admin)
+            .map((m: ScanResult['members'][0]) => m.phone),
+        );
+        setSelectedPhones(confirmedPhones);
+        setPhase('results');
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(String(e?.message || e));
+        setPhase('results');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.id]);
+
+  function togglePhone(phone: string) {
+    setSelectedPhones((prev) => {
+      const next = new Set(prev);
+      if (next.has(phone)) {
+        next.delete(phone);
+      } else {
+        next.add(phone);
+      }
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!result) return;
+    const removableCount = result.members.filter((m) => !m.is_admin).length;
+    if (selectedPhones.size === removableCount) {
+      setSelectedPhones(new Set());
+    } else {
+      setSelectedPhones(
+        new Set(
+          result.members.filter((m) => !m.is_admin).map((m) => m.phone),
+        ),
+      );
+    }
+  }
+
+  async function handleRemove() {
+    if (selectedPhones.size === 0) return;
+    if (!confirm(`האם להסיר ${selectedPhones.size} משתתפים מהקבוצה?`)) return;
+
+    setPhase('removing');
+    try {
+      const res = await fetch(`/api/groupguard/groups/${group.id}/bulk-remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phones: Array.from(selectedPhones) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || `שגיאה ${res.status}`);
+        setPhase('results');
+        return;
+      }
+      setRemovalResults(data.results || []);
+      setPhase('done');
+    } catch (e: any) {
+      setError(String(e?.message || e));
+      setPhase('results');
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-start justify-between">
+          <div>
+            <h2 className="font-display font-bold text-xl text-gray-900 flex items-center gap-2">
+              <Search className="w-5 h-5 text-purple-600" />
+              סריקת חברי קבוצה
+            </h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {group.group_name || group.green_api_chat_id}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {phase === 'scanning' && (
+            <div className="p-12 text-center">
+              <div className="inline-block w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4" />
+              <p className="text-gray-700 font-medium">סורק את חברי הקבוצה...</p>
+              <p className="text-sm text-gray-500 mt-1">
+                מצליב מול מאגר הספאמרים הגלובלי
+              </p>
+            </div>
+          )}
+
+          {phase === 'removing' && (
+            <div className="p-12 text-center">
+              <div className="inline-block w-12 h-12 border-4 border-red-200 border-t-red-600 rounded-full animate-spin mb-4" />
+              <p className="text-gray-700 font-medium">מסיר {selectedPhones.size} משתתפים...</p>
+              <p className="text-sm text-gray-500 mt-1">זה עלול לקחת כמה שניות</p>
+            </div>
+          )}
+
+          {error && phase === 'results' && (
+            <div className="p-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium text-red-900">שגיאה בסריקה</div>
+                    <div className="text-sm text-red-700 mt-1">{error}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {phase === 'results' && result && !error && (
+            <div>
+              {/* Summary */}
+              <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {result.scan_summary.total_members}
+                    </div>
+                    <div className="text-xs text-gray-600">סך חברי הקבוצה</div>
+                  </div>
+                  <div>
+                    <div
+                      className={`text-2xl font-bold ${
+                        result.scan_summary.flagged_count > 0
+                          ? 'text-red-600'
+                          : 'text-green-600'
+                      }`}
+                    >
+                      {result.scan_summary.flagged_count}
+                    </div>
+                    <div className="text-xs text-gray-600">נמצאו במאגר ספאמרים</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Empty state */}
+              {result.members.length === 0 && (
+                <div className="p-12 text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600 mb-4">
+                    <Shield className="w-8 h-8" />
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-gray-900">
+                    הקבוצה נקייה!
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    אף אחד מ-{result.scan_summary.total_members} החברים לא נמצא במאגר
+                    הספאמרים הגלובלי.
+                  </p>
+                </div>
+              )}
+
+              {/* Members list with checkboxes */}
+              {result.members.length > 0 && (
+                <div>
+                  {/* Select all bar */}
+                  <div className="px-6 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedPhones.size > 0 &&
+                          selectedPhones.size ===
+                            result.members.filter((m) => !m.is_admin).length
+                        }
+                        onChange={toggleAll}
+                        className="w-4 h-4 rounded text-purple-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        בחר הכל ({result.members.filter((m) => !m.is_admin).length}{' '}
+                        ניתנים להסרה)
+                      </span>
+                    </label>
+                    <span className="text-xs text-gray-500">
+                      {selectedPhones.size} נבחרו
+                    </span>
+                  </div>
+
+                  {/* List */}
+                  <div className="divide-y divide-gray-100">
+                    {result.members.map((m) => (
+                      <div
+                        key={m.phone}
+                        className={`px-6 py-3 flex items-start gap-3 ${
+                          m.is_admin ? 'bg-amber-50/50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPhones.has(m.phone)}
+                          onChange={() => togglePhone(m.phone)}
+                          disabled={m.is_admin}
+                          className="w-4 h-4 rounded text-purple-600 mt-1 disabled:opacity-30"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-gray-900" dir="ltr">
+                              +{m.phone}
+                            </span>
+                            {m.member_name && (
+                              <span className="text-sm text-gray-600">
+                                ({m.member_name})
+                              </span>
+                            )}
+                            {m.is_admin && (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
+                                אדמין - אי אפשר להסיר
+                              </span>
+                            )}
+                            {m.is_confirmed && (
+                              <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-medium rounded flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                ספאמר מאושר
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span>
+                              <strong>{m.report_count}</strong> דיווחים
+                            </span>
+                            <span>
+                              ב-<strong>{m.unique_groups_count}</strong> קבוצות
+                            </span>
+                            <span>
+                              ע&quot;י <strong>{m.unique_workspaces_count}</strong>{' '}
+                              לקוחות
+                            </span>
+                          </div>
+                          {m.reason_summary && (
+                            <div className="text-xs text-gray-500 mt-1 italic">
+                              סיבה: {m.reason_summary}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {phase === 'done' && (
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600 mb-4">
+                  <Check className="w-8 h-8" />
+                </div>
+                <h3 className="font-display font-bold text-lg text-gray-900">
+                  ההסרה הושלמה
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {removalResults.filter((r) => r.success).length} הוסרו בהצלחה
+                  {removalResults.filter((r) => !r.success).length > 0 &&
+                    `, ${removalResults.filter((r) => !r.success).length} נכשלו`}
+                </p>
+              </div>
+
+              {/* Show failures */}
+              {removalResults.filter((r) => !r.success).length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="font-medium text-sm text-red-900 mb-2">
+                    הסרות שנכשלו:
+                  </div>
+                  <ul className="space-y-1 text-xs text-red-700">
+                    {removalResults
+                      .filter((r) => !r.success)
+                      .map((r) => (
+                        <li key={r.phone}>
+                          <span dir="ltr">+{r.phone}</span> - {r.error}
+                        </li>
+                      ))}
+                  </ul>
+                  <div className="text-xs text-red-600 mt-2">
+                    💡 כשלים נפוצים: הבוט לא אדמין בקבוצה, או המשתתף כבר לא בקבוצה
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b-2xl">
+          {phase === 'results' && result && result.members.length > 0 && (
+            <>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleRemove}
+                disabled={selectedPhones.size === 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <UserX className="w-4 h-4" />
+                הסר {selectedPhones.size > 0 ? `${selectedPhones.size} ` : ''}משתתפים
+              </button>
+            </>
+          )}
+          {phase === 'done' && (
+            <button
+              onClick={onClose}
+              className="ml-auto px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg"
+            >
+              סגירה
+            </button>
+          )}
+          {(phase === 'scanning' || phase === 'removing') && (
+            <button
+              onClick={onClose}
+              className="ml-auto px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+            >
+              סגור (פעולה ממשיכה ברקע)
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
