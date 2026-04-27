@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Zap, Play, Power, Edit2, Trash2, Plus, X, AlertCircle, Lock, History, Repeat, ArrowRight, ArrowLeft, Check, Activity, Clock, MessageSquare } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 type Workspace = { id: string; name: string };
 type Table = { id: string; name: string; icon: string | null };
@@ -51,6 +52,7 @@ export default function AutomationsClient({
   tables: Table[];
   isAdmin: boolean;
 }) {
+  const { t } = useT();
   const [tab, setTab] = useState<'workflows' | 'sequences' | 'history'>('workflows');
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -82,8 +84,8 @@ export default function AutomationsClient({
       <div className="p-6 max-w-4xl mx-auto">
         <div className="card p-8 text-center">
           <Lock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <h2 className="font-display font-bold text-xl mb-2">דף למנהלים בלבד</h2>
-          <p className="text-gray-500 text-sm">רק בעלי סביבה ומנהלים יכולים לנהל אוטומציות.</p>
+          <h2 className="font-display font-bold text-xl mb-2">{t('permissions.admin_only') || 'דף למנהלים בלבד'}</h2>
+          <p className="text-gray-500 text-sm">{t('permissions.no_access') || 'רק בעלי סביבה ומנהלים יכולים לנהל אוטומציות.'}</p>
         </div>
       </div>
     );
@@ -188,12 +190,13 @@ export default function AutomationsClient({
 // WORKFLOWS TAB
 // ============================================================================
 function WorkflowsTab({ workflows, tables, loading, onCreate, onEdit, onChange }: any) {
-  if (loading) return <div className="card p-8 text-center text-gray-400 text-sm">טוען...</div>;
+  const { t } = useT();
+  if (loading) return <div className="card p-8 text-center text-gray-400 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-600">אוטומציות שרצות בזמן אמת על שינויי רשומות</p>
+        <p className="text-sm text-gray-600">{t('automations.workflows_desc') || 'אוטומציות שרצות בזמן אמת על שינויי רשומות'}</p>
         <button onClick={onCreate} className="btn-primary text-sm flex items-center gap-1.5">
           <Plus className="w-4 h-4" /> Workflow חדש
         </button>
@@ -213,10 +216,11 @@ function WorkflowsTab({ workflows, tables, loading, onCreate, onEdit, onChange }
 }
 
 function EmptyWorkflows({ onCreate }: { onCreate: () => void }) {
+  const { t } = useT();
   return (
     <div className="card p-8 text-center bg-gradient-to-br from-amber-50 via-white to-orange-50">
       <div className="text-5xl mb-3">⚡</div>
-      <h3 className="font-display font-bold text-xl mb-2">אוטומציות שעובדות בשבילך</h3>
+      <h3 className="font-display font-bold text-xl mb-2">{t('automations.workflows_subtitle') || 'אוטומציות שעובדות בשבילך'}</h3>
       <p className="text-gray-600 text-sm max-w-md mx-auto mb-6">
         הגדר "אם זה אז זה" - כשליד מקבל סטטוס "חתום" אוטומטית צור רשומת לקוח, שלח ברוך הבא, וסמן את הליד כהומר.
       </p>
@@ -238,6 +242,7 @@ function EmptyWorkflows({ onCreate }: { onCreate: () => void }) {
 }
 
 function WorkflowCard({ workflow: w, tables, onEdit, onChange }: any) {
+  const { t } = useT();
   const [busy, setBusy] = useState(false);
 
   const triggerLabel = workflow_triggerLabel(w, tables);
@@ -270,8 +275,8 @@ function WorkflowCard({ workflow: w, tables, onEdit, onChange }: any) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold">{w.name}</span>
             {w.enabled
-              ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">פעיל</span>
-              : <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-bold">כבוי</span>}
+              ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">{t('common.active')}</span>
+              : <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-bold">{t('common.disabled')}</span>}
             {w.last_error && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" /> שגיאה
@@ -294,10 +299,10 @@ function WorkflowCard({ workflow: w, tables, onEdit, onChange }: any) {
           <button onClick={toggleEnabled} disabled={busy} className="p-2 hover:bg-gray-100 rounded-lg" title={w.enabled ? 'השבת' : 'הפעל'}>
             <Power className="w-4 h-4" />
           </button>
-          <button onClick={onEdit} className="p-2 hover:bg-gray-100 rounded-lg" title="ערוך">
+          <button onClick={onEdit} className="p-2 hover:bg-gray-100 rounded-lg" title={t('common.edit')}>
             <Edit2 className="w-4 h-4" />
           </button>
-          <button onClick={handleDelete} disabled={busy} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="מחק">
+          <button onClick={handleDelete} disabled={busy} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title={t('common.delete')}>
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -328,12 +333,13 @@ function workflow_triggerLabel(w: Workflow, tables: Table[]): string {
 // SEQUENCES TAB
 // ============================================================================
 function SequencesTab({ sequences, loading, onCreate, onEdit, onChange }: any) {
-  if (loading) return <div className="card p-8 text-center text-gray-400 text-sm">טוען...</div>;
+  const { t } = useT();
+  if (loading) return <div className="card p-8 text-center text-gray-400 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-600">סדרות הודעות אוטומטיות שמתפרסות בזמן (drip campaigns)</p>
+        <p className="text-sm text-gray-600">{t('automations.sequences_desc') || 'סדרות הודעות אוטומטיות שמתפרסות בזמן (drip campaigns)'}</p>
         <button onClick={onCreate} className="btn-primary text-sm flex items-center gap-1.5">
           <Plus className="w-4 h-4" /> סדרה חדשה
         </button>
@@ -353,10 +359,11 @@ function SequencesTab({ sequences, loading, onCreate, onEdit, onChange }: any) {
 }
 
 function EmptySequences({ onCreate }: { onCreate: () => void }) {
+  const { t } = useT();
   return (
     <div className="card p-8 text-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
       <div className="text-5xl mb-3">🔁</div>
-      <h3 className="font-display font-bold text-xl mb-2">פולואפים שלא נשכחים</h3>
+      <h3 className="font-display font-bold text-xl mb-2">{t('automations.sequences_subtitle') || 'פולואפים שלא נשכחים'}</h3>
       <p className="text-gray-600 text-sm max-w-md mx-auto mb-6">
         לקוח חדש מקבל הודעה ביום הראשון, יום שאחרי, אחרי שבוע, ואחרי חודש - אוטומטית.
         אתה לא צריך לזכור.
@@ -369,6 +376,7 @@ function EmptySequences({ onCreate }: { onCreate: () => void }) {
 }
 
 function SequenceCard({ sequence: s, onEdit, onChange }: any) {
+  const { t } = useT();
   const [busy, setBusy] = useState(false);
 
   async function toggleEnabled() {
@@ -439,12 +447,13 @@ function calcSequenceDuration(steps: any[]): number {
 // HISTORY TAB
 // ============================================================================
 function HistoryTab({ runs, workflows }: { runs: Run[]; workflows: Workflow[] }) {
+  const { t } = useT();
   if (runs.length === 0) {
     return (
       <div className="card p-8 text-center">
         <Activity className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-        <h3 className="font-bold text-lg mb-1">עוד אין הפעלות</h3>
-        <p className="text-gray-500 text-sm">כשאוטומציה תרוץ, ההיסטוריה תופיע כאן</p>
+        <h3 className="font-bold text-lg mb-1">{t('automations.no_runs') || 'עוד אין הפעלות'}</h3>
+        <p className="text-gray-500 text-sm">{t('automations.no_runs_hint') || 'כשאוטומציה תרוץ, ההיסטוריה תופיע כאן'}</p>
       </div>
     );
   }
@@ -455,10 +464,10 @@ function HistoryTab({ runs, workflows }: { runs: Run[]; workflows: Workflow[] })
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
-              <th className="px-3 py-2 text-right">זמן</th>
+              <th className="px-3 py-2 text-right">{t('common.time') || 'זמן'}</th>
               <th className="px-3 py-2 text-right">Workflow</th>
-              <th className="px-3 py-2 text-right">סטטוס</th>
-              <th className="px-3 py-2 text-right">משך</th>
+              <th className="px-3 py-2 text-right">{t('common.status') || 'סטטוס'}</th>
+              <th className="px-3 py-2 text-right">{t('common.duration') || 'משך'}</th>
             </tr>
           </thead>
           <tbody>
@@ -677,7 +686,7 @@ function WorkflowEditor({ workspace, tables, sequences, editing, onClose, onSave
         </div>
 
         <div className="px-6 py-4 border-t flex justify-end gap-2 bg-gray-50/50">
-          <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>ביטול</button>
+          <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>{t('common.cancel')}</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">
             {saving ? 'שומר...' : (editing ? 'שמור שינויים' : 'צור Workflow')}
           </button>
@@ -887,7 +896,7 @@ function SequenceEditor({ workspace, tables, editing, onClose, onSaved }: any) {
                   <input type="text" dir="ltr" value={step.phone_field || 'phone'} onChange={e => updateStep(i, { phone_field: e.target.value })} className="input-field !text-xs !py-1.5" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium mb-0.5">הודעה</label>
+                  <label className="block text-[10px] font-medium mb-0.5">{t('common.message') || 'הודעה'}</label>
                   <textarea
                     rows={3}
                     value={step.message_template || ''}
@@ -930,7 +939,7 @@ function SequenceEditor({ workspace, tables, editing, onClose, onSaved }: any) {
         </div>
 
         <div className="px-6 py-4 border-t flex justify-end gap-2 bg-gray-50/50">
-          <button onClick={onClose} className="btn-secondary text-sm">ביטול</button>
+          <button onClick={onClose} className="btn-secondary text-sm">{t('common.cancel')}</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">
             {saving ? 'שומר...' : (editing ? 'שמור' : 'צור סדרה')}
           </button>
