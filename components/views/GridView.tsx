@@ -352,6 +352,7 @@ function SelectCell({
   value: any;
   onChange: (newVal: any, opts?: { notify?: boolean }) => Promise<void>;
 }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [confirmingNotify, setConfirmingNotify] = useState<{ newVal: string; label: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -466,6 +467,7 @@ function TextCell({
   onChange: (newVal: any) => Promise<void>;
   onRowClick: () => void;
 }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value?.toString() ?? '');
   const [busy, setBusy] = useState(false);
@@ -525,6 +527,7 @@ function NotesCell({
   record: RecordRow;
   onChange?: (notes: string) => Promise<void>;
 }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(record.notes || '');
   const [busy, setBusy] = useState(false);
