@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, WorkspaceMember, MemberRole } from '@/lib/types/database';
-import { Users, Palette, Building2, Check, Crown, Shield, Edit3, Eye } from 'lucide-react';
+import { Users, Palette, Building2, Check, Crown, Shield, Edit3, Eye, UserPlus, X, Mail, Copy, Loader2 } from 'lucide-react';
 import LanguageSettings from './LanguageSettings';
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { useT } from '@/lib/i18n/useT';
@@ -220,8 +220,12 @@ export default function SettingsClient({
           })}
         </div>
 
-        <div className="mt-4 p-3 rounded-lg bg-brand-50/40 border border-brand-100 text-xs text-brand-900">
-          💡 הזמנת חברי צוות חדשים תיפתח בקרוב
+        <div className="mt-4">
+          <InviteSection
+            workspaceId={workspace.id}
+            workspaceName={workspace.name}
+            isAdmin={isOwner || myRole === 'admin'}
+          />
         </div>
       </div>
 
@@ -238,6 +242,307 @@ export default function SettingsClient({
           >
             מחיקת workspace
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Invite Members Section
+// ────────────────────────────────────────────────────────────────────────
+
+function InviteSection({
+  workspaceId, workspaceName, isAdmin,
+}: {
+  workspaceId: string;
+  workspaceName: string;
+  isAdmin: boolean;
+}) {
+  const supabase = createClient();
+  const [showForm, setShowForm] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+
+  // Form fields
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'admin' | 'editor' | 'viewer'>('editor');
+  const [displayName, setDisplayName] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ url: string; email: string } | null>(null);
+
+  // Load pending invites on mount
+  useState(() => {
+    loadPending();
+  });
+
+  async function loadPending() {
+    setLoadingInvites(true);
+    const { data } = await supabase
+      .from('workspace_invitations')
+      .select('id, email, role, display_name, status, created_at, expires_at, token')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    setPendingInvites(data || []);
+    setLoadingInvites(false);
+  }
+
+  async function handleInvite() {
+    if (!email.trim()) return;
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          email: email.trim().toLowerCase(),
+          role,
+          display_name: displayName.trim() || null,
+          message: message.trim() || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'שגיאה ביצירת ההזמנה');
+        setBusy(false);
+        return;
+      }
+
+      setSuccess({ url: data.accept_url, email: email.trim() });
+      setEmail('');
+      setDisplayName('');
+      setMessage('');
+      await loadPending();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelInvite(id: string) {
+    if (!confirm('לבטל את ההזמנה?')) return;
+    await fetch(`/api/invitations?id=${id}`, { method: 'DELETE' });
+    await loadPending();
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600">
+        💡 רק בעלים ומנהלים יכולים להזמין חברי צוות חדשים
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Pending invitations */}
+      {pendingInvites.length > 0 && (
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-700">
+            הזמנות ממתינות ({pendingInvites.length})
+          </div>
+          <ul>
+            {pendingInvites.map(inv => (
+              <li key={inv.id} className="px-3 py-2 flex items-center gap-2 text-sm border-b border-gray-100 last:border-b-0">
+                <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-gray-800 truncate">{inv.email}</div>
+                  <div className="text-[10px] text-gray-500">
+                    {ROLE_INFO[inv.role as MemberRole]?.label || inv.role} · 
+                    פג תוקף ב-{new Date(inv.expires_at).toLocaleDateString('he-IL', { day: '2-digit', month: 'short' })}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/invite/${inv.token}`;
+                    navigator.clipboard.writeText(url);
+                    alert('הקישור הועתק ללוח');
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-purple-600 transition-colors"
+                  title="העתק קישור"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => cancelInvite(inv.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                  title="בטל הזמנה"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Invite button or form */}
+      {!showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full px-4 py-3 rounded-xl border-2 border-dashed border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 transition-colors font-medium text-sm flex items-center justify-center gap-2"
+        >
+          <UserPlus className="w-4 h-4" />
+          הזמן חבר צוות חדש
+        </button>
+      ) : (
+        <div className="border border-purple-200 rounded-xl p-4 bg-purple-50/30 space-y-3">
+          {success ? (
+            <div className="space-y-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900 flex items-start gap-2">
+                <Check className="w-4 h-4 flex-shrink-0 mt-0.5 text-green-600" />
+                <div>
+                  <div className="font-bold">ההזמנה נוצרה!</div>
+                  <div className="text-xs mt-1">
+                    שלח את הקישור הבא ל-{success.email} (האימייל ינסה להישלח אוטומטית, אך גם תוכל להעתיק):
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={success.url}
+                  readOnly
+                  className="flex-1 text-xs p-2 bg-white border border-gray-200 rounded-lg font-mono"
+                  dir="ltr"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(success.url);
+                    alert('הקישור הועתק!');
+                  }}
+                  className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setSuccess(null); setShowForm(false); }}
+                  className="text-xs text-gray-600 hover:text-gray-900"
+                >
+                  סגור
+                </button>
+                <button
+                  onClick={() => setSuccess(null)}
+                  className="text-xs text-purple-700 font-medium mr-auto"
+                >
+                  + הזמן עוד אחד
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-sm flex items-center gap-1.5">
+                  <UserPlus className="w-4 h-4 text-purple-600" />
+                  הזמנה חדשה ל-{workspaceName}
+                </h4>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-700">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  אימייל <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  dir="ltr"
+                  className="w-full text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">תפקיד</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['admin', 'editor', 'viewer'] as const).map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRole(r)}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        role === r
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:border-purple-300'
+                      }`}
+                    >
+                      {ROLE_INFO[r]?.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">שם תצוגה (אופציונלי)</label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="איך לקרוא לו במערכת"
+                  className="w-full text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">הודעה אישית (אופציונלי)</label>
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="היי, הצטרף לצוות שלנו במערכת..."
+                  rows={2}
+                  className="w-full text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 resize-none"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-800">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+                  disabled={busy}
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleInvite}
+                  disabled={busy || !email.trim()}
+                  className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      שולח...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-3.5 h-3.5" />
+                      שלח הזמנה
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
