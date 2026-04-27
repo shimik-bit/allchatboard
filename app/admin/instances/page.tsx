@@ -1,22 +1,19 @@
 import { adminServiceClient } from '@/lib/admin/auth';
 import Link from 'next/link';
-import {
-  Smartphone, AlertTriangle, ExternalLink, CheckCircle2,
-  Wifi, WifiOff, Power, X, Search,
-} from 'lucide-react';
+import { Smartphone, Share2, AlertCircle, ChevronLeft, CheckCircle2, Clock, Plus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const STATE_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
-  authorized:   { color: 'text-green-300',  bg: 'bg-green-900/30 border-green-700',  label: 'מחובר' },
-  awaiting_qr:  { color: 'text-amber-300',  bg: 'bg-amber-900/30 border-amber-700',  label: 'ממתין לQR' },
-  scanning:     { color: 'text-blue-300',   bg: 'bg-blue-900/30 border-blue-700',    label: 'סריקה' },
-  created:      { color: 'text-gray-300',   bg: 'bg-gray-800 border-gray-700',       label: 'נוצר' },
-  expired:      { color: 'text-orange-300', bg: 'bg-orange-900/30 border-orange-700', label: 'פג תוקף' },
-  paused:       { color: 'text-gray-400',   bg: 'bg-gray-800 border-gray-700',       label: 'מושעה' },
-  failed:       { color: 'text-red-300',    bg: 'bg-red-900/30 border-red-700',      label: 'שגיאה' },
-  deleted:      { color: 'text-gray-500',   bg: 'bg-gray-900 border-gray-800',       label: 'נמחק' },
+const STATE_CONFIG: Record<string, { label: string; color: string }> = {
+  created:        { label: 'נוצר',          color: 'bg-gray-100 text-gray-700' },
+  awaiting_qr:    { label: 'ממתין QR',       color: 'bg-amber-100 text-amber-700' },
+  scanning:       { label: 'בסריקה',         color: 'bg-blue-100 text-blue-700' },
+  authorized:     { label: '✓ מחובר',        color: 'bg-green-100 text-green-700' },
+  expired:        { label: 'פג תוקף',         color: 'bg-red-100 text-red-700' },
+  paused:         { label: 'מושהה',          color: 'bg-gray-100 text-gray-500' },
+  failed:         { label: 'כשל',            color: 'bg-red-100 text-red-700' },
+  deleted:        { label: 'נמחק',           color: 'bg-gray-200 text-gray-400' },
 };
 
 export default async function AdminInstancesPage() {
@@ -25,161 +22,194 @@ export default async function AdminInstancesPage() {
   const { data: instances } = await supabase
     .from('whatsapp_instances')
     .select(`
-      id, display_name, provider, provider_instance_id, phone_number, state,
-      state_message, state_updated_at, authorized_at, expires_at,
-      messages_received_total, messages_sent_total, last_message_at,
-      created_at, workspace_id,
-      workspaces:workspace_id (id, name, icon)
+      id, provider, provider_instance_id, display_name, phone_number,
+      state, is_shared, created_at, authorized_at, expires_at,
+      messages_received_total, last_message_at,
+      workspace_id,
+      workspaces!whatsapp_instances_workspace_id_fkey(id, name, icon)
     `)
     .order('created_at', { ascending: false });
 
-  // Group by state for stats
-  const stats = {
-    total: instances?.length || 0,
-    authorized: instances?.filter((i: any) => i.state === 'authorized').length || 0,
-    awaiting: instances?.filter((i: any) => ['awaiting_qr', 'scanning', 'created'].includes(i.state)).length || 0,
-    expired: instances?.filter((i: any) => ['expired', 'failed'].includes(i.state)).length || 0,
-    paused: instances?.filter((i: any) => i.state === 'paused').length || 0,
-    deleted: instances?.filter((i: any) => i.state === 'deleted').length || 0,
-  };
-
-  // Detect duplicates - same provider_instance_id in multiple workspaces (the bug)
-  const idCounts = new Map<string, number>();
-  for (const inst of instances || []) {
-    const key = `${(inst as any).provider}:${(inst as any).provider_instance_id}`;
-    idCounts.set(key, (idCounts.get(key) || 0) + 1);
+  // Count shared workspaces per instance
+  const sharedIds = (instances || []).filter((i: any) => i.is_shared).map((i: any) => i.id);
+  let linkCounts = new Map<string, number>();
+  if (sharedIds.length > 0) {
+    const { data: links } = await supabase
+      .from('instance_workspace_links')
+      .select('instance_id')
+      .in('instance_id', sharedIds);
+    for (const l of links || []) {
+      const k = (l as any).instance_id;
+      linkCounts.set(k, (linkCounts.get(k) || 0) + 1);
+    }
   }
-  const duplicates = Array.from(idCounts.entries()).filter(([_, count]) => count > 1);
+
+  // Count unrouted messages per shared instance
+  const { data: unroutedMessages } = sharedIds.length > 0
+    ? await supabase
+        .from('wa_messages')
+        .select('source_instance_id')
+        .in('routing_status', ['unrouted_dm', 'unrouted_group'])
+        .in('source_instance_id', sharedIds)
+    : { data: [] };
+
+  const unroutedCount = new Map<string, number>();
+  for (const m of unroutedMessages || []) {
+    const k = (m as any).source_instance_id;
+    if (k) unroutedCount.set(k, (unroutedCount.get(k) || 0) + 1);
+  }
+
+  const total = instances?.length || 0;
+  const sharedCount = (instances || []).filter((i: any) => i.is_shared).length;
+  const totalUnrouted = Array.from(unroutedCount.values()).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <Link href="/admin" className="text-amber-500 text-xs hover:underline mb-2 inline-block">
-          ← חזרה לדשבורד
-        </Link>
-        <h1 className="font-display font-bold text-3xl text-white flex items-center gap-2">
-          <Smartphone className="w-7 h-7 text-amber-500" />
-          ניהול WhatsApp Instances
-        </h1>
-        <p className="text-sm text-gray-400 mt-1">
-          כל ה-instances של Green API (ופלטפורמות אחרות) על פני כל הסביבות
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <Link href="/admin" className="text-xs text-slate-500 hover:text-amber-500 inline-flex items-center gap-1 mb-2">
+              <ChevronLeft className="w-3 h-3" />
+              חזרה ל-Admin
+            </Link>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Smartphone className="w-6 h-6 text-amber-500" />
+              ניהול WhatsApp Instances
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              ניהול חיבורי Green API לכלל הסביבות בפלטפורמה
+            </p>
+          </div>
+        </div>
 
-      {/* Duplicate warning */}
-      {duplicates.length > 0 && (
-        <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 mb-6">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-bold text-red-300 mb-1">
-                ⚠️ זוהו {duplicates.length} כפילויות
-              </h3>
-              <p className="text-xs text-red-200 mb-2">
-                ה-instances הבאים מחוברים לכמה סביבות בו-זמנית. זה גורם לבעיות routing.
-              </p>
-              <ul className="text-xs text-red-200 space-y-0.5">
-                {duplicates.map(([key, count]) => (
-                  <li key={key} className="font-mono">
-                    {key} → {count} סביבות
-                  </li>
-                ))}
-              </ul>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+            <div className="text-xs text-slate-400 mb-1">סך כל ה-Instances</div>
+            <div className="text-2xl font-bold text-slate-100">{total}</div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+            <div className="text-xs text-slate-400 mb-1">מחוברים פעילים</div>
+            <div className="text-2xl font-bold text-green-400">
+              {(instances || []).filter((i: any) => i.state === 'authorized').length}
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+            <div className="text-xs text-slate-400 mb-1">משותפים</div>
+            <div className="text-2xl font-bold text-purple-400">{sharedCount}</div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+            <div className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              הודעות לא מנותבות
+            </div>
+            <div className={`text-2xl font-bold ${totalUnrouted > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+              {totalUnrouted}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-        <StatCard label="סה״כ" value={stats.total} color="text-white" />
-        <StatCard label="מחוברים" value={stats.authorized} color="text-green-400" icon={<CheckCircle2 className="w-4 h-4" />} />
-        <StatCard label="ממתינים" value={stats.awaiting} color="text-amber-400" />
-        <StatCard label="פג תוקף" value={stats.expired} color="text-orange-400" />
-        <StatCard label="מושעים" value={stats.paused} color="text-gray-400" icon={<Power className="w-4 h-4" />} />
-        <StatCard label="נמחקו" value={stats.deleted} color="text-gray-500" icon={<X className="w-4 h-4" />} />
-      </div>
-
-      {/* Instances table */}
-      <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-slate-800 border-b border-slate-700">
-          <h2 className="font-bold text-white">כל ה-Instances ({instances?.length || 0})</h2>
-        </div>
-        {!instances || instances.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            עוד לא נוצרו instances במערכת
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-800/50 text-xs text-gray-400 uppercase">
-                  <th className="px-3 py-2 text-right">שם תצוגה</th>
-                  <th className="px-3 py-2 text-right">סביבה</th>
-                  <th className="px-3 py-2 text-right">מספר</th>
-                  <th className="px-3 py-2 text-right">Instance ID</th>
-                  <th className="px-3 py-2 text-right">מצב</th>
-                  <th className="px-3 py-2 text-right">הודעות</th>
-                  <th className="px-3 py-2 text-right">נוצר</th>
-                </tr>
-              </thead>
-              <tbody>
-                {instances.map((inst: any) => {
-                  const ws = Array.isArray(inst.workspaces) ? inst.workspaces[0] : inst.workspaces;
-                  const config = STATE_CONFIG[inst.state] || STATE_CONFIG.created;
-                  return (
-                    <tr key={inst.id} className="border-t border-slate-800 hover:bg-slate-800/40">
-                      <td className="px-3 py-2.5 text-white font-medium">{inst.display_name}</td>
-                      <td className="px-3 py-2.5">
-                        {ws ? (
-                          <Link
-                            href={`/admin/workspaces/${ws.id}`}
-                            className="text-amber-400 hover:underline inline-flex items-center gap-1"
-                          >
-                            {ws.icon || '📊'} {ws.name}
-                          </Link>
-                        ) : <span className="text-gray-600">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-400 text-xs font-mono" dir="ltr">
-                        {inst.phone_number || '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-400 text-xs font-mono" dir="ltr">
-                        {inst.provider_instance_id}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${config.bg} ${config.color}`}>
-                          {config.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-400 text-xs">
-                        📥 {inst.messages_received_total} / 📤 {inst.messages_sent_total}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-500 text-xs">
-                        {new Date(inst.created_at).toLocaleDateString('he-IL', {
-                          day: '2-digit', month: 'short', year: '2-digit',
-                        })}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {/* Banner if there are shared instances */}
+        {sharedCount > 0 && (
+          <div className="mb-6 bg-purple-950/30 border border-purple-800 rounded-xl p-4 flex items-start gap-3">
+            <Share2 className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-purple-200">
+              <strong className="block mb-1 text-purple-100">{sharedCount} instances משותפים פעילים</strong>
+              ב-instances משותפים, כל קבוצה צריכה הגדרת ניתוב ידנית. הודעות DM לא ינותבו אוטומטית.
+              {totalUnrouted > 0 && (
+                <span className="text-amber-300 mt-1 block">
+                  ⚠ יש {totalUnrouted} הודעות שמחכות לניתוב.
+                </span>
+              )}
+            </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
 
-function StatCard({ label, value, color, icon }: { label: string; value: number; color: string; icon?: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl p-3">
-      <div className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-        {icon}
-        {label}
+        {/* Instances list */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-200">כל ה-Instances</h2>
+            <span className="text-xs text-slate-500">{total} פריטים</span>
+          </div>
+
+          {!instances || instances.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              <Smartphone className="w-12 h-12 mx-auto mb-2 opacity-30" />
+              עדיין לא נוצרו instances
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-800">
+              {instances.map((inst: any) => {
+                const ws = Array.isArray(inst.workspaces) ? inst.workspaces[0] : inst.workspaces;
+                const stateConfig = STATE_CONFIG[inst.state] || STATE_CONFIG.created;
+                const sharedWith = linkCounts.get(inst.id) || 0;
+                const unrouted = unroutedCount.get(inst.id) || 0;
+
+                return (
+                  <li key={inst.id}>
+                    <Link
+                      href={`/admin/instances/${inst.id}`}
+                      className="px-4 py-3 hover:bg-slate-800/50 transition-colors flex items-center gap-3 group"
+                    >
+                      {/* Icon */}
+                      <div className={`w-10 h-10 rounded-lg grid place-items-center flex-shrink-0 ${
+                        inst.is_shared ? 'bg-purple-900/40 text-purple-300' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {inst.is_shared ? <Share2 className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+                      </div>
+
+                      {/* Main info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-slate-100 truncate">
+                            {inst.display_name}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateConfig.color}`}>
+                            {stateConfig.label}
+                          </span>
+                          {inst.is_shared && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-medium inline-flex items-center gap-1">
+                              <Share2 className="w-2.5 h-2.5" />
+                              משותף ב-{sharedWith + 1} סביבות
+                            </span>
+                          )}
+                          {unrouted > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300 font-medium inline-flex items-center gap-1">
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              {unrouted} ממתינים
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-3 flex-wrap">
+                          <span className="font-mono">{inst.provider_instance_id}</span>
+                          <span>·</span>
+                          <span>{ws?.icon || '📊'} {ws?.name || '?'}</span>
+                          {inst.phone_number && (
+                            <>
+                              <span>·</span>
+                              <span dir="ltr">{inst.phone_number}</span>
+                            </>
+                          )}
+                          {inst.messages_received_total > 0 && (
+                            <>
+                              <span>·</span>
+                              <span>{inst.messages_received_total.toLocaleString()} הודעות</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Arrow */}
+                      <ChevronLeft className="w-4 h-4 text-slate-600 group-hover:text-amber-500 group-hover:-translate-x-0.5 transition-all" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
-      <div className={`text-2xl font-bold ${color}`}>{value}</div>
     </div>
   );
 }
