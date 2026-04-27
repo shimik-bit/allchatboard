@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Bell, Plus, Send, Edit2, Trash2, Power, X, Clock, Calendar, Users, MessageSquare, Eye, AlertCircle, Check, History, Lock, Play, ChevronRight } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 type Workspace = { id: string; name: string };
 type Table = { id: string; name: string; icon: string | null };
@@ -77,6 +78,7 @@ export default function ReportsClient({
   workspace: Workspace;
   isAdmin: boolean;
 }) {
+  const { t } = useT();
   const [reports, setReports] = useState<Report[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
@@ -104,7 +106,7 @@ export default function ReportsClient({
         <div className="card p-8 text-center">
           <Lock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <h2 className="font-display font-bold text-xl mb-2">דף למנהלים בלבד</h2>
-          <p className="text-gray-500 text-sm">רק בעלי סביבה ומנהלים יכולים לנהל דוחות מתוזמנים.</p>
+          <p className="text-gray-500 text-sm">{t('permissions.title') || 'רק בעלי סביבה ומנהלים יכולים לנהל דוחות מתוזמנים.'}</p>
         </div>
       </div>
     );
@@ -127,7 +129,7 @@ export default function ReportsClient({
           onClick={() => { setEditing(null); setShowWizard(true); }}
           className="btn-primary text-sm flex items-center gap-1.5"
         >
-          <Plus className="w-4 h-4" /> דוח חדש
+          <Plus className="w-4 h-4" /> {t('reports.new')}
         </button>
       </div>
 
@@ -175,6 +177,7 @@ export default function ReportsClient({
 // EMPTY STATE
 // ============================================================================
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const { t } = useT();
   return (
     <div className="card p-8 text-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
       <div className="text-5xl mb-3">🤖</div>
@@ -211,6 +214,7 @@ function ReportCard({ report, tables, runs, onChange, onEdit }: {
   onChange: () => void;
   onEdit: () => void;
 }) {
+  const { t } = useT();
   const template = TEMPLATES.find((t) => t.id === report.template_type);
   const lastRun = runs[0];
   const [busy, setBusy] = useState(false);
@@ -264,7 +268,7 @@ function ReportCard({ report, tables, runs, onChange, onEdit }: {
             {report.enabled ? (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">פעיל</span>
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-bold">כבוי</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-bold">{t('common.disabled')}</span>
             )}
             {lastRun && !lastRun.success && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold flex items-center gap-1">
@@ -292,7 +296,7 @@ function ReportCard({ report, tables, runs, onChange, onEdit }: {
             </div>
             <div className="flex items-center gap-1">
               <MessageSquare className="w-3 h-3" />
-              <span>{accessibleTables === null ? 'כל הטבלאות' : `${accessibleTables.length} טבלאות`}</span>
+              <span>{accessibleTables === null ? t('reports.template_all_tables') || 'כל הטבלאות' : `${accessibleTables.length} טבלאות`}</span>
             </div>
           </div>
 
@@ -310,10 +314,10 @@ function ReportCard({ report, tables, runs, onChange, onEdit }: {
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={runNow} disabled={busy} title="שלח עכשיו" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50">
+          <button onClick={runNow} disabled={busy} title="{t('reports.run_now')}" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50">
             <Play className="w-4 h-4" />
           </button>
-          <button onClick={toggleEnabled} disabled={busy} title={report.enabled ? 'השבת' : 'הפעל'} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">
+          <button onClick={toggleEnabled} disabled={busy} title={report.enabled ? t('common.disabled') : t('common.confirm')} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">
             <Power className="w-4 h-4" />
           </button>
           <button onClick={onEdit} title="ערוך" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
@@ -332,6 +336,7 @@ function ReportCard({ report, tables, runs, onChange, onEdit }: {
 // RUNS PANEL
 // ============================================================================
 function RunsPanel({ runs, reports }: { runs: Run[]; reports: Report[] }) {
+  const { t } = useT();
   return (
     <div className="card p-4">
       <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
@@ -370,6 +375,7 @@ function ReportWizard({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useT();
   const [step, setStep] = useState(1);
   const [name, setName] = useState(editing?.name || '');
   const [description, setDescription] = useState(editing?.description || '');
@@ -438,7 +444,7 @@ function ReportWizard({
   async function handleSave() {
     setError(null);
     if (!name.trim()) return setError('שם הדוח הוא חובה');
-    if (!templateType) return setError('בחר תבנית דוח');
+    if (!templateType) return setError(t('reports.step_template'));
     if (scheduleDays.length === 0) return setError('בחר לפחות יום אחד');
     const validRecipients = recipients.filter((r) => r.phone.trim());
     if (validRecipients.length === 0) return setError('הוסף לפחות מקבל אחד');
@@ -470,7 +476,7 @@ function ReportWizard({
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error || 'שמירה נכשלה');
+        setError(json.error || t('errors.generic'));
         setSaving(false);
         return;
       }
@@ -532,7 +538,7 @@ function ReportWizard({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1.5">תיאור (אופציונלי)</label>
+                <label className="block text-sm font-semibold mb-1.5">{t('common.description')} ({t('common.optional')})</label>
                 <input
                   type="text"
                   value={description}
@@ -603,16 +609,16 @@ function ReportWizard({
                   ))}
                 </div>
                 <div className="flex gap-2 mt-2 text-xs">
-                  <button onClick={() => setScheduleDays([0, 1, 2, 3, 4])} className="text-brand-600 hover:underline">ימי עסקים (א-ה)</button>
+                  <button onClick={() => setScheduleDays([0, 1, 2, 3, 4])} className="text-brand-600 hover:underline">{t('reports.weekdays_only') || 'ימי עסקים (א-ה)'}</button>
                   <span className="text-gray-300">·</span>
-                  <button onClick={() => setScheduleDays([0, 1, 2, 3, 4, 5, 6])} className="text-brand-600 hover:underline">כל יום</button>
+                  <button onClick={() => setScheduleDays([0, 1, 2, 3, 4, 5, 6])} className="text-brand-600 hover:underline">{t('reports.every_day') || 'כל יום'}</button>
                   <span className="text-gray-300">·</span>
-                  <button onClick={() => setScheduleDays([0])} className="text-brand-600 hover:underline">רק ראשון</button>
+                  <button onClick={() => setScheduleDays([0])} className="text-brand-600 hover:underline">{t('reports.sunday_only') || 'רק ראשון'}</button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">אילו טבלאות לכלול?</label>
+                <label className="block text-sm font-semibold mb-2">{t('tables.title') || 'אילו טבלאות לכלול?'}</label>
                 <label className="flex items-center gap-2 mb-2 cursor-pointer">
                   <input type="checkbox" checked={allTables} onChange={(e) => setAllTables(e.target.checked)} className="w-4 h-4 rounded text-brand-600" />
                   <span className="text-sm">כל הטבלאות</span>
@@ -642,7 +648,7 @@ function ReportWizard({
           {step === 3 && (
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-semibold mb-2">למי לשלוח?</label>
+                <label className="block text-sm font-semibold mb-2">{t('reports.recipients')}</label>
                 <p className="text-xs text-gray-500 mb-3">
                   הזן מספרי טלפון בכל פורמט (0501234567 או 972501234567). אלו לא חייבים להיות חברי צוות.
                 </p>
@@ -672,7 +678,7 @@ function ReportWizard({
                 </div>
               ))}
               <button onClick={addRecipient} className="text-sm text-brand-600 font-medium hover:underline">
-                + הוסף מקבל
+                + {t('common.add')}
               </button>
 
               <div className="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-900 border border-blue-100">
@@ -689,7 +695,7 @@ function ReportWizard({
               </div>
 
               {previewLoading ? (
-                <div className="p-8 text-center text-gray-400 text-sm">מייצר תצוגה...</div>
+                <div className="p-8 text-center text-gray-400 text-sm">{t('common.loading')}</div>
               ) : preview ? (
                 <div className="bg-[#e0d5c5] rounded-2xl p-4">
                   <div className="bg-white rounded-xl rounded-tr-sm p-3 max-w-[85%] shadow-sm" style={{ backgroundColor: '#dcfce7' }}>
@@ -712,7 +718,7 @@ function ReportWizard({
               <div className="p-3 bg-gray-50 rounded-lg space-y-2 text-xs">
                 <div className="flex justify-between"><span className="text-gray-500">שם:</span><strong>{name}</strong></div>
                 <div className="flex justify-between"><span className="text-gray-500">תבנית:</span><strong>{TEMPLATES.find(t => t.id === templateType)?.name}</strong></div>
-                <div className="flex justify-between"><span className="text-gray-500">שעה:</span><strong>{scheduleTime}</strong></div>
+                <div className="flex justify-between"><span className="text-gray-500">{t('reports.schedule')}:</span><strong>{scheduleTime}</strong></div>
                 <div className="flex justify-between"><span className="text-gray-500">ימים:</span><strong>{formatDays(scheduleDays)}</strong></div>
                 <div className="flex justify-between"><span className="text-gray-500">מקבלים:</span><strong>{recipients.filter(r => r.phone.trim()).length}</strong></div>
                 <div className="flex justify-between"><span className="text-gray-500">טבלאות:</span><strong>{allTables ? 'כל הטבלאות' : `${tableIds.length} נבחרו`}</strong></div>
@@ -720,7 +726,7 @@ function ReportWizard({
 
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="w-4 h-4 rounded text-brand-600" />
-                <span className="text-sm">הפעל את הדוח מיד אחרי שמירה</span>
+                <span className="text-sm">{t('reports.run_now')}</span>
               </label>
             </div>
           )}
@@ -755,7 +761,7 @@ function ReportWizard({
               </button>
             ) : (
               <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">
-                {saving ? 'שומר...' : (editing ? 'שמור שינויים' : 'צור דוח')}
+                {saving ? t('common.saving') : (editing ? 'שמור שינויים' : 'צור דוח')}
               </button>
             )}
           </div>
@@ -773,6 +779,7 @@ function TemplateConfig({ templateType, config, onChange }: {
   config: Record<string, any>;
   onChange: (c: Record<string, any>) => void;
 }) {
+  const { t } = useT();
   function update(key: string, value: any) {
     onChange({ ...config, [key]: value });
   }
