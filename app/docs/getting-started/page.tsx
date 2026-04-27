@@ -13,7 +13,7 @@ export default function GettingStarted() {
 
       <h2>שלב 1 - הרשמה</h2>
       <ol>
-        <li>היכנס ל-<a href="https://allchatboard.vercel.app" target="_blank" rel="noopener noreferrer">allchatboard.vercel.app</a></li>
+        <li>היכנס ל-<a href="https://taskflow-ai.com" target="_blank" rel="noopener noreferrer">taskflow-ai.com</a></li>
         <li>לחץ "הרשמה" בפינה</li>
         <li>הזן אימייל וסיסמה - אישור יישלח אליך</li>
         <li>לחץ על הקישור באימייל</li>

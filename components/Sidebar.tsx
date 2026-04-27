@@ -338,7 +338,7 @@ export default function Sidebar({
               <HelpCircle className="w-4 h-4" /> {t('nav.help')}
             </button>
             <a
-              href="https://docs.allchatboard.vercel.app"
+              href="https://docs.taskflow-ai.com"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setShowUserMenu(false)}

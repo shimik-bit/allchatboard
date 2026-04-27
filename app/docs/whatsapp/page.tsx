@@ -41,7 +41,7 @@ export default function WhatsAppDocs() {
       <p>זה החלק שאומר ל-Green API "שלח אלי כל הודעה שנכנסת". בלעדיו - הבוט לא יקבל כלום.</p>
 
       <ol>
-        <li>במסך WhatsApp במערכת תראה שורה עם כתובת ה-Webhook (משהו כמו <code>allchatboard.vercel.app/api/whatsapp/webhook?workspace=...</code>) - העתק אותה</li>
+        <li>במסך WhatsApp במערכת תראה שורה עם כתובת ה-Webhook (משהו כמו <code>taskflow-ai.com/api/whatsapp/webhook?workspace=...</code>) - העתק אותה</li>
         <li>חזור ל-Green API → הגדרות Instance</li>
         <li>תחת <strong>"System notifications"</strong> או <strong>"Webhook URL"</strong> הדבק את הכתובת</li>
         <li>סמן את ה-checkbox <code>incomingMessageReceived</code></li>

@@ -144,7 +144,7 @@ const openTasksTemplate: ReportTemplate = {
     }
 
     msg += `${SEPARATOR}\n`;
-    msg += `🔗 לפתוח במערכת: allchatboard.vercel.app`;
+    msg += `🔗 לפתוח במערכת: taskflow-ai.com`;
 
     return { message: msg, isEmpty: false, recordCount: open.length };
   },
@@ -271,7 +271,7 @@ const leadsSummaryTemplate: ReportTemplate = {
     }
 
     msg += `\n${SEPARATOR}\n`;
-    msg += `🔗 allchatboard.vercel.app`;
+    msg += `🔗 taskflow-ai.com`;
 
     return { message: msg, isEmpty: false, recordCount: total };
   },
@@ -398,7 +398,7 @@ const salesSummaryTemplate: ReportTemplate = {
     }
 
     msg += `\n${SEPARATOR}\n`;
-    msg += `🔗 allchatboard.vercel.app`;
+    msg += `🔗 taskflow-ai.com`;
 
     return { message: msg, isEmpty: false, recordCount: currentCount };
   },
@@ -483,7 +483,7 @@ const stuckRecordsTemplate: ReportTemplate = {
 
     msg += `\n${SEPARATOR}\n`;
     msg += `💡 _זה הזמן לעבור עליהן ולסגור / לדחות / לעדכן._\n`;
-    msg += `🔗 allchatboard.vercel.app`;
+    msg += `🔗 taskflow-ai.com`;
 
     return { message: msg, isEmpty: false, recordCount: stuck.length };
   },

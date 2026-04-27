@@ -37,7 +37,7 @@ export default function ApiDocs() {
       </div>
 
       <h2>Base URL</h2>
-      <pre className="bg-gray-100 p-3 rounded-lg" dir="ltr"><code>https://allchatboard.vercel.app/api/v1</code></pre>
+      <pre className="bg-gray-100 p-3 rounded-lg" dir="ltr"><code>https://taskflow-ai.com/api/v1</code></pre>
 
       <h2>Endpoints</h2>
 
@@ -45,7 +45,7 @@ export default function ApiDocs() {
       <p>יוצר רשומה חדשה בטבלה. השדה <code>data</code> מכיל את ערכי השדות לפי slug.</p>
 
       <h4>דוגמה ב-curl</h4>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X POST https://allchatboard.vercel.app/api/v1/records \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X POST https://taskflow-ai.com/api/v1/records \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -59,7 +59,7 @@ export default function ApiDocs() {
   }'`}</code></pre>
 
       <h4>דוגמה ב-JavaScript</h4>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`const response = await fetch('https://allchatboard.vercel.app/api/v1/records', {
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`const response = await fetch('https://taskflow-ai.com/api/v1/records', {
   method: 'POST',
   headers: {
     'Authorization': \`Bearer \${process.env.ALLCHAT_TOKEN}\`,
@@ -80,7 +80,7 @@ console.log('Created record:', record.id);`}</code></pre>
       <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`import requests
 
 response = requests.post(
-    'https://allchatboard.vercel.app/api/v1/records',
+    'https://taskflow-ai.com/api/v1/records',
     headers={'Authorization': f'Bearer {TOKEN}'},
     json={
         'table_id': 'abc123-...',
@@ -112,7 +112,7 @@ print(response.json())`}</code></pre>
         <li><code>order_dir</code> - <code>asc</code> או <code>desc</code></li>
       </ul>
 
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl "https://allchatboard.vercel.app/api/v1/records?table_id=abc123&limit=20&search=דניאל" \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl "https://taskflow-ai.com/api/v1/records?table_id=abc123&limit=20&search=דניאל" \\
   -H "Authorization: Bearer YOUR_TOKEN"`}</code></pre>
 
       <h4>תגובה</h4>
@@ -124,24 +124,24 @@ print(response.json())`}</code></pre>
 }`}</code></pre>
 
       <h3>GET /records/&#123;id&#125; — שליפת רשומה אחת</h3>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl https://allchatboard.vercel.app/api/v1/records/rec_xyz789 \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl https://taskflow-ai.com/api/v1/records/rec_xyz789 \\
   -H "Authorization: Bearer YOUR_TOKEN"`}</code></pre>
 
       <h3>PATCH /records/&#123;id&#125; — עדכון רשומה</h3>
       <p>מעדכן רק את השדות שנשלחים (merge, לא replace). דורש הרשאת update.</p>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X PATCH https://allchatboard.vercel.app/api/v1/records/rec_xyz789 \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X PATCH https://taskflow-ai.com/api/v1/records/rec_xyz789 \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{ "data": { "status": "completed" } }'`}</code></pre>
 
       <h3>DELETE /records/&#123;id&#125; — מחיקת רשומה</h3>
       <p>דורש הרשאת delete.</p>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X DELETE https://allchatboard.vercel.app/api/v1/records/rec_xyz789 \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl -X DELETE https://taskflow-ai.com/api/v1/records/rec_xyz789 \\
   -H "Authorization: Bearer YOUR_TOKEN"`}</code></pre>
 
       <h3>GET /tables — רשימת טבלאות עם schema</h3>
       <p>שימושי לאוטומציות שצריכות לגלות אילו שדות קיימים בכל טבלה.</p>
-      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl https://allchatboard.vercel.app/api/v1/tables \\
+      <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`curl https://taskflow-ai.com/api/v1/tables \\
   -H "Authorization: Bearer YOUR_TOKEN"`}</code></pre>
 
       <h4>תגובה</h4>
@@ -217,7 +217,7 @@ print(response.json())`}</code></pre>
       <p>כל פנייה באתר נכנסת ישירות לטבלת "לידים":</p>
       <pre className="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm" dir="ltr"><code>{`// בקוד האתר (Node.js endpoint, לא frontend!)
 app.post('/contact', async (req, res) => {
-  await fetch('https://allchatboard.vercel.app/api/v1/records', {
+  await fetch('https://taskflow-ai.com/api/v1/records', {
     method: 'POST',
     headers: {
       'Authorization': \`Bearer \${process.env.ALLCHAT_TOKEN}\`,

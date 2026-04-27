@@ -84,7 +84,7 @@ export async function POST(
   // 5 — Build & send the message. Reuse the same format as the auto
   // notification sent by the webhook for visual consistency.
   const tableName = (Array.isArray(record.tables) ? record.tables[0]?.name : (record.tables as any)?.name) || 'רשומה';
-  const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://allchatboard.vercel.app';
+  const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://taskflow-ai.com';
 
   const lines: string[] = [];
   lines.push(`היי ${name} 👋`);

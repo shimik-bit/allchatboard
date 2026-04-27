@@ -1836,7 +1836,7 @@ function buildAssigneeNotification(opts: {
   }
 
   // Link to the record in the dashboard
-  const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://allchatboard.vercel.app';
+  const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://taskflow-ai.com';
   lines.push('');
   lines.push(`👁 לצפייה ועדכון: ${dashboardUrl}/r/${recordId}`);
 
