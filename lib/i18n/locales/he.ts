@@ -489,6 +489,40 @@ export const he = {
     load_failed: 'טעינת המידע נכשלה',
   },
 
+  /* ────────────── Documentation Pages ────────────── */
+  documentation: {
+    official_guide: 'מדריך משתמש רשמי',
+    back_to_app: 'חזרה למערכת',
+    need_help_title: 'צריך עזרה אישית?',
+    need_help_body: 'אנחנו כאן לכל שאלה. תגובה תוך 24 שעות.',
+    contact_us: 'צור קשר',
+
+    section_quickstart: 'התחלה מהירה',
+    section_tables: 'טבלאות וניהול נתונים',
+    section_whatsapp: 'WhatsApp ואוטומציות',
+    section_permissions: 'הרשאות וצוות',
+    section_advanced: 'פיצרים מתקדמים',
+    section_developers: 'למפתחים',
+    section_help: 'עזרה ותמיכה',
+
+    first_5_min: '5 דקות ראשונות',
+    basic_concepts: 'מושגי יסוד',
+    business_templates: 'תבניות לעסקים',
+    creating_tables: 'יצירת טבלאות',
+    field_types: 'סוגי שדות',
+    linking_tables: 'קישור בין טבלאות',
+    views: 'תצוגות (טבלה / קנבן / יומן)',
+    connecting_bot: 'חיבור הבוט',
+    managing_groups: 'ניהול קבוצות',
+    how_ai_works: 'איך ה-AI עובד',
+    workspace_roles: 'תפקידים בסביבה',
+    table_permissions: 'הרשאות לטבלה',
+    scheduled_reports: 'דוחות מתוזמנים',
+    api_reference: 'API Reference',
+    faq: 'שאלות נפוצות',
+    troubleshooting: 'פתרון תקלות',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'דלג על המדריך',

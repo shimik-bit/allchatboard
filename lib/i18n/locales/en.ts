@@ -488,6 +488,40 @@ export const en: LocaleDictionary = {
     load_failed: 'Failed to load data',
   },
 
+  /* ────────────── Documentation Pages ────────────── */
+  documentation: {
+    official_guide: 'Official user guide',
+    back_to_app: 'Back to app',
+    need_help_title: 'Need personal help?',
+    need_help_body: "We're here for any question. Response within 24 hours.",
+    contact_us: 'Contact us',
+
+    section_quickstart: 'Quick start',
+    section_tables: 'Tables & data management',
+    section_whatsapp: 'WhatsApp & automations',
+    section_permissions: 'Permissions & team',
+    section_advanced: 'Advanced features',
+    section_developers: 'For developers',
+    section_help: 'Help & support',
+
+    first_5_min: 'First 5 minutes',
+    basic_concepts: 'Core concepts',
+    business_templates: 'Business templates',
+    creating_tables: 'Creating tables',
+    field_types: 'Field types',
+    linking_tables: 'Linking tables',
+    views: 'Views (table / kanban / calendar)',
+    connecting_bot: 'Connecting the bot',
+    managing_groups: 'Managing groups',
+    how_ai_works: 'How AI works',
+    workspace_roles: 'Workspace roles',
+    table_permissions: 'Table permissions',
+    scheduled_reports: 'Scheduled reports',
+    api_reference: 'API reference',
+    faq: 'FAQ',
+    troubleshooting: 'Troubleshooting',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'Skip the tour',
