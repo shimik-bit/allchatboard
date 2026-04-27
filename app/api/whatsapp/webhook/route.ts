@@ -35,6 +35,30 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
 
+    // ───── Find the source instance (for shared-instance routing) ─────
+    // The webhook URL has ?workspace=X but the actual instance might be shared
+    // with multiple workspaces. We need to know WHICH instance sent this message
+    // to apply the right routing rules.
+    const greenApiInstanceFromUrl = body.instanceData?.idInstance
+      ? String(body.instanceData.idInstance)
+      : null;
+
+    let sourceInstanceId: string | null = null;
+    let isSharedInstance = false;
+
+    if (greenApiInstanceFromUrl) {
+      const { data: instanceRow } = await admin
+        .from('whatsapp_instances')
+        .select('id, is_shared')
+        .eq('provider', 'green_api')
+        .eq('provider_instance_id', greenApiInstanceFromUrl)
+        .maybeSingle();
+      if (instanceRow) {
+        sourceInstanceId = instanceRow.id;
+        isSharedInstance = !!instanceRow.is_shared;
+      }
+    }
+
     // Load workspace config
     let { data: workspace } = await admin
       .from('workspaces')
@@ -113,10 +137,71 @@ export async function POST(req: NextRequest) {
     let groupAutoReplyEnabled = false;
 
     if (chatId.endsWith('@g.us')) {
+      // ─── Shared instance routing: check if this group is mapped ───
+      // For shared instances, the workspace from the URL is just a default.
+      // The actual workspace depends on shared_group_routing.
+      if (isSharedInstance && sourceInstanceId) {
+        const { data: routing } = await admin
+          .from('shared_group_routing')
+          .select('routed_to_workspace_id')
+          .eq('instance_id', sourceInstanceId)
+          .eq('green_api_chat_id', chatId)
+          .maybeSingle();
+
+        if (routing?.routed_to_workspace_id) {
+          // Group has explicit routing - use it
+          if (routing.routed_to_workspace_id !== activeWorkspaceId) {
+            const { data: routedWs } = await admin
+              .from('workspaces')
+              .select('id, name, business_description, ai_persona, whatsapp_instance_id, whatsapp_token, ai_messages_used, ai_messages_limit, locale')
+              .eq('id', routing.routed_to_workspace_id)
+              .single();
+            if (routedWs) {
+              activeWorkspaceId = routedWs.id;
+              workspace = routedWs as any;
+            }
+          }
+        } else {
+          // Shared instance group with NO routing - save as unrouted and stop
+          await saveMessage(admin, {
+            workspace_id: activeWorkspaceId,
+            group_id: null,
+            green_api_message_id: idMessage,
+            sender_phone: senderPhone,
+            sender_name: senderName,
+            text, media_url: mediaUrl, media_type: mediaType,
+            quoted_message_id: quotedMessageId,
+            status: 'ignored',
+            ai_error: 'קבוצה לא מנותבת ב-shared instance - מחכה להגדרת אדמין',
+          } as any);
+
+          // Mark the saved message as unrouted
+          if (idMessage) {
+            await admin
+              .from('wa_messages')
+              .update({
+                routing_status: 'unrouted_group',
+                source_instance_id: sourceInstanceId,
+              })
+              .eq('green_api_message_id', idMessage)
+              .eq('workspace_id', activeWorkspaceId);
+          }
+
+          return NextResponse.json({
+            ok: true,
+            status: 'unrouted_group',
+            chat_id: chatId,
+            instance_id: sourceInstanceId,
+            note: 'Group not yet mapped to a workspace by admin',
+          });
+        }
+      }
+
       const { data: group } = await admin
         .from('whatsapp_groups')
         .select('id, is_active, target_table_id, target_workspace_id, default_assignee_phone_id, auto_create_record, auto_reply_enabled')
         .eq('green_api_chat_id', chatId)
+        .eq('workspace_id', activeWorkspaceId)
         .maybeSingle();
 
       if (group) {
@@ -158,6 +243,40 @@ export async function POST(req: NextRequest) {
           .select('id').single();
         groupId = newGroup?.id || null;
       }
+    } else if (isSharedInstance && sourceInstanceId) {
+      // ─── Shared instance: DM message (not from a group) ───
+      // For DMs on a shared instance, we cannot determine the destination workspace.
+      // Save as unrouted_dm and stop processing - no auto-classification.
+      await saveMessage(admin, {
+        workspace_id: activeWorkspaceId,
+        group_id: null,
+        green_api_message_id: idMessage,
+        sender_phone: senderPhone,
+        sender_name: senderName,
+        text, media_url: mediaUrl, media_type: mediaType,
+        quoted_message_id: quotedMessageId,
+        status: 'ignored',
+        ai_error: 'DM ל-shared instance - אין ניתוב אוטומטי. רק קבוצות עם הגדרת אדמין יעובדו.',
+      } as any);
+
+      if (idMessage) {
+        await admin
+          .from('wa_messages')
+          .update({
+            routing_status: 'unrouted_dm',
+            source_instance_id: sourceInstanceId,
+          })
+          .eq('green_api_message_id', idMessage)
+          .eq('workspace_id', activeWorkspaceId);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        status: 'unrouted_dm',
+        sender_phone: senderPhone,
+        instance_id: sourceInstanceId,
+        note: 'DM messages on shared instances require admin routing per chat',
+      });
     }
 
     // Reject unauthorized phones
