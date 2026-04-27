@@ -413,6 +413,19 @@ function CreateInstanceModal({
   const [manualToken, setManualToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [webhookCopied, setWebhookCopied] = useState(false);
+
+  // Build webhook URL for this workspace - user will need to paste this in Green API
+  const webhookUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/whatsapp/webhook?workspace=${workspaceId}`
+    : `https://taskflow-ai.com/api/whatsapp/webhook?workspace=${workspaceId}`;
+
+  function copyWebhook() {
+    navigator.clipboard.writeText(webhookUrl);
+    setWebhookCopied(true);
+    setTimeout(() => setWebhookCopied(false), 2000);
+  }
 
   async function handleCreate() {
     setBusy(true);
@@ -471,36 +484,102 @@ function CreateInstanceModal({
           </button>
         </div>
 
-        {/* Mode selector */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <button
-            onClick={() => setMode('auto')}
-            disabled={!partnerTokenAvailable}
-            className={`p-3 rounded-xl border-2 text-right transition-all ${
-              mode === 'auto'
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-200 hover:border-gray-300'
-            } ${!partnerTokenAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <div className="font-bold text-sm">⚡ יצירה אוטומטית</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">
-              {partnerTokenAvailable ? 'נוצר אוטומטית ב-Green API' : 'דורש Partner Token'}
+        {/* Mode selector - only show if partner token available (else manual is the only option) */}
+        {partnerTokenAvailable && (
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button
+              onClick={() => setMode('auto')}
+              className={`p-3 rounded-xl border-2 text-right transition-all ${
+                mode === 'auto'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-bold text-sm">⚡ יצירה אוטומטית</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                נוצר אוטומטית ב-Green API
+              </div>
+            </button>
+            <button
+              onClick={() => setMode('manual')}
+              className={`p-3 rounded-xl border-2 text-right transition-all ${
+                mode === 'manual'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-bold text-sm">📝 חיבור ידני</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                הכנס פרטים מ-Green API שלך
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Step-by-step instructions for manual mode */}
+        {mode === 'manual' && showInstructions && (
+          <div className="mb-4 bg-gradient-to-l from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
+            <div className="flex items-start justify-between mb-2">
+              <h4 className="font-bold text-sm text-purple-900 flex items-center gap-1.5">
+                📋 איך לחבר WhatsApp ב-3 דקות:
+              </h4>
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="text-xs text-purple-700 hover:text-purple-900"
+              >
+                הסתר
+              </button>
             </div>
-          </button>
-          <button
-            onClick={() => setMode('manual')}
-            className={`p-3 rounded-xl border-2 text-right transition-all ${
-              mode === 'manual'
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="font-bold text-sm">📝 חיבור ידני</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">
-              הכנס פרטים מ-Green API שלך
+            <ol className="text-xs text-purple-900 space-y-2 list-decimal list-inside">
+              <li>
+                כנס ל-
+                <a href="https://console.green-api.com/" target="_blank" rel="noopener" className="text-purple-700 font-bold underline">
+                  console.green-api.com
+                </a>
+                {' '}ולחץ <strong>"Create Instance"</strong> (Developer = חינם)
+              </li>
+              <li>
+                סרוק QR code עם הטלפון של הסביבה (WhatsApp → מכשירים מקושרים)
+              </li>
+              <li>
+                העתק את <strong>Instance ID</strong> ו-<strong>API Token</strong> והכנס למטה ⬇
+              </li>
+              <li>
+                <strong>חשוב:</strong> ב-Green API → Settings → System Notifications, הדבק את ה-webhook URL הבא:
+              </li>
+            </ol>
+
+            {/* Webhook URL with copy button */}
+            <div className="mt-3 flex items-center gap-2 bg-white border border-purple-200 rounded-lg p-2">
+              <code dir="ltr" className="text-[10px] flex-1 truncate font-mono text-purple-900">
+                {webhookUrl}
+              </code>
+              <button
+                onClick={copyWebhook}
+                className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap transition-all ${
+                  webhookCopied
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {webhookCopied ? '✓ הועתק!' : '📋 העתק'}
+              </button>
             </div>
+            <p className="text-[10px] text-purple-700 mt-2">
+              💡 בלי הגדרת ה-webhook, הודעות לא יגיעו אוטומטית למערכת.
+            </p>
+          </div>
+        )}
+
+        {/* Show instructions toggle if hidden */}
+        {mode === 'manual' && !showInstructions && (
+          <button
+            onClick={() => setShowInstructions(true)}
+            className="mb-4 w-full py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-medium text-purple-700"
+          >
+            📋 הצג הוראות חיבור צעד-צעד
           </button>
-        </div>
+        )}
 
         <div className="space-y-3">
           {/* Display name */}
@@ -567,10 +646,6 @@ function CreateInstanceModal({
                   className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 font-mono"
                 />
               </div>
-              <p className="text-[10px] text-gray-500 bg-gray-50 p-2 rounded-lg">
-                📍 מצא את הפרטים ב-<a href="https://console.green-api.com/" target="_blank" rel="noopener" className="text-purple-600 underline">console.green-api.com</a>:
-                לחץ על Instance → תראה Instance ID ו-API Token Instance.
-              </p>
             </>
           )}
 
