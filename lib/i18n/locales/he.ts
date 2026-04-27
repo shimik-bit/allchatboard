@@ -549,6 +549,92 @@ export const he = {
     download_pdf: 'הורד PDF (200KB)',
   },
 
+  /* ────────────── Homepage ────────────── */
+  home: {
+    nav_protection: 'הגנה ופרופילים',
+    cta_start_free: 'התחל חינם',
+    cta_start_trial: 'התחל ניסיון חינם',
+    cta_start_trial_14_days: 'התחל ניסיון חינם של 14 יום',
+    cta_how_it_works: 'איך זה עובד?',
+
+    hero_badge: 'חדש: AI מסווג אוטומטית כל הודעה לטבלה הנכונה',
+    hero_title_part1: 'הפכו צ׳אטים של וואטסאפ',
+    hero_title_part2: 'ללוחות מנוהלים',
+    hero_description: 'TaskFlow AI לוקח את כל ההודעות מקבוצות הוואטסאפ של העסק שלך, מסווג אותן עם AI, וממלא אוטומטית טבלאות מותאמות לתחום שלך.',
+
+    feature1_title: 'חיבור פשוט לוואטסאפ',
+    feature1_desc: 'חברו את הקבוצות תוך 2 דקות באמצעות AllChat. אנחנו מקשיבים לכל ההודעות.',
+    feature2_title: 'AI שמבין את העסק שלכם',
+    feature2_desc: 'ה-AI לומד את הענף שלכם — מוסך, מסעדה, נדל״ן — ומסווג כל הודעה לטבלה הנכונה.',
+    feature3_title: 'לוחות שמתאימים בדיוק לכם',
+    feature3_desc: 'טבלאות, קנבן, לוח שנה — כל תצוגה לכל סוג נתונים. בנו את העסק שלכם בצורה ויזואלית.',
+
+    // GroupGuard section
+    gg_badge: 'חדש בTaskFlow AI',
+    gg_title_part1: 'הגנה חכמה',
+    gg_title_part2: 'ופרופילי חברים',
+    gg_description: 'הוסיפו את הבוט לקבוצות הוואטסאפ שלכם וקבלו AI שלומד מי החברים, מה הם עושים, ומגן על הקבוצה מספאם - גם בלי הרשאות אדמין.',
+
+    // Tier 1: Member
+    tier_member_badge: 'בוט כחבר רגיל בקבוצה',
+    tier_member_title: 'תובנות ומאגר ידע',
+    tier_member_subtitle: 'הוספה רגילה לקבוצה - 30 שניות',
+
+    // Tier 2: Admin
+    tier_admin_badge: 'בוט עם הרשאות אדמין',
+    tier_admin_title_part1: 'כל מה שלמעלה +',
+    tier_admin_title_part2: 'הגנה אוטומטית',
+    tier_admin_subtitle: 'הפכו את הבוט לאדמין - שומר על הקבוצה במקומכם',
+
+    // Member features
+    feat_profiles_title: 'פרופילי חברים אוטומטיים',
+    feat_profiles_desc: 'AI בונה פרופיל לכל חבר: שם, מקצוע, עסק, אתר, התמחות',
+    feat_search_title: 'חיפוש לפי תחום',
+    feat_search_desc: 'למשל: "מי כאן עורך דין מסחרי?" - תקבלי רשימה',
+    feat_dashboard_title: 'דשבורד וסטטיסטיקות',
+    feat_dashboard_desc: 'גרפים על פעילות הקבוצה, חברים פעילים, נושאים חמים',
+    feat_completion_title: 'אחוז שלמות פרופיל',
+    feat_completion_desc: 'עיגול אחוזים שגדל ככל שאוספים יותר מידע על כל חבר',
+    feat_admin_tag_title: '🆕 תיוג מנהלים על ספאם',
+    feat_admin_tag_desc: 'הבוט מזהה ספאם ומתייג אנשים שאת מגדירה - הם מטפלים ידנית',
+
+    // Admin features
+    feat_delete_spam_title: 'מחיקת ספאם אוטומטית',
+    feat_delete_spam_desc: 'AI מזהה ספאם, פרסומות, פישינג - ומוחק לפני שחברים רואים',
+    feat_remove_spammers_title: 'הסרת ספאמרים',
+    feat_remove_spammers_desc: 'חוזרים על עצמם? מורחקים אוטומטית מהקבוצה',
+    feat_block_country_title: 'חסימת קידומות מדינה',
+    feat_block_country_desc: 'הגדירו אילו מדינות חסומות מראש (למשל קידומות חשודות)',
+    feat_global_blocklist_title: 'מאגר ספאמרים גלובלי',
+    feat_global_blocklist_desc: 'ספאמר שדווח באלפי קבוצות אחרות - יחסם אוטומטית גם אצלכם',
+    feat_manual_report_title: 'דיווח ידני בתיוג',
+    feat_manual_report_desc: 'חברי הקבוצה יכולים לתייג את הבוט עם "ספאם" והוא יסיר',
+
+    // Comparison table
+    comparison_title: 'השוואה מהירה',
+    comparison_subtitle: 'מה מקבלים בכל רמת הרשאה',
+    cmp_profiles: 'פרופילי חברים אוטומטיים',
+    cmp_search: 'חיפוש לפי מקצוע / תחום',
+    cmp_dashboard: 'דשבורד וסטטיסטיקות',
+    cmp_log: 'לוג פעילות מלא',
+    cmp_admin_tag: '🆕 תיוג מנהלים על ספאם',
+    cmp_chat_warnings: "אזהרות אוטומטיות בצ'אט",
+    cmp_delete_spam: 'מחיקת הודעות ספאם',
+    cmp_remove_spammers: 'הסרת ספאמרים',
+    cmp_block_country: 'חסימת קידומות מדינה',
+    cmp_global_blocklist: 'מאגר ספאמרים חוצה-קבוצות',
+    label_member: 'חבר',
+    label_admin: 'אדמין',
+
+    // Bottom CTA
+    bottom_cta_hint: '💡 אפשר להתחיל מהבסיסי ולהפוך את הבוט לאדמין מאוחר יותר',
+
+    // Footer
+    footer_copyright: '© {year} TaskFlow AI. מופעל על ידי',
+    footer_built_with: 'נבנה עם',
+    footer_in_israel: 'בישראל.',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'דלג על המדריך',

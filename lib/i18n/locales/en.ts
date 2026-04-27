@@ -548,6 +548,92 @@ export const en: LocaleDictionary = {
     download_pdf: 'Download PDF (200KB)',
   },
 
+  /* ────────────── Homepage ────────────── */
+  home: {
+    nav_protection: 'Protection & Profiles',
+    cta_start_free: 'Start Free',
+    cta_start_trial: 'Start free trial',
+    cta_start_trial_14_days: 'Start 14-day free trial',
+    cta_how_it_works: 'How does it work?',
+
+    hero_badge: 'New: AI auto-classifies every message to the right table',
+    hero_title_part1: 'Turn WhatsApp chats',
+    hero_title_part2: 'into managed boards',
+    hero_description: "TaskFlow AI takes every message from your business's WhatsApp groups, classifies them with AI, and automatically fills tables tailored to your industry.",
+
+    feature1_title: 'Simple WhatsApp connection',
+    feature1_desc: 'Connect your groups in 2 minutes via AllChat. We listen to every message.',
+    feature2_title: 'AI that understands your business',
+    feature2_desc: 'The AI learns your industry — auto repair, restaurant, real estate — and classifies each message to the right table.',
+    feature3_title: 'Boards that fit you exactly',
+    feature3_desc: 'Tables, kanban, calendar — every view for every data type. Build your business visually.',
+
+    // GroupGuard section
+    gg_badge: 'New in TaskFlow AI',
+    gg_title_part1: 'Smart protection',
+    gg_title_part2: '& member profiles',
+    gg_description: 'Add the bot to your WhatsApp groups and get an AI that learns who the members are, what they do, and protects the group from spam - even without admin permissions.',
+
+    // Tier 1: Member
+    tier_member_badge: 'Bot as regular group member',
+    tier_member_title: 'Insights & knowledge base',
+    tier_member_subtitle: 'Regular addition to group - 30 seconds',
+
+    // Tier 2: Admin
+    tier_admin_badge: 'Bot with admin permissions',
+    tier_admin_title_part1: 'Everything above +',
+    tier_admin_title_part2: 'automatic protection',
+    tier_admin_subtitle: 'Make the bot an admin - it guards the group for you',
+
+    // Member features
+    feat_profiles_title: 'Automatic member profiles',
+    feat_profiles_desc: 'AI builds a profile for each member: name, profession, business, website, specialty',
+    feat_search_title: 'Search by domain',
+    feat_search_desc: 'For example: "Who here is a commercial lawyer?" - get a list',
+    feat_dashboard_title: 'Dashboard & statistics',
+    feat_dashboard_desc: 'Charts on group activity, active members, hot topics',
+    feat_completion_title: 'Profile completeness percentage',
+    feat_completion_desc: 'A percentage circle that grows as you collect more info about each member',
+    feat_admin_tag_title: '🆕 Tag admins on spam',
+    feat_admin_tag_desc: 'Bot detects spam and tags people you define - they handle manually',
+
+    // Admin features
+    feat_delete_spam_title: 'Automatic spam deletion',
+    feat_delete_spam_desc: 'AI detects spam, ads, phishing - and deletes before members see',
+    feat_remove_spammers_title: 'Remove spammers',
+    feat_remove_spammers_desc: 'Repeat offenders? Automatically removed from the group',
+    feat_block_country_title: 'Block country prefixes',
+    feat_block_country_desc: 'Define which countries are blocked in advance (e.g. suspicious prefixes)',
+    feat_global_blocklist_title: 'Global spammers database',
+    feat_global_blocklist_desc: 'Spammer reported in thousands of other groups - auto-blocked for you too',
+    feat_manual_report_title: 'Manual reporting via tagging',
+    feat_manual_report_desc: 'Group members can tag the bot with "spam" and it will remove',
+
+    // Comparison table
+    comparison_title: 'Quick comparison',
+    comparison_subtitle: 'What you get at each permission level',
+    cmp_profiles: 'Automatic member profiles',
+    cmp_search: 'Search by profession / domain',
+    cmp_dashboard: 'Dashboard & statistics',
+    cmp_log: 'Full activity log',
+    cmp_admin_tag: '🆕 Tag admins on spam',
+    cmp_chat_warnings: 'Automatic warnings in chat',
+    cmp_delete_spam: 'Spam message deletion',
+    cmp_remove_spammers: 'Remove spammers',
+    cmp_block_country: 'Block country prefixes',
+    cmp_global_blocklist: 'Cross-group spammer database',
+    label_member: 'Member',
+    label_admin: 'Admin',
+
+    // Bottom CTA
+    bottom_cta_hint: '💡 You can start basic and make the bot an admin later',
+
+    // Footer
+    footer_copyright: '© {year} TaskFlow AI. Powered by',
+    footer_built_with: 'Built with',
+    footer_in_israel: 'in Israel.',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'Skip the tour',

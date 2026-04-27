@@ -5,10 +5,15 @@ import {
   Trash2, UserX, Crown, Check, X, ArrowLeft,
   Briefcase, Globe, Bell,
 } from 'lucide-react';
+import { getT } from '@/lib/i18n/server';
 
 export default function HomePage() {
+  const { t, dir } = getT('he');
+  const ArrowDir = ArrowLeft;
+  const arrowRotate = dir === 'rtl' ? '' : 'rotate-180';
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white to-brand-50/30">
+    <main className="min-h-screen bg-gradient-to-b from-white to-brand-50/30" dir={dir}>
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center">
@@ -20,10 +25,10 @@ export default function HomePage() {
           </Link>
           <div className="flex items-center gap-3">
             <a href="#groupguard" className="hidden sm:inline text-sm text-gray-600 hover:text-purple-600 transition-colors">
-              הגנה ופרופילים
+              {t('home.nav_protection')}
             </a>
-            <Link href="/auth/login" className="btn-ghost">התחברות</Link>
-            <Link href="/auth/signup" className="btn-primary">התחל חינם</Link>
+            <Link href="/auth/login" className="btn-ghost">{t('auth.login')}</Link>
+            <Link href="/auth/signup" className="btn-primary">{t('home.cta_start_free')}</Link>
           </div>
         </div>
       </header>
@@ -31,25 +36,24 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-6 py-20 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-100 text-brand-700 text-sm font-medium mb-6">
           <Sparkles className="w-4 h-4" />
-          חדש: AI מסווג אוטומטית כל הודעה לטבלה הנכונה
+          {t('home.hero_badge')}
         </div>
         <h1 className="font-display font-bold text-5xl md:text-7xl leading-tight mb-6">
-          הפכו צ׳אטים של וואטסאפ
+          {t('home.hero_title_part1')}
           <br />
           <span className="bg-gradient-to-l from-brand-600 to-purple-500 bg-clip-text text-transparent">
-            ללוחות מנוהלים
+            {t('home.hero_title_part2')}
           </span>
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-          TaskFlow AI לוקח את כל ההודעות מקבוצות הוואטסאפ של העסק שלך, מסווג אותן עם AI,
-          וממלא אוטומטית טבלאות מותאמות לתחום שלך.
+          {t('home.hero_description')}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link href="/auth/signup" className="btn-primary text-base px-6 py-3">
-            התחל ניסיון חינם של 14 יום
+            {t('home.cta_start_trial_14_days')}
           </Link>
           <Link href="#features" className="btn-secondary text-base px-6 py-3">
-            איך זה עובד?
+            {t('home.cta_how_it_works')}
           </Link>
         </div>
       </section>
@@ -57,18 +61,18 @@ export default function HomePage() {
       <section id="features" className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-6">
         <FeatureCard
           icon={<MessageSquare className="w-6 h-6" />}
-          title="חיבור פשוט לוואטסאפ"
-          desc="חברו את הקבוצות תוך 2 דקות באמצעות AllChat. אנחנו מקשיבים לכל ההודעות."
+          title={t('home.feature1_title')}
+          desc={t('home.feature1_desc')}
         />
         <FeatureCard
           icon={<Sparkles className="w-6 h-6" />}
-          title="AI שמבין את העסק שלכם"
-          desc="ה-AI לומד את הענף שלכם — מוסך, מסעדה, נדל״ן — ומסווג כל הודעה לטבלה הנכונה."
+          title={t('home.feature2_title')}
+          desc={t('home.feature2_desc')}
         />
         <FeatureCard
           icon={<LayoutGrid className="w-6 h-6" />}
-          title="לוחות שמתאימים בדיוק לכם"
-          desc="טבלאות, קנבן, לוח שנה — כל תצוגה לכל סוג נתונים. בנו את העסק שלכם בצורה ויזואלית."
+          title={t('home.feature3_title')}
+          desc={t('home.feature3_desc')}
         />
       </section>
 
@@ -79,17 +83,16 @@ export default function HomePage() {
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 text-purple-700 text-sm font-medium mb-4">
               <Shield className="w-4 h-4" />
-              חדש בTaskFlow AI
+              {t('home.gg_badge')}
             </div>
             <h2 className="font-display font-bold text-4xl md:text-5xl mb-4">
               <span className="bg-gradient-to-l from-purple-600 to-pink-500 bg-clip-text text-transparent">
-                הגנה חכמה
+                {t('home.gg_title_part1')}
               </span>{' '}
-              ופרופילי חברים
+              {t('home.gg_title_part2')}
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              הוסיפו את הבוט לקבוצות הוואטסאפ שלכם וקבלו AI שלומד מי החברים, מה הם עושים,
-              ומגן על הקבוצה מספאם - גם בלי הרשאות אדמין.
+              {t('home.gg_description')}
             </p>
           </div>
 
@@ -101,13 +104,13 @@ export default function HomePage() {
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium mb-3">
                     <Users className="w-3 h-3" />
-                    בוט כחבר רגיל בקבוצה
+                    {t('home.tier_member_badge')}
                   </div>
                   <h3 className="font-display font-bold text-2xl">
-                    תובנות ומאגר ידע
+                    {t('home.tier_member_title')}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    הוספה רגילה לקבוצה - 30 שניות
+                    {t('home.tier_member_subtitle')}
                   </p>
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-blue-50 grid place-items-center text-blue-600 flex-shrink-0">
@@ -118,35 +121,34 @@ export default function HomePage() {
               <ul className="space-y-3 mb-2">
                 <BotFeature
                   icon={<Briefcase className="w-4 h-4" />}
-                  title="פרופילי חברים אוטומטיים"
-                  desc="AI בונה פרופיל לכל חבר: שם, מקצוע, עסק, אתר, התמחות"
+                  title={t('home.feat_profiles_title')}
+                  desc={t('home.feat_profiles_desc')}
                 />
                 <BotFeature
                   icon={<Search className="w-4 h-4" />}
-                  title="חיפוש לפי תחום"
-                  desc='למשל: "מי כאן עורך דין מסחרי?" - תקבלי רשימה'
+                  title={t('home.feat_search_title')}
+                  desc={t('home.feat_search_desc')}
                 />
                 <BotFeature
                   icon={<BarChart3 className="w-4 h-4" />}
-                  title="דשבורד וסטטיסטיקות"
-                  desc="גרפים על פעילות הקבוצה, חברים פעילים, נושאים חמים"
+                  title={t('home.feat_dashboard_title')}
+                  desc={t('home.feat_dashboard_desc')}
                 />
                 <BotFeature
                   icon={<Award className="w-4 h-4" />}
-                  title="אחוז שלמות פרופיל"
-                  desc="עיגול אחוזים שגדל ככל שאוספים יותר מידע על כל חבר"
+                  title={t('home.feat_completion_title')}
+                  desc={t('home.feat_completion_desc')}
                 />
                 <BotFeature
                   icon={<Bell className="w-4 h-4" />}
-                  title="🆕 תיוג מנהלים על ספאם"
-                  desc="הבוט מזהה ספאם ומתייג אנשים שאת מגדירה - הם מטפלים ידנית"
+                  title={t('home.feat_admin_tag_title')}
+                  desc={t('home.feat_admin_tag_desc')}
                 />
               </ul>
             </div>
 
             {/* Tier 2: Admin */}
             <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-6 sm:p-8 shadow-lg text-white relative overflow-hidden">
-              {/* Decorative pattern */}
               <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 rounded-full -translate-y-12 -translate-x-12 blur-2xl"></div>
               <div className="absolute bottom-0 right-0 w-32 h-32 bg-yellow-400/20 rounded-full translate-y-12 translate-x-12 blur-2xl"></div>
 
@@ -155,14 +157,14 @@ export default function HomePage() {
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-medium mb-3 backdrop-blur">
                       <Crown className="w-3 h-3" />
-                      בוט עם הרשאות אדמין
+                      {t('home.tier_admin_badge')}
                     </div>
                     <h3 className="font-display font-bold text-2xl">
-                      כל מה שלמעלה +{' '}
-                      <span className="text-yellow-200">הגנה אוטומטית</span>
+                      {t('home.tier_admin_title_part1')}{' '}
+                      <span className="text-yellow-200">{t('home.tier_admin_title_part2')}</span>
                     </h3>
                     <p className="text-sm text-purple-100 mt-1">
-                      הפכו את הבוט לאדמין - שומר על הקבוצה במקומכם
+                      {t('home.tier_admin_subtitle')}
                     </p>
                   </div>
                   <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur grid place-items-center text-white flex-shrink-0">
@@ -173,32 +175,32 @@ export default function HomePage() {
                 <ul className="space-y-3">
                   <BotFeature
                     icon={<Trash2 className="w-4 h-4" />}
-                    title="מחיקת ספאם אוטומטית"
-                    desc="AI מזהה ספאם, פרסומות, פישינג - ומוחק לפני שחברים רואים"
+                    title={t('home.feat_delete_spam_title')}
+                    desc={t('home.feat_delete_spam_desc')}
                     onDark
                   />
                   <BotFeature
                     icon={<UserX className="w-4 h-4" />}
-                    title="הסרת ספאמרים"
-                    desc="חוזרים על עצמם? מורחקים אוטומטית מהקבוצה"
+                    title={t('home.feat_remove_spammers_title')}
+                    desc={t('home.feat_remove_spammers_desc')}
                     onDark
                   />
                   <BotFeature
                     icon={<Globe className="w-4 h-4" />}
-                    title="חסימת קידומות מדינה"
-                    desc="הגדירו אילו מדינות חסומות מראש (למשל קידומות חשודות)"
+                    title={t('home.feat_block_country_title')}
+                    desc={t('home.feat_block_country_desc')}
                     onDark
                   />
                   <BotFeature
                     icon={<Shield className="w-4 h-4" />}
-                    title="מאגר ספאמרים גלובלי"
-                    desc="ספאמר שדווח באלפי קבוצות אחרות - יחסם אוטומטית גם אצלכם"
+                    title={t('home.feat_global_blocklist_title')}
+                    desc={t('home.feat_global_blocklist_desc')}
                     onDark
                   />
                   <BotFeature
                     icon={<Sparkles className="w-4 h-4" />}
-                    title="דיווח ידני בתיוג"
-                    desc='חברי הקבוצה יכולים לתייג את הבוט עם "ספאם" והוא יסיר'
+                    title={t('home.feat_manual_report_title')}
+                    desc={t('home.feat_manual_report_desc')}
                     onDark
                   />
                 </ul>
@@ -209,76 +211,36 @@ export default function HomePage() {
           {/* Comparison table for clarity */}
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-              <h3 className="font-display font-bold text-lg">השוואה מהירה</h3>
+              <h3 className="font-display font-bold text-lg">{t('home.comparison_title')}</h3>
               <p className="text-sm text-gray-600 mt-0.5">
-                מה מקבלים בכל רמת הרשאה
+                {t('home.comparison_subtitle')}
               </p>
             </div>
             <div className="divide-y divide-gray-100">
-              <ComparisonRow
-                feature="פרופילי חברים אוטומטיים"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="חיפוש לפי מקצוע / תחום"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="דשבורד וסטטיסטיקות"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="לוג פעילות מלא"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="🆕 תיוג מנהלים על ספאם"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="אזהרות אוטומטיות בצ'אט"
-                member={true}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="מחיקת הודעות ספאם"
-                member={false}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="הסרת ספאמרים"
-                member={false}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="חסימת קידומות מדינה"
-                member={false}
-                admin={true}
-              />
-              <ComparisonRow
-                feature="מאגר ספאמרים חוצה-קבוצות"
-                member={false}
-                admin={true}
-              />
+              <ComparisonRow feature={t('home.cmp_profiles')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_search')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_dashboard')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_log')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_admin_tag')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_chat_warnings')} member={true} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_delete_spam')} member={false} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_remove_spammers')} member={false} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_block_country')} member={false} admin={true} t={t} />
+              <ComparisonRow feature={t('home.cmp_global_blocklist')} member={false} admin={true} t={t} />
             </div>
           </div>
 
           {/* Bottom CTA */}
           <div className="text-center mt-12">
             <p className="text-gray-600 mb-4 text-sm">
-              💡 אפשר להתחיל מהבסיסי ולהפוך את הבוט לאדמין מאוחר יותר
+              {t('home.bottom_cta_hint')}
             </p>
             <Link
               href="/auth/signup"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity"
             >
-              התחל ניסיון חינם
-              <ArrowLeft className="w-4 h-4" />
+              {t('home.cta_start_trial')}
+              <ArrowDir className={`w-4 h-4 ${arrowRotate}`} />
             </Link>
           </div>
         </div>
@@ -286,7 +248,7 @@ export default function HomePage() {
 
       <footer className="border-t border-gray-100 mt-20 py-8">
         <div className="max-w-6xl mx-auto px-6 text-center text-sm text-gray-500">
-          © 2026 TaskFlow AI. מופעל על ידי <a href="https://allchat.co.il" className="hover:underline">AllChat</a>. נבנה עם <Zap className="w-3.5 h-3.5 inline text-brand-500" /> בישראל.
+          {t('home.footer_copyright', { year: new Date().getFullYear() })} <a href="https://allchat.co.il" className="hover:underline">AllChat</a>. {t('home.footer_built_with')} <Zap className="w-3.5 h-3.5 inline text-brand-500" /> {t('home.footer_in_israel')}
         </div>
       </footer>
     </main>
@@ -306,7 +268,6 @@ function FeatureCard({
     </div>
   );
 }
-
 
 function BotFeature({
   icon, title, desc, onDark = false,
@@ -337,13 +298,13 @@ function BotFeature({
   );
 }
 
-
 function ComparisonRow({
-  feature, member, admin,
+  feature, member, admin, t,
 }: {
   feature: string;
   member: boolean;
   admin: boolean;
+  t: (path: string) => string;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-3 hover:bg-gray-50 transition-colors">
@@ -352,7 +313,7 @@ function ComparisonRow({
         {member ? (
           <span className="inline-flex items-center gap-1 text-blue-600 text-sm">
             <Check className="w-4 h-4" />
-            <span className="hidden sm:inline">חבר</span>
+            <span className="hidden sm:inline">{t('home.label_member')}</span>
           </span>
         ) : (
           <span className="inline-flex items-center text-gray-300 text-sm">
@@ -364,7 +325,7 @@ function ComparisonRow({
         {admin ? (
           <span className="inline-flex items-center gap-1 text-purple-600 text-sm">
             <Check className="w-4 h-4" />
-            <span className="hidden sm:inline">אדמין</span>
+            <span className="hidden sm:inline">{t('home.label_admin')}</span>
           </span>
         ) : (
           <span className="inline-flex items-center text-gray-300 text-sm">
