@@ -60,20 +60,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <LanguageProvider locale={locale}>
-      <div className="flex h-screen bg-gray-50" dir={locale === 'he' ? 'rtl' : 'ltr'}>
-        <Sidebar
-          workspace={workspace}
-          allWorkspaces={allWorkspaces}
-          tables={tables || []}
-          userEmail={user.email || ''}
-        />
-        {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
-            overlap content. Reset on md+ where the hamburger is hidden. */}
-        <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
-          {children}
-        </main>
-        <OnboardingTour />
+      <div className="h-screen flex flex-col bg-gray-50" dir={locale === 'he' ? 'rtl' : 'ltr'}>
+        {/* DevMode banner above everything - covers the full width */}
         <DevModeIndicator />
+
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            workspace={workspace}
+            allWorkspaces={allWorkspaces}
+            tables={tables || []}
+            userEmail={user.email || ''}
+          />
+          {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
+              overlap content. Reset on md+ where the hamburger is hidden. */}
+          <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+            {children}
+          </main>
+        </div>
+
+        <OnboardingTour />
       </div>
     </LanguageProvider>
   );

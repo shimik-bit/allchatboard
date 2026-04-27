@@ -24,7 +24,7 @@ export function DevModeIndicator() {
 
   return (
     <div
-      className="sticky top-0 z-40 bg-gradient-to-l from-amber-500 to-orange-500 text-white px-4 py-2 shadow-md"
+      className="bg-gradient-to-l from-amber-500 to-orange-500 text-white px-4 py-2 shadow-md flex-shrink-0"
       role="alert"
     >
       <div className="max-w-7xl mx-auto flex items-center gap-3 text-sm">
