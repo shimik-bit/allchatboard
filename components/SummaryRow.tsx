@@ -141,12 +141,18 @@ function SummaryCell({
           className={`text-right ${canEdit ? 'cursor-pointer hover:text-brand-600 transition-colors' : 'cursor-default'} ${busy ? 'opacity-50' : ''}`}
           title={result?.detail || AGGREGATION_LABELS[currentAgg]}
         >
-          <span className="text-[10px] text-gray-500 font-normal block leading-none mb-0.5">
-            {AGGREGATION_LABELS[currentAgg]}
-          </span>
-          <span className="text-gray-900 font-bold">
-            {result?.display || '—'}
-          </span>
+          {result?.display && result.display !== '—' ? (
+            <>
+              <span className="text-[10px] text-gray-500 font-normal block leading-none mb-0.5">
+                {AGGREGATION_LABELS[currentAgg]}
+              </span>
+              <span className="text-gray-900 font-bold">
+                {result.display}
+              </span>
+            </>
+          ) : (
+            <span className="text-gray-300 text-xs">—</span>
+          )}
         </button>
         {canEdit && (
           <ChevronDown className="w-3 h-3 text-gray-400 opacity-60" />

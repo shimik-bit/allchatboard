@@ -153,7 +153,7 @@ export async function gatherFocusContext(
       if (userPhoneId) {
         const { data: mine } = await supabaseAdmin
           .from('records')
-          .select('id, data, status_value, assignee_phone_id, created_at, updated_at')
+          .select('id, data, assignee_phone_id, created_at, updated_at')
           .eq('table_id', table.id)
           .eq('assignee_phone_id', userPhoneId)
           .order('updated_at', { ascending: false })
@@ -170,7 +170,7 @@ export async function gatherFocusContext(
       // 2. Recent (last 7 days) - top 3
       const { data: recent } = await supabaseAdmin
         .from('records')
-        .select('id, data, status_value, assignee_phone_id, created_at, updated_at')
+        .select('id, data, assignee_phone_id, created_at, updated_at')
         .eq('table_id', table.id)
         .gte('created_at', sevenDaysAgo)
         .order('created_at', { ascending: false })
@@ -186,7 +186,7 @@ export async function gatherFocusContext(
       // 3. Stuck (no update in 30+ days)
       const { data: stuck } = await supabaseAdmin
         .from('records')
-        .select('id, data, status_value, assignee_phone_id, created_at, updated_at')
+        .select('id, data, assignee_phone_id, created_at, updated_at')
         .eq('table_id', table.id)
         .lt('updated_at', thirtyDaysAgo)
         .order('updated_at', { ascending: true })
@@ -195,8 +195,8 @@ export async function gatherFocusContext(
       for (const r of (stuck || [])) {
         if (seenIds.has((r as any).id)) continue;
         // Skip if status is "closed" / "done" / "complete"
-        const status = ((r as any).status_value || '').toLowerCase();
-        if (status.includes('closed') || status.includes('done') || status.includes('סגור') || status.includes('בוצע')) continue;
+        const statusVal = statusField ? String(r.data?.[statusField.slug] || '').toLowerCase() : '';
+        if (statusVal.includes('closed') || status.includes('done') || status.includes('סגור') || status.includes('בוצע')) continue;
         seenIds.add((r as any).id);
         sampleRecords.push({ ...(r as any), _reason: 'stuck' });
       }
@@ -205,7 +205,7 @@ export async function gatherFocusContext(
       if (dateField) {
         const { data: late } = await supabaseAdmin
           .from('records')
-          .select('id, data, status_value, assignee_phone_id, created_at, updated_at')
+          .select('id, data, assignee_phone_id, created_at, updated_at')
           .eq('table_id', table.id)
           .order('updated_at', { ascending: false })
           .limit(20);
@@ -215,8 +215,8 @@ export async function gatherFocusContext(
           const dateVal = (r as any).data?.[dateField.slug];
           if (!dateVal) continue;
           if (new Date(dateVal) > new Date()) continue;
-          const status = ((r as any).status_value || '').toLowerCase();
-          if (status.includes('closed') || status.includes('done') || status.includes('סגור') || status.includes('בוצע')) continue;
+          const statusVal = statusField ? String(r.data?.[statusField.slug] || '').toLowerCase() : '';
+          if (statusVal.includes('closed') || status.includes('done') || status.includes('סגור') || status.includes('בוצע')) continue;
           seenIds.add((r as any).id);
           sampleRecords.push({ ...(r as any), _reason: 'overdue' });
           overdue++;
@@ -228,7 +228,7 @@ export async function gatherFocusContext(
       const formatted = sampleRecords.slice(0, 8).map(r => ({
         id: r.id,
         title: titleField ? (r.data?.[titleField.slug] || '(ללא שם)') : '(ללא שם)',
-        status: r.status_value || (statusField ? r.data?.[statusField.slug] : undefined),
+        status: statusField ? r.data?.[statusField.slug] : undefined,
         created_at: r.created_at,
         last_updated: r.updated_at,
         summary: summarizeRecord(r.data, fields || []),

@@ -17,7 +17,7 @@ export default async function ActivityPage() {
       .order('created_at', { ascending: false })
       .limit(30),
     supabase.from('wa_messages')
-      .select('id, processed_at, group_id, whatsapp_groups(name, workspace_id, workspaces(name))')
+      .select('id, processed_at, group_id, whatsapp_groups(group_name, workspace_id, workspaces(name))')
       .gte('processed_at', oneWeekAgo)
       .order('processed_at', { ascending: false })
       .limit(30),
@@ -43,7 +43,7 @@ export default async function ActivityPage() {
     events.push({
       ts: m.processed_at,
       type: 'message',
-      label: `הודעת WhatsApp בקבוצה "${m.whatsapp_groups?.name || '(קבוצה)'}"`,
+      label: `הודעת WhatsApp בקבוצה "${m.whatsapp_groups?.group_name || '(קבוצה)'}"`,
       detail: m.whatsapp_groups?.workspaces?.name || '',
     });
   }
