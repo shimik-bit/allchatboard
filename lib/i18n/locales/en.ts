@@ -487,4 +487,44 @@ export const en: LocaleDictionary = {
     delete_failed: 'Delete failed',
     load_failed: 'Failed to load data',
   },
+
+  /* ────────────── Onboarding Tour ────────────── */
+  tour: {
+    skip: 'Skip the tour',
+    lets_go: "Let's go!",
+    go_to_step: 'Go to step {n}',
+
+    // Step 1: Welcome
+    step1_title: 'Welcome to AllChatBoard 👋',
+    step1_body1: 'Our system turns your WhatsApp into a smart management board. Every incoming message — AI classifies it, extracts details, and saves it as a record.',
+    step1_body2: 'This short tour will teach you 4 things worth knowing before you start. Worth the 60 seconds.',
+    step1_tip: 'You can skip at any step — you can return to the guide from the "Help" menu anytime.',
+
+    // Step 2: Tables
+    step2_title: 'It all starts with tables',
+    step2_body1: 'Your workspace is built from <strong>tables</strong>. Each table is a category of data: customers, issues, appointments, billing.',
+    step2_body2: 'Each table has <strong>fields</strong> (columns) and <strong>records</strong> (rows). Clicking on any row opens a complete file with all its details.',
+    step2_tip: 'Already chose a template? Great - the important tables are ready waiting for you.',
+
+    // Step 3: WhatsApp
+    step3_title: 'Connect WhatsApp - this is the magic',
+    step3_body1: 'Without WhatsApp - the system is a smart Excel. With WhatsApp - it becomes a personal assistant 24/7.',
+    step3_body2: 'The team sends messages in the group as usual. The AI listens to everything in the background, classifies, and types details automatically into the right table.',
+    step3_action: 'Connect WhatsApp now',
+    step3_tip: "You can also start without WhatsApp and connect later. Everything at your pace.",
+
+    // Step 4: Team
+    step4_title: 'Invite the team',
+    step4_body1: 'AllChatBoard is designed for teamwork. Invite colleagues, assign them roles (owner / admin / editor / viewer), and let them work together in the same space.',
+    step4_body2: 'Want to give read-only access to some tables? There are <strong>granular permissions</strong> per table separately.',
+    step4_action: 'Invite members',
+    step4_tip: 'Working solo is fine too - you can use the system on your own.',
+
+    // Step 5: Ready
+    step5_title: "Ready? Let's fly 🚀",
+    step5_body: "That's it - you have everything you need to start. We recommend doing two things now:",
+    step5_action1: 'Open any table and click on a row - see what a full file looks like',
+    step5_action2: 'Click "+ New record" and enter one data point - just to get used to it',
+    step5_tip: 'Have a question? Email support@allchatboard.com or click "Help" in the menu.',
+  },
 };
