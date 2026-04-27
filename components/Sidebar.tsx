@@ -13,9 +13,10 @@ import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
 
 export default function Sidebar({
-  workspace, tables, userEmail,
+  workspace, allWorkspaces = [], tables, userEmail,
 }: {
   workspace: Workspace;
+  allWorkspaces?: Array<{ id: string; name: string; icon: string; primary_color: string }>;
   tables: Table[];
   userEmail: string;
 }) {
@@ -23,6 +24,22 @@ export default function Sidebar({
   const router = useRouter();
   const supabase = createClient();
   const { t } = useT();
+  const [showWsSwitcher, setShowWsSwitcher] = useState(false);
+
+  async function handleWorkspaceSwitch(workspaceId: string) {
+    if (workspaceId === workspace.id) {
+      setShowWsSwitcher(false);
+      return;
+    }
+    await fetch('/api/workspaces/active', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_id: workspaceId }),
+    });
+    setShowWsSwitcher(false);
+    // Hard reload to dashboard root with new workspace
+    window.location.href = '/dashboard';
+  }
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Mobile drawer state. The sidebar is hidden by default on mobile (<md) and
@@ -115,22 +132,82 @@ export default function Sidebar({
           </Link>
         </div>
 
-        {/* Workspace header */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
+        {/* Workspace header - clickable switcher when multiple workspaces */}
+        <div className="p-4 border-b border-gray-100 relative">
+          <button
+            onClick={() => allWorkspaces.length > 1 && setShowWsSwitcher(!showWsSwitcher)}
+            className={`w-full flex items-center gap-2 ${allWorkspaces.length > 1 ? 'cursor-pointer hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors' : ''}`}
+            disabled={allWorkspaces.length <= 1}
+          >
             <div
-              className="w-9 h-9 rounded-lg grid place-items-center text-white font-bold"
+              className="w-9 h-9 rounded-lg grid place-items-center text-white font-bold flex-shrink-0"
               style={{ background: workspace.primary_color }}
             >
-              {workspace.name.charAt(0)}
+              {(workspace as any).icon || workspace.name.charAt(0)}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 text-right">
               <div className="font-semibold text-sm truncate">{workspace.name}</div>
               <div className="text-xs text-gray-500">
-                {workspace.plan === 'trial' ? `${t('common.optional')} - ${trialDays}d` : workspace.plan}
+                {allWorkspaces.length > 1 ? (
+                  <span className="inline-flex items-center gap-1">
+                    <ChevronDown className="w-3 h-3" />
+                    {allWorkspaces.length} סביבות · החלף
+                  </span>
+                ) : (
+                  workspace.plan === 'trial' ? `${t('common.optional')} - ${trialDays}d` : workspace.plan
+                )}
               </div>
             </div>
-          </div>
+          </button>
+
+          {/* Workspace switcher dropdown */}
+          {showWsSwitcher && allWorkspaces.length > 1 && (
+            <>
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setShowWsSwitcher(false)}
+              />
+              <div className="absolute top-full right-4 left-4 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 z-40 max-h-80 overflow-y-auto">
+                <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                  בחר סביבת עבודה
+                </div>
+                {allWorkspaces.map(ws => (
+                  <button
+                    key={ws.id}
+                    onClick={() => handleWorkspaceSwitch(ws.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors text-right ${
+                      ws.id === workspace.id ? 'bg-brand-50' : ''
+                    }`}
+                  >
+                    <div
+                      className="w-7 h-7 rounded-lg grid place-items-center text-white font-bold text-xs flex-shrink-0"
+                      style={{ background: ws.primary_color }}
+                    >
+                      {ws.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm truncate ${ws.id === workspace.id ? 'font-bold text-brand-700' : 'text-gray-800'}`}>
+                        {ws.name}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono truncate">
+                        {ws.id.slice(0, 8)}
+                      </div>
+                    </div>
+                    {ws.id === workspace.id && (
+                      <span className="text-[10px] text-brand-600 font-bold">פעיל</span>
+                    )}
+                  </button>
+                ))}
+                <button
+                  onClick={() => router.push('/onboarding')}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 border-t border-gray-100 hover:bg-gray-50 text-brand-600"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-sm font-medium">צור סביבה חדשה</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
       {/* Navigation */}
