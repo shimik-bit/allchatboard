@@ -186,6 +186,22 @@ export async function POST(req: NextRequest) {
     p_was_answered: !wasFallback,
   });
 
+  // 6. Log to centralized AI usage tracking (for billing)
+  let usageInfo: any = null;
+  if (!wasFallback && (aiTokensInput > 0 || aiTokensOutput > 0)) {
+    const { data: logResult } = await service.rpc('log_ai_usage', {
+      p_workspace_id: workspace_id,
+      p_feature: 'knowledge_bot',
+      p_ai_provider: providerUsed,
+      p_ai_model: modelUsed,
+      p_tokens_input: aiTokensInput,
+      p_tokens_output: aiTokensOutput,
+      p_reference_type: 'knowledge_message',
+      p_reference_id: null,
+    });
+    usageInfo = logResult;
+  }
+
   return NextResponse.json({
     answer: answerText,
     sources_used: sourceIds.length,
@@ -193,5 +209,6 @@ export async function POST(req: NextRequest) {
     bot_id: data.bot_id,
     provider: providerUsed,
     model: modelUsed,
+    usage: usageInfo,
   });
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, Sparkles, AlertTriangle,
-  CreditCard, Activity, ShieldAlert, ArrowLeft, LogOut, Smartphone,
+  CreditCard, Activity, ShieldAlert, ArrowLeft, LogOut, Smartphone, Brain,
   Menu, X,
 } from 'lucide-react';
 import type { PlatformAdmin } from '@/lib/admin/auth';
@@ -62,6 +62,7 @@ export default function AdminShell({
       title: 'Business',
       items: [
         { href: '/admin/billing', icon: CreditCard, label: 'תשלומים' },
+        { href: '/admin/ai-usage', icon: Brain, label: 'AI Usage & רווח' },
       ],
     }] : []),
     ...(admin.can_impersonate ? [{
