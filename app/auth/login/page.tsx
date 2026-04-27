@@ -36,7 +36,7 @@ export default function LoginPage() {
         <Link href="/" className="flex items-center justify-center mb-8">
           <img
             src="/taskflow-logo.png"
-            alt="AllChatBoard"
+            alt="TaskFlow AI"
             className="h-24 w-auto object-contain"
           />
         </Link>
