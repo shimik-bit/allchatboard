@@ -522,6 +522,32 @@ export const en: LocaleDictionary = {
     troubleshooting: 'Troubleshooting',
   },
 
+  /* ────────────── Docs Home Page ────────────── */
+  docs_home: {
+    title: 'How to work\nwith AllChatBoard?',
+    subtitle: 'Find the answer to every question. No more wandering.',
+
+    card_quickstart_title: 'Start in 5 minutes',
+    card_quickstart_desc: 'From the first screen to your first record - the important steps.',
+    card_whatsapp_title: 'Connect WhatsApp',
+    card_whatsapp_desc: 'The magic of the system - how to connect the bot in 5 minutes.',
+    card_tables_title: 'Smart tables',
+    card_tables_desc: 'How to build excellent tables that help you work fast.',
+    card_permissions_title: 'Permissions & team',
+    card_permissions_desc: 'How to give each team member exactly the right access.',
+
+    popular_this_week: 'Popular this week',
+    popular_1: 'How do I connect WhatsApp for the first time?',
+    popular_2: 'Linking tables with 3 display columns',
+    popular_3: 'Routing messages from group to specific table',
+    popular_4: 'Hiding a table from a specific user',
+    popular_5: "The bot isn't receiving messages - what to check?",
+
+    full_pdf_title: 'Want everything in one file?',
+    full_pdf_desc: 'The complete guide, 23 pages, organized and styled - for offline reading or printing.',
+    download_pdf: 'Download PDF (200KB)',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'Skip the tour',

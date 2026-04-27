@@ -523,6 +523,32 @@ export const he = {
     troubleshooting: 'פתרון תקלות',
   },
 
+  /* ────────────── Docs Home Page ────────────── */
+  docs_home: {
+    title: 'איך עובדים\nעם AllChatBoard?',
+    subtitle: 'מצא את התשובה לכל שאלה. בלי חיפושים מיותרים.',
+
+    card_quickstart_title: 'התחל ב-5 דקות',
+    card_quickstart_desc: 'מהמסך הראשון ועד רשומה ראשונה - הצעדים החשובים.',
+    card_whatsapp_title: 'חבר את WhatsApp',
+    card_whatsapp_desc: 'הקסם של המערכת - איך לחבר את הבוט תוך 5 דקות.',
+    card_tables_title: 'טבלאות חכמות',
+    card_tables_desc: 'איך לבנות טבלאות מצוינות שעוזרות לך לעבוד מהר.',
+    card_permissions_title: 'הרשאות וצוות',
+    card_permissions_desc: 'איך לתת לכל אחד בצוות בדיוק את הגישה הנכונה.',
+
+    popular_this_week: 'פופולרי השבוע',
+    popular_1: 'איך מחברים WhatsApp לראשונה?',
+    popular_2: 'קישור בין טבלאות עם 3 עמודות תצוגה',
+    popular_3: 'ניתוב הודעות מקבוצה לטבלה ספציפית',
+    popular_4: 'להסתיר טבלה ממשתמש מסוים',
+    popular_5: 'הבוט לא מקבל הודעות - מה לבדוק?',
+
+    full_pdf_title: 'רוצה את הכל בקובץ אחד?',
+    full_pdf_desc: 'המדריך המלא, 23 עמודים, מסודר ומעוצב - לקריאה offline או להדפסה.',
+    download_pdf: 'הורד PDF (200KB)',
+  },
+
   /* ────────────── Onboarding Tour ────────────── */
   tour: {
     skip: 'דלג על המדריך',
