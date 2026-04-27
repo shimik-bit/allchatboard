@@ -109,7 +109,6 @@ export const he = {
   onboarding: {
     welcome: 'ברוך הבא ל-AllChatBoard',
     workspace_name: 'שם העסק / סביבת העבודה',
-    workspace_name_placeholder: 'למשל: AllChat ישראל',
     choose_template: 'בחר תבנית',
     choose_language: 'בחר שפה',
     language_hint: 'השפה משפיעה על UI, בוט WhatsApp, AI ודוחות',

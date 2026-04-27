@@ -109,7 +109,7 @@ export const en: LocaleDictionary = {
   onboarding: {
     welcome: 'Welcome to AllChatBoard',
     workspace_name: 'Business / workspace name',
-    workspace_name_placeholder: 'e.g. Acme Inc.',
+    workspace_name_placeholder: 'Example: "Avi\'s Garage" or "Moshe Restaurant"',
     choose_template: 'Choose a template',
     choose_language: 'Choose language',
     language_hint: 'Affects UI, WhatsApp bot, AI, and reports',
@@ -123,7 +123,6 @@ export const en: LocaleDictionary = {
     setting_up: 'Setting up your workspace...',
     lets_start: "Let's get started!",
     choose_industry: 'Choose your business industries. You can pick multiple templates - and add more later.',
-    workspace_name_placeholder: 'Example: "Avi\'s Garage" or "Moshe Restaurant"',
     choose_templates: 'Choose templates (multiple OK)',
     template_singular: 'template',
     templates_plural: 'templates',
