@@ -89,22 +89,36 @@ export default async function WorkspaceDetailPage({
         חזרה לרשימת סביבות
       </Link>
 
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-slate-800 grid place-items-center text-3xl">
             {ws.icon || '📊'}
           </div>
           <div>
             <h1 className="font-display font-bold text-2xl text-slate-100">{ws.name}</h1>
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
               <span className="font-mono">{ws.id}</span>
               <span>·</span>
               <span>{ws.vertical || 'general'}</span>
               <span>·</span>
               <span>נוצר {new Date(ws.created_at).toLocaleDateString('he-IL')}</span>
+              <span>·</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                ws.plan === 'enterprise' ? 'bg-purple-500/20 text-purple-300' :
+                ws.plan === 'business' ? 'bg-amber-500/20 text-amber-300' :
+                ws.plan === 'starter' ? 'bg-blue-500/20 text-blue-300' :
+                'bg-slate-700 text-slate-400'
+              }`}>{ws.plan || 'trial'}</span>
             </div>
           </div>
         </div>
+        <Link
+          href={`/admin/workspaces/${params.id}/limits`}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-lg text-sm font-bold flex items-center gap-1.5"
+        >
+          <Activity className="w-4 h-4" />
+          הגדרת מגבלות
+        </Link>
       </div>
 
       {/* Stats grid */}

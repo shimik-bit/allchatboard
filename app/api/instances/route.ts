@@ -115,6 +115,20 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
+      // Workspace limit exceeded?
+      if (error.message?.includes('WORKSPACE_LIMIT_EXCEEDED')) {
+        const match = error.message.match(/max_whatsapp_instances=(\d+)\/(\d+)/);
+        if (match) {
+          return NextResponse.json({
+            error: `הגעת למגבלת ה-WhatsApp Instances של התוכנית (${match[1]}/${match[2]}). שדרג את התוכנית כדי להוסיף עוד.`,
+            limit_exceeded: true,
+          }, { status: 403 });
+        }
+        return NextResponse.json({
+          error: 'הגעת למגבלת התוכנית - לא ניתן להוסיף עוד WhatsApp instances'
+        }, { status: 403 });
+      }
+
       // Check if it's a unique constraint violation - duplicate instance ID
       if (error.code === '23505') {
         // Find the existing instance to give better error

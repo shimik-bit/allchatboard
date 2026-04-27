@@ -169,7 +169,18 @@ export default function NewTableClient({ workspaceId }: { workspaceId: string })
 
     setSaving(false);
     if (rpcError) {
-      setError(rpcError.message);
+      const msg = rpcError.message || '';
+      if (msg.includes('WORKSPACE_LIMIT_EXCEEDED')) {
+        // Parse: "WORKSPACE_LIMIT_EXCEEDED: max_tables=5/5"
+        const match = msg.match(/max_tables=(\d+)\/(\d+)/);
+        if (match) {
+          setError(`הגעת למגבלת הטבלאות (${match[1]}/${match[2]}). שדרג את התוכנית כדי להוסיף עוד טבלאות.`);
+        } else {
+          setError('הגעת למגבלת התוכנית. שדרג כדי להוסיף עוד.');
+        }
+      } else {
+        setError(rpcError.message);
+      }
       return;
     }
 
