@@ -92,6 +92,18 @@ export const en: LocaleDictionary = {
     otp_sent: 'Code sent to your email',
     welcome_back: 'Welcome back',
     create_account: 'Create account',
+    sign_in_to_account: 'Sign in to your account',
+    create_free_account: 'Create a free account',
+    trial_no_credit_card: '14-day trial, no credit card required',
+    full_name: 'Full name',
+    full_name_placeholder: 'John Doe',
+    password_min_chars: 'At least 6 characters',
+    signup_and_start_trial: 'Sign up and start trial',
+    no_account: "Don't have an account?",
+    sign_up_now: 'Sign up now',
+    already_have_account: 'Already have an account?',
+    login_here: 'Log in here',
+
   },
 
   onboarding: {
@@ -109,6 +121,15 @@ export const en: LocaleDictionary = {
     template_garage: 'Auto repair shop',
     finish: 'Finish',
     setting_up: 'Setting up your workspace...',
+    lets_start: "Let's get started!",
+    choose_industry: 'Choose your business industries. You can pick multiple templates - and add more later.',
+    workspace_name_placeholder: 'Example: "Avi\'s Garage" or "Moshe Restaurant"',
+    choose_templates: 'Choose templates (multiple OK)',
+    template_singular: 'template',
+    templates_plural: 'templates',
+    choose_at_least_one: 'Choose at least one template',
+    create_workspace_with: 'Create workspace with',
+
   },
 
   /* ────────────── Dashboard Home ────────────── */

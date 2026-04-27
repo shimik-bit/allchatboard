@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 export default function SignupPage() {
+  const { t } = useT();
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState('');
@@ -44,26 +46,26 @@ export default function SignupPage() {
         <Link href="/" className="flex items-center justify-center mb-8">
           <img
             src="/taskflow-logo.png"
-            alt="TaskFlow AI"
+            alt="AllChatBoard"
             className="h-24 w-auto object-contain"
           />
         </Link>
 
         <div className="card p-8">
-          <h1 className="font-display font-bold text-2xl mb-1">פתחו חשבון חינם</h1>
-          <p className="text-gray-500 text-sm mb-6">14 יום ניסיון, ללא כרטיס אשראי</p>
+          <h1 className="font-display font-bold text-2xl mb-1">{t('auth.create_free_account') || 'פתחו חשבון חינם'}</h1>
+          <p className="text-gray-500 text-sm mb-6">{t('auth.trial_no_credit_card') || '14 יום ניסיון, ללא כרטיס אשראי'}</p>
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">שם מלא</label>
+              <label className="block text-sm font-medium mb-1.5">{t('auth.full_name') || 'שם מלא'}</label>
               <input
                 type="text" required
                 value={name} onChange={(e) => setName(e.target.value)}
-                className="input-field" placeholder="ישראל ישראלי"
+                className="input-field" placeholder={t('auth.full_name_placeholder') || 'ישראל ישראלי'}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">אימייל</label>
+              <label className="block text-sm font-medium mb-1.5">{t('auth.email') || 'אימייל'}</label>
               <input
                 type="email" required
                 value={email} onChange={(e) => setEmail(e.target.value)}
@@ -71,13 +73,13 @@ export default function SignupPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">סיסמה</label>
+              <label className="block text-sm font-medium mb-1.5">{t('auth.password') || 'סיסמה'}</label>
               <input
                 type="password" required minLength={6}
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 className="input-field" dir="ltr"
               />
-              <p className="text-xs text-gray-500 mt-1">לפחות 6 תווים</p>
+              <p className="text-xs text-gray-500 mt-1">{t('auth.password_min_chars') || 'לפחות 6 תווים'}</p>
             </div>
 
             {error && (
@@ -85,14 +87,14 @@ export default function SignupPage() {
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'הרשמה והתחלת ניסיון'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (t('auth.signup_and_start_trial') || 'הרשמה והתחלת ניסיון')}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500">
-            כבר יש לכם חשבון?{' '}
+            {t('auth.already_have_account') || 'כבר יש לכם חשבון?'}{' '}
             <Link href="/auth/login" className="text-brand-600 font-medium hover:underline">
-              התחברו כאן
+              {t('auth.login_here') || 'התחברו כאן'}
             </Link>
           </p>
         </div>

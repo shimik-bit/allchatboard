@@ -92,6 +92,18 @@ export const he = {
     otp_sent: 'קוד נשלח לאימייל שלך',
     welcome_back: 'ברוך השב',
     create_account: 'צור חשבון',
+    sign_in_to_account: 'התחברו לחשבון שלכם',
+    create_free_account: 'פתחו חשבון חינם',
+    trial_no_credit_card: '14 יום ניסיון, ללא כרטיס אשראי',
+    full_name: 'שם מלא',
+    full_name_placeholder: 'ישראל ישראלי',
+    password_min_chars: 'לפחות 6 תווים',
+    signup_and_start_trial: 'הרשמה והתחלת ניסיון',
+    no_account: 'אין לכם חשבון?',
+    sign_up_now: 'הרשמו עכשיו',
+    already_have_account: 'כבר יש לכם חשבון?',
+    login_here: 'התחברו כאן',
+
   },
 
   onboarding: {
@@ -109,6 +121,15 @@ export const he = {
     template_garage: 'מוסך / תיקוני רכב',
     finish: 'סיום',
     setting_up: 'מקים את הסביבה...',
+    lets_start: 'בואו נתחיל!',
+    choose_industry: 'בחרו את התחומים של העסק שלכם. אפשר לבחור כמה תבניות - וגם להוסיף עוד אחר כך.',
+    workspace_name_placeholder: 'לדוגמה: "מוסך אבי" או "מסעדת מוישה"',
+    choose_templates: 'בחרו תבניות (אפשר כמה)',
+    template_singular: 'תבנית',
+    templates_plural: 'תבניות',
+    choose_at_least_one: 'בחרו לפחות תבנית אחת',
+    create_workspace_with: 'צרו את הסביבה עם',
+
   },
 
   /* ────────────── Tables & Records ────────────── */

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 export default function LoginPage() {
+  const { t } = useT();
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState('');
@@ -34,18 +36,18 @@ export default function LoginPage() {
         <Link href="/" className="flex items-center justify-center mb-8">
           <img
             src="/taskflow-logo.png"
-            alt="TaskFlow AI"
+            alt="AllChatBoard"
             className="h-24 w-auto object-contain"
           />
         </Link>
 
         <div className="card p-8">
-          <h1 className="font-display font-bold text-2xl mb-1">ברוכים השבים</h1>
-          <p className="text-gray-500 text-sm mb-6">התחברו לחשבון שלכם</p>
+          <h1 className="font-display font-bold text-2xl mb-1">{t('auth.welcome_back') || 'ברוכים השבים'}</h1>
+          <p className="text-gray-500 text-sm mb-6">{t('auth.sign_in_to_account') || 'התחברו לחשבון שלכם'}</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">אימייל</label>
+              <label className="block text-sm font-medium mb-1.5">{t('auth.email') || 'אימייל'}</label>
               <input
                 type="email"
                 required
@@ -57,7 +59,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">סיסמה</label>
+              <label className="block text-sm font-medium mb-1.5">{t('auth.password') || 'סיסמה'}</label>
               <input
                 type="password"
                 required
@@ -73,14 +75,14 @@ export default function LoginPage() {
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'התחברות'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (t('auth.login') || 'התחברות')}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500">
-            אין לכם חשבון?{' '}
+            {t('auth.no_account') || 'אין לכם חשבון?'}{' '}
             <Link href="/auth/signup" className="text-brand-600 font-medium hover:underline">
-              הרשמו עכשיו
+              {t('auth.sign_up_now') || 'הרשמו עכשיו'}
             </Link>
           </p>
         </div>

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Template } from '@/lib/types/database';
 import { LayoutGrid, Loader2, Check } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 export default function OnboardingPage() {
+  const { t } = useT();
   const router = useRouter();
   const supabase = createClient();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -41,8 +43,7 @@ export default function OnboardingPage() {
       .replace(/-+/g, '-').replace(/^-|-$/g, '')
       || `ws-${Date.now()}`;
 
-    // Primary vertical = first selected template's vertical
-    const primaryVertical = templates.find((t) => selectedIds.has(t.id))?.vertical || 'mixed';
+    const primaryVertical = templates.find((tpl) => selectedIds.has(tpl.id))?.vertical || 'mixed';
 
     const { data: wsId, error: rpcError } = await supabase.rpc(
       'create_workspace_with_templates',
@@ -55,7 +56,7 @@ export default function OnboardingPage() {
     );
 
     if (rpcError) {
-      setError(rpcError.message || 'שגיאה ביצירת סביבה');
+      setError(rpcError.message || t('errors.generic') || 'שגיאה ביצירת סביבה');
       setLoading(false);
       return;
     }
@@ -66,8 +67,8 @@ export default function OnboardingPage() {
 
   const selectedCount = selectedIds.size;
   const totalTables = templates
-    .filter((t) => selectedIds.has(t.id))
-    .reduce((sum, t) => sum + (t.structure?.tables?.length || 0), 0);
+    .filter((tpl) => selectedIds.has(tpl.id))
+    .reduce((sum, tpl) => sum + (tpl.structure?.tables?.length || 0), 0);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-brand-50 to-white px-4 py-12">
@@ -80,38 +81,38 @@ export default function OnboardingPage() {
         </div>
 
         <div className="card p-8">
-          <h1 className="font-display font-bold text-3xl mb-2">בואו נתחיל!</h1>
+          <h1 className="font-display font-bold text-3xl mb-2">{t('onboarding.lets_start') || 'בואו נתחיל!'}</h1>
           <p className="text-gray-600 mb-8">
-            בחרו את התחומים של העסק שלכם. אפשר לבחור כמה תבניות - וגם להוסיף עוד אחר כך.
+            {t('onboarding.choose_industry') || 'בחרו את התחומים של העסק שלכם. אפשר לבחור כמה תבניות - וגם להוסיף עוד אחר כך.'}
           </p>
 
-          <label className="block text-sm font-medium mb-2">שם הסביבה</label>
+          <label className="block text-sm font-medium mb-2">{t('onboarding.workspace_name') || 'שם הסביבה'}</label>
           <input
             type="text"
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
-            placeholder='לדוגמה: "מוסך אבי" או "מסעדת מוישה"'
+            placeholder={t('onboarding.workspace_name_placeholder') || 'לדוגמה: "מוסך אבי" או "מסעדת מוישה"'}
             className="input-field mb-8"
           />
 
           <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium">בחרו תבניות (אפשר כמה)</label>
+            <label className="block text-sm font-medium">{t('onboarding.choose_templates') || 'בחרו תבניות (אפשר כמה)'}</label>
             {selectedCount > 0 && (
               <span className="text-xs text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
-                {selectedCount} {selectedCount === 1 ? 'תבנית' : 'תבניות'} · {totalTables} טבלאות
+                {selectedCount} {selectedCount === 1 ? (t('onboarding.template_singular') || 'תבנית') : (t('onboarding.templates_plural') || 'תבניות')} · {totalTables} {t('tables.title') || 'טבלאות'}
               </span>
             )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3 mb-8">
-            {templates.map((t) => {
-              const isSelected = selectedIds.has(t.id);
-              const tableCount = t.structure?.tables?.length || 0;
+            {templates.map((tpl) => {
+              const isSelected = selectedIds.has(tpl.id);
+              const tableCount = tpl.structure?.tables?.length || 0;
               return (
                 <button
-                  key={t.id}
+                  key={tpl.id}
                   type="button"
-                  onClick={() => toggleTemplate(t.id)}
+                  onClick={() => toggleTemplate(tpl.id)}
                   className={`text-right p-4 rounded-xl border-2 transition-all relative ${
                     isSelected
                       ? 'border-brand-500 bg-brand-50 shadow-sm'
@@ -119,12 +120,12 @@ export default function OnboardingPage() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="text-3xl shrink-0">{t.icon}</div>
+                    <div className="text-3xl shrink-0">{tpl.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold">{t.name}</div>
-                      <div className="text-sm text-gray-600 mt-0.5 line-clamp-2">{t.description}</div>
+                      <div className="font-semibold">{tpl.name}</div>
+                      <div className="text-sm text-gray-600 mt-0.5 line-clamp-2">{tpl.description}</div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {tableCount} טבלאות
+                        {tableCount} {t('tables.title') || 'טבלאות'}
                       </div>
                     </div>
                     {isSelected && (
@@ -150,8 +151,8 @@ export default function OnboardingPage() {
             {loading
               ? <Loader2 className="w-4 h-4 animate-spin" />
               : selectedCount === 0
-              ? 'בחרו לפחות תבנית אחת'
-              : `צרו את הסביבה עם ${totalTables} טבלאות`}
+              ? (t('onboarding.choose_at_least_one') || 'בחרו לפחות תבנית אחת')
+              : `${t('onboarding.create_workspace_with') || 'צרו את הסביבה עם'} ${totalTables} ${t('tables.title') || 'טבלאות'}`}
           </button>
         </div>
       </div>
