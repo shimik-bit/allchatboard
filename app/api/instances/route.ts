@@ -91,52 +91,78 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Use the smart_connect_instance RPC which handles all reconnect cases:
+    //   - New instance → tells us to INSERT
+    //   - Same workspace + soft-deleted → reactivates in place
+    //   - Different workspace + soft-deleted → MOVES to new workspace
+    //   - Different workspace + still active → returns conflict
+    //   - Same workspace + already active → returns "already connected"
+    const { data: smartResult, error: smartErr } = await service
+      .rpc('smart_connect_instance', {
+        p_workspace_id: workspace_id,
+        p_provider_instance_id: String(manual_instance_id),
+        p_provider_token: manual_token,
+        p_display_name: display_name,
+        p_user_id: user.id,
+      });
+
+    if (smartErr) {
+      return NextResponse.json({ error: smartErr.message }, { status: 500 });
+    }
+
+    const result = smartResult as any;
+    const action = result?.action;
+
+    // Handle each case
+    if (action === 'reactivated_same_workspace') {
+      const { data: row } = await service
+        .from('whatsapp_instances').select('*').eq('id', result.instance_id).single();
+      return NextResponse.json({
+        instance: row,
+        reactivated: true,
+        message: 'ה-Instance שוחזר בהצלחה',
+      });
+    }
+
+    if (action === 'moved_to_new_workspace') {
+      const { data: row } = await service
+        .from('whatsapp_instances').select('*').eq('id', result.instance_id).single();
+      return NextResponse.json({
+        instance: row,
+        moved: true,
+        previous_workspace_id: result.previous_workspace_id,
+        message: 'ה-Instance הועבר מסביבה קודמת בהצלחה',
+      });
+    }
+
+    if (action === 'already_active_same_workspace') {
+      return NextResponse.json({
+        error: 'ה-Instance כבר פעיל בסביבה הזו.',
+        already_active: true,
+      }, { status: 409 });
+    }
+
+    if (action === 'conflict_active_in_other_workspace') {
+      // Find the workspace name to give a better error message
+      const { data: otherWs } = await service
+        .from('workspaces').select('name').eq('id', result.existing_workspace_id).maybeSingle();
+      return NextResponse.json({
+        error: `Instance ID ${manual_instance_id} פעיל כרגע בסביבה "${otherWs?.name || '?'}". נתק אותו שם קודם, או השתמש ב-shared mode דרך אדמין.`,
+        duplicate: true,
+        existing_workspace_id: result.existing_workspace_id,
+        existing_is_shared: result.existing_is_shared,
+      }, { status: 409 });
+    }
+
+    // action === 'insert' → fall through to INSERT path below
     // Check if this workspace already has any instance — if not, mark the new one as primary
     const { count: existingCount } = await service
       .from('whatsapp_instances')
       .select('id', { count: 'exact', head: true })
-      .eq('workspace_id', workspace_id);
+      .eq('workspace_id', workspace_id)
+      .neq('state', 'deleted');
 
     const shouldBePrimary = !existingCount || existingCount === 0;
-
-    // ─── REACTIVATION: if this instance ID was previously connected to THIS workspace
-    // and is currently in 'deleted' state, reactivate it instead of creating a new row ───
-    const { data: existingDeleted } = await service
-      .from('whatsapp_instances')
-      .select('id, workspace_id, state')
-      .eq('provider', 'green_api')
-      .eq('provider_instance_id', String(manual_instance_id))
-      .maybeSingle();
-
-    if (existingDeleted && existingDeleted.workspace_id === workspace_id && existingDeleted.state === 'deleted') {
-      // Reactivate it
-      const { data: reactivated, error: reactErr } = await service
-        .from('whatsapp_instances')
-        .update({
-          state: 'authorized',
-          provider_token: manual_token,
-          display_name,
-          is_primary: shouldBePrimary,
-          is_shared: false,
-        })
-        .eq('id', existingDeleted.id)
-        .select()
-        .single();
-      if (reactErr) {
-        return NextResponse.json({ error: reactErr.message }, { status: 500 });
-      }
-      // Sync to legacy fields if primary
-      if (shouldBePrimary) {
-        await service
-          .from('workspaces')
-          .update({
-            whatsapp_instance_id: String(manual_instance_id),
-            whatsapp_token: manual_token,
-          })
-          .eq('id', workspace_id);
-      }
-      return NextResponse.json({ instance: reactivated, reactivated: true });
-    }
 
     const { data: instance, error } = await service
       .from('whatsapp_instances')
