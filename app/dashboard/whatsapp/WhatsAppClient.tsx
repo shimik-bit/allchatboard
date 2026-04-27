@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, WaMessage, WhatsAppGroup, MessageStatus } from '@/lib/types/database';
 import { format } from 'date-fns';
@@ -14,15 +15,18 @@ import { useDevMode } from '@/lib/hooks/useDevMode';
 
 export default function WhatsAppClient({
   workspace,
+  allWorkspaces,
   initialMessages,
   initialGroups,
   canEdit,
 }: {
   workspace: Workspace;
+  allWorkspaces?: Array<{ id: string; name: string; icon: string | null }>;
   initialMessages: WaMessage[];
   initialGroups: WhatsAppGroup[];
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const supabase = createClient();
   const { enabled: devMode } = useDevMode();
   const canEditCredentials = canEdit && devMode;
@@ -95,9 +99,27 @@ export default function WhatsAppClient({
 
   return (
     <div className="p-4 md:p-8 pr-4 md:pr-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="font-display font-bold text-3xl mb-1">וואטסאפ</h1>
-        <p className="text-gray-500">חברו את הוואטסאפ כדי לקלוט רשומות אוטומטית מהודעות</p>
+      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display font-bold text-3xl mb-1">וואטסאפ</h1>
+          <p className="text-gray-500">חברו את הוואטסאפ כדי לקלוט רשומות אוטומטית מהודעות</p>
+        </div>
+        {allWorkspaces && allWorkspaces.length > 1 && (
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+            <span className="text-xs text-gray-500 font-medium">סביבה:</span>
+            <select
+              value={workspace.id}
+              onChange={(e) => router.push(`/dashboard/whatsapp?ws=${e.target.value}`)}
+              className="text-sm font-medium bg-transparent border-0 focus:outline-none cursor-pointer pr-1"
+            >
+              {allWorkspaces.map(ws => (
+                <option key={ws.id} value={ws.id}>
+                  {ws.icon || '📊'} {ws.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Connection status */}
