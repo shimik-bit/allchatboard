@@ -499,6 +499,7 @@ function HistoryTab({ runs, workflows }: { runs: Run[]; workflows: Workflow[] })
 // WORKFLOW EDITOR (simplified, builds incrementally)
 // ============================================================================
 function WorkflowEditor({ workspace, tables, sequences, editing, onClose, onSaved }: any) {
+  const { t } = useT();
   const [name, setName] = useState(editing?.name || '');
   const [description, setDescription] = useState(editing?.description || '');
   const [triggerType, setTriggerType] = useState<string>(editing?.trigger_type || 'record_created');
@@ -697,6 +698,7 @@ function WorkflowEditor({ workspace, tables, sequences, editing, onClose, onSave
 }
 
 function ActionEditor({ index, action, tables, sequences, triggerFields, onChange, onRemove }: any) {
+  const { t } = useT();
   const config = action.config || {};
 
   return (
@@ -794,6 +796,7 @@ function actionLabel(type: string): string {
 // SEQUENCE EDITOR (simpler - just steps)
 // ============================================================================
 function SequenceEditor({ workspace, tables, editing, onClose, onSaved }: any) {
+  const { t } = useT();
   const [name, setName] = useState(editing?.name || '');
   const [description, setDescription] = useState(editing?.description || '');
   const [steps, setSteps] = useState<any[]>(editing?.steps || [{
