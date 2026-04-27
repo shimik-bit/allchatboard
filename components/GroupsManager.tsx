@@ -127,6 +127,22 @@ export default function GroupsManager({
         <button onClick={loadAll} className="btn-ghost text-xs">רענן</button>
       </div>
 
+      {/* Setup hint - shown when there are unrouted groups */}
+      {groups.some(g => !g.target_table_id) && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs">
+            <strong className="text-amber-900 block mb-0.5">
+              {groups.filter(g => !g.target_table_id).length} קבוצות עדיין לא מחוברות לטבלה
+            </strong>
+            <span className="text-amber-800">
+              לחץ על קבוצה כדי לפתוח את ההגדרות שלה ולבחור טבלת יעד.
+              ללא חיבור, הודעות לא ייכנסו אוטומטית למערכת.
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         {groups.map((g) => {
           const isExpanded = expandedId === g.id;
@@ -157,7 +173,9 @@ export default function GroupsManager({
                         🎯 מנותב ל: {targetTable?.icon} {targetTable?.name || '(טבלה הוסרה)'}
                       </span>
                     ) : (
-                      <span className="text-amber-600">לא מנותב — AI מסווג אוטומטית</span>
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
+                        ⚠️ לא מחובר לטבלה — לחץ להגדרה
+                      </span>
                     )}
                     {targetPhone && (
                       <span>· אחראי: {targetPhone.display_name}</span>
