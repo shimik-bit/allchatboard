@@ -12,8 +12,10 @@
  */
 
 const TERMINAL = process.env.CARDCOM_TERMINAL || '137368';
-const USERNAME = process.env.CARDCOM_USERNAME!;
-const API_PASSWORD = process.env.CARDCOM_API_PASSWORD!;
+// Terminal 137368 requires UserName/UserPassword (NOT ApiName/ApiPassword)
+// This was learned from the Token Tracker project — using ApiName returns error 605.
+const USER_NAME = process.env.CARDCOM_USERNAME!;
+const USER_PASSWORD = process.env.CARDCOM_API_PASSWORD!;
 
 const CARDCOM_BASE = 'https://secure.cardcom.solutions/api/v11';
 
@@ -47,7 +49,7 @@ export async function createLowProfileSession(
 ): Promise<LowProfileSession> {
   const body: any = {
     TerminalNumber: Number(TERMINAL),
-    ApiName: USERNAME,                        // Cardcom v11 uses ApiName for the username
+    ApiName: USER_NAME,                       // v11 uses ApiName for the username (UserName from console)
     ReturnValue: params.externalUniqTransactionId || '',
     Amount: params.amount,
     SuccessRedirectUrl: params.successUrl,
@@ -111,8 +113,8 @@ export async function createLowProfileSession(
 export async function getLowProfileResult(lowProfileId: string): Promise<any> {
   const body = {
     TerminalNumber: Number(TERMINAL),
-    ApiName: USERNAME,
-    ApiPassword: API_PASSWORD,
+    ApiName: USER_NAME,
+    ApiPassword: USER_PASSWORD,
     LowProfileId: lowProfileId,
   };
 
@@ -151,8 +153,8 @@ export type ChargeResult = {
 export async function chargeToken(params: ChargeTokenParams): Promise<ChargeResult> {
   const body = {
     TerminalNumber: Number(TERMINAL),
-    ApiName: USERNAME,
-    ApiPassword: API_PASSWORD,
+    ApiName: USER_NAME,
+    ApiPassword: USER_PASSWORD,
     TokenToCharge: {
       Token: params.token,
       CardValidityMonth: 12,
@@ -199,5 +201,5 @@ export function usdToIls(usd: number): number {
 }
 
 export function isCardcomConfigured(): boolean {
-  return !!(USERNAME && API_PASSWORD);
+  return !!(USER_NAME && USER_PASSWORD);
 }
