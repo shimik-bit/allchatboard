@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRight, ArrowLeft, Plus, X, Filter, Calendar as CalIcon,
   TrendingUp, BarChart3, PieChart as PieIcon, Activity,
+  Save, FolderOpen, ChevronDown, Trash2, Share2, Lock, Edit2, Check,
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
@@ -24,26 +25,51 @@ type CustomWidget = {
   config: any;
 };
 
+type SavedReport = {
+  id: string;
+  name: string;
+  description: string | null;
+  filters: {
+    date_preset?: string;
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  };
+  widget_ids: string[] | null;
+  is_shared: boolean;
+  icon: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
 export default function ReportClient({
-  table, fields, records, customWidgets, canEdit,
+  table, fields, records, customWidgets, savedReports, initialReport, canEdit, currentUserId,
 }: {
   table: Table;
   fields: Field[];
   records: RecordRow[];
   customWidgets: CustomWidget[];
+  savedReports: SavedReport[];
+  initialReport: SavedReport | null;
   canEdit: boolean;
+  currentUserId: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
   
-  // ─── Filters ───
-  const [datePreset, setDatePreset] = useState<'all' | '7d' | '30d' | '90d' | 'custom'>('30d');
-  const [customFrom, setCustomFrom] = useState<string>('');
-  const [customTo, setCustomTo] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  // ─── Filters - initialized from saved report if provided ───
+  const [datePreset, setDatePreset] = useState<'all' | '7d' | '30d' | '90d' | 'custom'>(
+    (initialReport?.filters?.date_preset as any) || '30d'
+  );
+  const [customFrom, setCustomFrom] = useState<string>(initialReport?.filters?.date_from || '');
+  const [customTo, setCustomTo] = useState<string>(initialReport?.filters?.date_to || '');
+  const [statusFilter, setStatusFilter] = useState<string>(initialReport?.filters?.status || '');
+  const [activeReportId, setActiveReportId] = useState<string | null>(initialReport?.id || null);
   
-  // ─── Add widget modal ───
+  // ─── Modals ───
   const [adding, setAdding] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
+  const [showReportsMenu, setShowReportsMenu] = useState(false);
   
   // Filter records based on date preset
   const filteredRecords = useMemo(() => {
@@ -83,9 +109,21 @@ export default function ReportClient({
     [fields, filteredRecords.length]
   );
   
+  // Find currently active saved report
+  const activeReport = useMemo(
+    () => activeReportId ? savedReports.find(r => r.id === activeReportId) : null,
+    [activeReportId, savedReports]
+  );
+  
+  // If a saved report has widget_ids set, only show those custom widgets
+  const visibleCustomWidgets = useMemo(() => {
+    if (!activeReport || activeReport.widget_ids === null) return customWidgets;
+    return customWidgets.filter(w => activeReport.widget_ids!.includes(w.id));
+  }, [customWidgets, activeReport]);
+  
   const allWidgets: (DefaultWidget | CustomWidget)[] = [
     ...defaultWidgets,
-    ...customWidgets,
+    ...visibleCustomWidgets,
   ];
   
   // Get status options for filter
@@ -119,19 +157,110 @@ export default function ReportClient({
           <div className="flex-1 min-w-0">
             <h1 className="font-display font-bold text-lg flex items-center gap-2">
               <Activity className="w-5 h-5 text-purple-600" />
-              <span className="truncate">דוח: {table.icon} {table.name}</span>
+              <span className="truncate">
+                {activeReport ? `${activeReport.icon || '📊'} ${activeReport.name}` : `דוח: ${table.icon} ${table.name}`}
+              </span>
             </h1>
             <p className="text-xs text-gray-500">
               {filteredRecords.length} מתוך {records.length} רשומות
+              {activeReport && activeReport.description && ` · ${activeReport.description}`}
             </p>
           </div>
+          
+          {/* Saved reports dropdown */}
+          {savedReports.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowReportsMenu(!showReportsMenu)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs md:text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium transition-colors"
+                title="פתח דוח שמור"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span className="hidden sm:inline">דוחות שמורים</span>
+                <span className="text-[10px] bg-purple-100 text-purple-700 rounded-full px-1.5 py-0.5">
+                  {savedReports.length}
+                </span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              
+              {showReportsMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowReportsMenu(false)} />
+                  <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg z-40 min-w-[280px] py-1 max-h-96 overflow-y-auto">
+                    <div className="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                      דוחות שמורים ({savedReports.length})
+                    </div>
+                    {/* Default report */}
+                    <button
+                      onClick={() => {
+                        setActiveReportId(null);
+                        setDatePreset('30d');
+                        setCustomFrom('');
+                        setCustomTo('');
+                        setStatusFilter('');
+                        setShowReportsMenu(false);
+                        router.push(`/dashboard/${table.id}/report`);
+                      }}
+                      className={`w-full text-right px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                        !activeReportId ? 'bg-purple-50 text-purple-700 font-bold' : 'text-gray-700'
+                      }`}
+                    >
+                      <span className="text-base">📊</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate">דוח ברירת מחדל</div>
+                        <div className="text-[10px] text-gray-500">30 ימים אחרונים, ללא פילטרים</div>
+                      </div>
+                      {!activeReportId && <Check className="w-4 h-4 text-purple-600" />}
+                    </button>
+                    
+                    {/* Saved reports */}
+                    {savedReports.map(rep => (
+                      <SavedReportItem
+                        key={rep.id}
+                        report={rep}
+                        isActive={activeReportId === rep.id}
+                        canDelete={rep.created_by === currentUserId || canEdit}
+                        onSelect={() => {
+                          setShowReportsMenu(false);
+                          router.push(`/dashboard/${table.id}/report?saved=${rep.id}`);
+                        }}
+                        onDelete={async () => {
+                          if (!confirm(`למחוק את הדוח "${rep.name}"?`)) return;
+                          await supabase.from('saved_reports').delete().eq('id', rep.id);
+                          setShowReportsMenu(false);
+                          if (activeReportId === rep.id) {
+                            router.push(`/dashboard/${table.id}/report`);
+                          } else {
+                            router.refresh();
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Save current view button */}
+          {canEdit && (
+            <button
+              onClick={() => setSavingReport(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs md:text-sm rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium transition-colors"
+              title={activeReport ? 'שמור כדוח חדש' : 'שמור כדוח'}
+            >
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">שמור</span>
+            </button>
+          )}
+          
           {canEdit && (
             <button
               onClick={() => setAdding(true)}
               className="btn-primary text-xs md:text-sm"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">הוסף גרף</span>
+              <span className="hidden sm:inline">גרף</span>
             </button>
           )}
         </div>
@@ -322,6 +451,27 @@ export default function ReportClient({
           existingPositions={customWidgets.length}
           onClose={() => setAdding(false)}
           onAdded={() => { setAdding(false); router.refresh(); }}
+        />
+      )}
+      
+      {savingReport && (
+        <SaveReportModal
+          tableId={table.id}
+          workspaceId={table.workspace_id}
+          existingReport={activeReport ?? null}
+          currentFilters={{
+            date_preset: datePreset,
+            date_from: customFrom,
+            date_to: customTo,
+            status: statusFilter,
+          }}
+          customWidgets={customWidgets}
+          visibleWidgetIds={visibleCustomWidgets.map(w => w.id)}
+          onClose={() => setSavingReport(false)}
+          onSaved={(newReportId) => {
+            setSavingReport(false);
+            router.push(`/dashboard/${table.id}/report?saved=${newReportId}`);
+          }}
         />
       )}
     </div>
@@ -588,6 +738,285 @@ function AddWidgetModal({
             className="btn-primary"
           >
             {busy ? 'יוצר...' : 'צור גרף'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
+function SavedReportItem({
+  report, isActive, canDelete, onSelect, onDelete,
+}: {
+  report: SavedReport;
+  isActive: boolean;
+  canDelete: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  const filterSummary = (() => {
+    const parts: string[] = [];
+    if (report.filters.date_preset && report.filters.date_preset !== '30d') {
+      const labels: Record<string, string> = {
+        all: 'הכל', '7d': '7 ימים', '30d': '30 ימים', '90d': '3 חודשים', custom: 'מותאם',
+      };
+      parts.push(labels[report.filters.date_preset] || report.filters.date_preset);
+    }
+    if (report.filters.status) parts.push(`סטטוס: ${report.filters.status}`);
+    return parts.join(' · ');
+  })();
+  
+  return (
+    <div className="group relative">
+      <button
+        onClick={onSelect}
+        className={`w-full text-right px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+          isActive ? 'bg-purple-50 text-purple-700 font-bold' : 'text-gray-700'
+        }`}
+      >
+        <span className="text-base">{report.icon || '📊'}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate">{report.name}</span>
+            {report.is_shared && (
+              <Share2 className="w-3 h-3 text-blue-500 flex-shrink-0" />
+            )}
+          </div>
+          {(report.description || filterSummary) && (
+            <div className="text-[10px] text-gray-500 truncate">
+              {report.description || filterSummary}
+            </div>
+          )}
+        </div>
+        {isActive && <Check className="w-4 h-4 text-purple-600 flex-shrink-0" />}
+      </button>
+      {canDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="מחק דוח"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
+const REPORT_ICONS = ['📊', '📈', '📉', '💰', '🎯', '🏆', '🔥', '⚡', '✨', '📅', '📌', '🎨', '🌟', '⭐', '🚀', '💎'];
+
+function SaveReportModal({
+  tableId, workspaceId, existingReport, currentFilters, customWidgets, visibleWidgetIds, onClose, onSaved,
+}: {
+  tableId: string;
+  workspaceId: string;
+  existingReport: SavedReport | null;
+  currentFilters: any;
+  customWidgets: CustomWidget[];
+  visibleWidgetIds: string[];
+  onClose: () => void;
+  onSaved: (reportId: string) => void;
+}) {
+  const supabase = createClient();
+  // If editing existing report, prefill; otherwise empty
+  const [name, setName] = useState(existingReport?.name || '');
+  const [description, setDescription] = useState(existingReport?.description || '');
+  const [icon, setIcon] = useState(existingReport?.icon || '📊');
+  const [isShared, setIsShared] = useState(existingReport?.is_shared || false);
+  // If editing, default to "save as new"; user can choose update via separate button
+  const [includeAllWidgets, setIncludeAllWidgets] = useState(true);
+  const [busy, setBusy] = useState(false);
+  
+  async function handleSave(asNew: boolean) {
+    if (!name.trim()) return;
+    setBusy(true);
+    
+    const widgetIds = includeAllWidgets ? null : visibleWidgetIds;
+    
+    const payload = {
+      table_id: tableId,
+      workspace_id: workspaceId,
+      name: name.trim(),
+      description: description.trim() || null,
+      filters: currentFilters,
+      widget_ids: widgetIds,
+      is_shared: isShared,
+      icon,
+    };
+    
+    let result;
+    if (existingReport && !asNew) {
+      // Update existing
+      result = await supabase
+        .from('saved_reports')
+        .update(payload)
+        .eq('id', existingReport.id)
+        .select('id')
+        .single();
+    } else {
+      // Create new (don't include workspace_id check - RLS will enforce created_by)
+      const { data: { user } } = await supabase.auth.getUser();
+      result = await supabase
+        .from('saved_reports')
+        .insert({ ...payload, created_by: user?.id })
+        .select('id')
+        .single();
+    }
+    
+    setBusy(false);
+    if (result.error) {
+      alert('שמירה נכשלה: ' + result.error.message);
+    } else if (result.data) {
+      onSaved(result.data.id);
+    }
+  }
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-xl flex items-center gap-2">
+            <Save className="w-5 h-5 text-purple-600" />
+            {existingReport ? 'שמירת דוח' : 'שמירת דוח חדש'}
+          </h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          הפילטרים והגרפים הנוכחיים יישמרו בדוח. תוכל לפתוח אותו בכל זמן מתפריט "דוחות שמורים".
+        </p>
+        
+        <div className="space-y-4">
+          {/* Icon picker */}
+          <div>
+            <label className="block text-sm font-medium mb-2">אייקון</label>
+            <div className="flex flex-wrap gap-1.5">
+              {REPORT_ICONS.map(ico => (
+                <button
+                  key={ico}
+                  type="button"
+                  onClick={() => setIcon(ico)}
+                  className={`w-9 h-9 text-lg rounded-lg border-2 transition-all ${
+                    icon === ico
+                      ? 'border-purple-500 bg-purple-50 scale-110'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {ico}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              שם הדוח <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="לדוגמה: לידים אקטיביים החודש"
+              className="input-field"
+              autoFocus
+              maxLength={80}
+            />
+          </div>
+          
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">תיאור (אופציונלי)</label>
+            <input
+              type="text"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="הסבר קצר על הדוח"
+              className="input-field"
+              maxLength={200}
+            />
+          </div>
+          
+          {/* Widget filter */}
+          {customWidgets.length > 0 && (
+            <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeAllWidgets}
+                  onChange={e => setIncludeAllWidgets(e.target.checked)}
+                  className="w-4 h-4 rounded text-purple-600"
+                />
+                <span>כלול את כל ה-widgets העתידיים</span>
+              </label>
+              <p className="text-[11px] text-gray-500 pr-6">
+                {includeAllWidgets
+                  ? 'הדוח יראה את כל ה-widgets בכל פעם, גם חדשים שיתווספו'
+                  : `הדוח יראה רק את ${visibleWidgetIds.length} ה-widgets הנוכחיים`}
+              </p>
+            </div>
+          )}
+          
+          {/* Sharing toggle */}
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isShared}
+                onChange={e => setIsShared(e.target.checked)}
+                className="w-4 h-4 rounded text-purple-600 mt-0.5"
+              />
+              <div>
+                <div className="font-medium flex items-center gap-1.5">
+                  {isShared ? <Share2 className="w-3.5 h-3.5 text-blue-500" /> : <Lock className="w-3.5 h-3.5 text-gray-400" />}
+                  שתף עם הצוות בסביבה
+                </div>
+                <div className="text-[11px] text-gray-500 mt-0.5">
+                  {isShared
+                    ? 'כל החברים בסביבה יראו את הדוח בתפריט שלהם'
+                    : 'רק אתה תראה את הדוח'}
+                </div>
+              </div>
+            </label>
+          </div>
+          
+          {/* Filter summary */}
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="text-xs font-bold text-blue-900 mb-1.5">📋 הגדרות שיישמרו:</div>
+            <div className="text-[11px] text-blue-800 space-y-0.5">
+              <div>• טווח תאריכים: {currentFilters.date_preset === 'custom' 
+                ? `${currentFilters.date_from || '?'} עד ${currentFilters.date_to || '?'}`
+                : ({all: 'הכל', '7d': '7 ימים', '30d': '30 ימים אחרונים', '90d': '3 חודשים אחרונים'} as any)[currentFilters.date_preset] || '30 ימים אחרונים'}
+              </div>
+              {currentFilters.status && <div>• סטטוס: {currentFilters.status}</div>}
+              {!includeAllWidgets && <div>• {visibleWidgetIds.length} widgets ספציפיים</div>}
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="btn-secondary" disabled={busy}>ביטול</button>
+          {existingReport && (
+            <button
+              onClick={() => handleSave(false)}
+              disabled={busy || !name.trim()}
+              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium text-sm disabled:opacity-50"
+            >
+              {busy ? '...' : 'עדכן קיים'}
+            </button>
+          )}
+          <button
+            onClick={() => handleSave(true)}
+            disabled={busy || !name.trim()}
+            className="btn-primary"
+          >
+            {busy ? 'שומר...' : (existingReport ? 'שמור כחדש' : 'שמור דוח')}
           </button>
         </div>
       </div>
