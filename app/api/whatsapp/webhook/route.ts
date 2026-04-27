@@ -279,8 +279,64 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Reject unauthorized phones
+    // Reject unauthorized phones - BUT FIRST check if knowledge bot should handle them
     if (!authorizedPhone || !authorizedPhone.is_active) {
+      // ===== KNOWLEDGE BOT ROUTING =====
+      // External (non-authorized) DMs may be customer questions for the AI knowledge bot.
+      const isGroupMsg = chatId.endsWith('@g.us');
+      if (!isGroupMsg && text && text.trim().length > 0) {
+        try {
+          const { data: kbBotId } = await admin.rpc('should_route_to_knowledge_bot', {
+            p_workspace_id: activeWorkspaceId,
+            p_sender_phone: senderPhone,
+            p_source_instance_id: sourceInstanceId || null,
+            p_is_group_message: false,
+          });
+          if (kbBotId) {
+            // Route to knowledge bot — call our internal /api/knowledge/answer endpoint
+            const origin = req.headers.get('origin') || `https://${req.headers.get('host') || 'taskflow-ai.com'}`;
+            const answerRes = await fetch(`${origin}/api/knowledge/answer`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workspace_id: activeWorkspaceId,
+                customer_phone: senderPhone,
+                customer_name: senderName,
+                query: text,
+                green_api_message_id: idMessage,
+              }),
+            });
+            const answerData: any = await answerRes.json().catch(() => ({}));
+            const answerText: string = answerData?.answer || '';
+            // Send the bot's answer back to the customer
+            if (answerText && workspace.whatsapp_instance_id && workspace.whatsapp_token) {
+              await sendGreenApiReply({
+                instanceId: workspace.whatsapp_instance_id,
+                token: workspace.whatsapp_token,
+                chatId,
+                text: answerText,
+                quotedMessageId: idMessage,
+              });
+            }
+            await saveMessage(admin, {
+              workspace_id: activeWorkspaceId, group_id: groupId, green_api_message_id: idMessage,
+              sender_phone: senderPhone, sender_name: senderName,
+              text, media_url: mediaUrl, media_type: mediaType,
+              quoted_message_id: quotedMessageId, status: 'knowledge_bot_handled',
+              ai_error: answerData?.was_fallback ? 'fallback' : null,
+            } as any);
+            return NextResponse.json({
+              ok: true, status: 'knowledge_bot_handled',
+              answered: !answerData?.was_fallback,
+              sources_used: answerData?.sources_used || 0,
+            });
+          }
+        } catch (e: any) {
+          console.error('[knowledge-bot] routing failed:', e?.message);
+          // Fall through to normal rejection
+        }
+      }
+
       const messageId = await saveMessage(admin, {
         workspace_id: activeWorkspaceId, group_id: groupId, green_api_message_id: idMessage,
         sender_phone: senderPhone, sender_name: senderName,

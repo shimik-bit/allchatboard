@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
-  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard,
+  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
@@ -426,6 +426,20 @@ export default function Sidebar({
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
             >
               <CreditCard className="w-4 h-4" /> חיוב ומנוי
+            </Link>
+            <Link
+              href="/dashboard/invoices"
+              onClick={() => setShowUserMenu(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <Receipt className="w-4 h-4" /> חשבוניות
+            </Link>
+            <Link
+              href="/dashboard/knowledge"
+              onClick={() => setShowUserMenu(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <Brain className="w-4 h-4" /> בוט מידע AI
             </Link>
             <button
               onClick={() => {
