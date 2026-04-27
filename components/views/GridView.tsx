@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { MessageSquare, Bell, Check, Pencil } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
+import SummaryRow from '@/components/SummaryRow';
 import { useT } from '@/lib/i18n/useT';
 
 export default function GridView({
@@ -76,6 +77,14 @@ export default function GridView({
             />
           ))}
         </tbody>
+        {records.length > 0 && (
+          <tfoot className="group">
+            <SummaryRow
+              fields={fields}
+              records={records}
+            />
+          </tfoot>
+        )}
       </table>
     </div>
   );

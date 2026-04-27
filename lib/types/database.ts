@@ -80,6 +80,7 @@ export interface Field {
     many?: boolean;
   };
   ai_extraction_hint: string | null;
+  summary_aggregation: string | null;
   created_at: string;
 }
 
