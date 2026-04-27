@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Key, Plus, Copy, Trash2, AlertCircle, Check, Code, Eye, EyeOff, ExternalLink, Activity, X, Lock, Unlock } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 type Workspace = { id: string; name: string };
 type Table = { id: string; name: string; icon: string | null };
@@ -43,6 +44,7 @@ export default function ApiKeysClient({
   workspace: Workspace;
   isAdmin: boolean;
 }) {
+  const { t } = useT();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -70,8 +72,8 @@ export default function ApiKeysClient({
       <div className="p-6 max-w-4xl mx-auto">
         <div className="card p-8 text-center">
           <Lock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <h2 className="font-display font-bold text-xl mb-2">דף למנהלים בלבד</h2>
-          <p className="text-gray-500 text-sm">רק בעלי סביבת עבודה ומנהלים יכולים לנהל מפתחות API.</p>
+          <h2 className="font-display font-bold text-xl mb-2">{t('permissions.admin_only') || 'דף למנהלים בלבד'}</h2>
+          <p className="text-gray-500 text-sm">{t('permissions.no_access') || 'רק בעלי סביבת עבודה ומנהלים יכולים לנהל מפתחות API.'}</p>
         </div>
       </div>
     );
@@ -82,7 +84,7 @@ export default function ApiKeysClient({
       {/* Header */}
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-          <h1 className="font-display font-black text-2xl md:text-3xl mb-1">מפתחות API</h1>
+          <h1 className="font-display font-black text-2xl md:text-3xl mb-1">{t('api_keys.title')}</h1>
           <p className="text-sm text-gray-600">
             צור והנהל מפתחות גישה לאינטגרציות חיצוניות (אתרים, Zapier, Make, אפליקציות מותאמות)
           </p>
@@ -123,12 +125,12 @@ export default function ApiKeysClient({
       {/* Keys list */}
       {tab === 'keys' && (
         loading ? (
-          <div className="card p-8 text-center text-gray-400 text-sm">טוען...</div>
+          <div className="card p-8 text-center text-gray-400 text-sm">{t('common.loading')}</div>
         ) : keys.length === 0 ? (
           <div className="card p-8 text-center">
             <Key className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <h3 className="font-bold text-lg mb-1">עוד אין מפתחות API</h3>
-            <p className="text-gray-500 text-sm mb-4">צור מפתח ראשון כדי לחבר אתר, אפליקציה או Zapier ל-AllChatBoard.</p>
+            <h3 className="font-bold text-lg mb-1">{t('api_keys.no_keys') || 'עוד אין מפתחות API'}</h3>
+            <p className="text-gray-500 text-sm mb-4">{t('api_keys.no_keys_hint') || 'צור מפתח ראשון כדי לחבר אתר, אפליקציה או Zapier ל-AllChatBoard.'}</p>
             <button onClick={() => setShowCreate(true)} className="btn-primary text-sm">
               <Plus className="w-4 h-4 inline ml-1" /> צור מפתח ראשון
             </button>
@@ -164,6 +166,7 @@ export default function ApiKeysClient({
 // KEY CARD - shows one API key with its details
 // ===========================================================================
 function KeyCard({ apiKey: k, tables, onChange }: { apiKey: ApiKey; tables: Table[]; onChange: () => void }) {
+  const { t } = useT();
   const isRevoked = !!k.revoked_at;
   const isExpired = k.expires_at && new Date(k.expires_at) < new Date();
   const accessibleTables = k.table_ids === null ? null : tables.filter((t) => k.table_ids!.includes(t.id));
@@ -197,9 +200,9 @@ function KeyCard({ apiKey: k, tables, onChange }: { apiKey: ApiKey; tables: Tabl
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">{k.name}</span>
-            {isRevoked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">בוטל</span>}
-            {!isRevoked && isExpired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">פג תוקף</span>}
-            {!isRevoked && !isExpired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">פעיל</span>}
+            {isRevoked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">{t('common.disabled')}</span>}
+            {!isRevoked && isExpired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">{t('common.disabled')}</span>}
+            {!isRevoked && !isExpired && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">{t('common.active')}</span>}
           </div>
 
           <div className="text-xs text-gray-500 font-mono mt-0.5" dir="ltr">{k.prefix}</div>
@@ -242,6 +245,7 @@ function KeyCard({ apiKey: k, tables, onChange }: { apiKey: ApiKey; tables: Tabl
 // LOGS VIEW
 // ===========================================================================
 function LogsView({ logs }: { logs: LogEntry[] }) {
+  const { t } = useT();
   if (logs.length === 0) {
     return (
       <div className="card p-8 text-center text-gray-400 text-sm">
@@ -256,11 +260,11 @@ function LogsView({ logs }: { logs: LogEntry[] }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
-              <th className="px-3 py-2 text-right">זמן</th>
-              <th className="px-3 py-2 text-right">מפתח</th>
-              <th className="px-3 py-2 text-right">פעולה</th>
-              <th className="px-3 py-2 text-right">סטטוס</th>
-              <th className="px-3 py-2 text-right">משך</th>
+              <th className="px-3 py-2 text-right">{t('common.time') || 'זמן'}</th>
+              <th className="px-3 py-2 text-right">{t('api_keys.key') || 'מפתח'}</th>
+              <th className="px-3 py-2 text-right">{t('common.action') || 'פעולה'}</th>
+              <th className="px-3 py-2 text-right">{t('common.status') || 'סטטוס'}</th>
+              <th className="px-3 py-2 text-right">{t('common.duration') || 'משך'}</th>
             </tr>
           </thead>
           <tbody>
@@ -308,6 +312,7 @@ function CreateKeyModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useT();
   const [step, setStep] = useState<'form' | 'token'>('form');
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -404,11 +409,11 @@ function CreateKeyModal({
                 className="input-field"
                 autoFocus
               />
-              <p className="text-xs text-gray-500 mt-1">תיאורי - יעזור לך לזהות איזו אינטגרציה משתמשת במפתח.</p>
+              <p className="text-xs text-gray-500 mt-1">{t('api_keys.notes_hint') || 'תיאורי - יעזור לך לזהות איזו אינטגרציה משתמשת במפתח.'}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">הרשאות פעולה</label>
+              <label className="block text-sm font-medium mb-1.5">{t('api_keys.permissions') || 'הרשאות פעולה'}</label>
               <div className="grid grid-cols-2 gap-2">
                 <PermToggle label="קריאה (GET)" checked={canRead} onChange={setCanRead} />
                 <PermToggle label="יצירה (POST)" checked={canCreate} onChange={setCanCreate} />
@@ -419,7 +424,7 @@ function CreateKeyModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">גישה לטבלאות</label>
+              <label className="block text-sm font-medium mb-1.5">{t('api_keys.table_access') || 'גישה לטבלאות'}</label>
               <label className="flex items-center gap-2 mb-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -427,7 +432,7 @@ function CreateKeyModal({
                   onChange={(e) => setAllTables(e.target.checked)}
                   className="w-4 h-4 rounded text-brand-600"
                 />
-                <span className="text-sm">כל הטבלאות בסביבה (כולל טבלאות עתידיות)</span>
+                <span className="text-sm">{t('api_keys.all_tables_hint') || 'כל הטבלאות בסביבה (כולל טבלאות עתידיות)'}</span>
               </label>
               {!allTables && (
                 <div className="border border-gray-200 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1">
@@ -447,18 +452,18 @@ function CreateKeyModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">תאריך תפוגה (אופציונלי)</label>
+              <label className="block text-sm font-medium mb-1.5">{t('api_keys.expiry') || 'תאריך תפוגה (אופציונלי)'}</label>
               <input
                 type="date"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
                 className="input-field"
               />
-              <p className="text-xs text-gray-500 mt-1">השאר ריק למפתח ללא תפוגה.</p>
+              <p className="text-xs text-gray-500 mt-1">{t('api_keys.no_expiry_hint') || 'השאר ריק למפתח ללא תפוגה.'}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">הערות פנימיות</label>
+              <label className="block text-sm font-medium mb-1.5">{t('api_keys.notes') || 'הערות פנימיות'}</label>
               <textarea
                 rows={2}
                 value={notes}
@@ -479,13 +484,13 @@ function CreateKeyModal({
             <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex gap-3 items-start">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="block mb-1">שמור את המפתח עכשיו!</strong>
+                <strong className="block mb-1">{t('api_keys.save_key_now') || 'שמור את המפתח עכשיו!'}</strong>
                 זוהי הפעם היחידה שהמפתח יוצג. אם תאבד אותו - תצטרך ליצור חדש.
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">המפתח שלך:</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">{t('api_keys.your_key') || 'המפתח שלך:'}</label>
               <div className="bg-gray-900 text-green-300 p-3 rounded-lg font-mono text-sm break-all" dir="ltr">
                 {createdToken}
               </div>
@@ -498,7 +503,7 @@ function CreateKeyModal({
             </div>
 
             <div className="text-sm text-gray-600 space-y-2">
-              <p><strong>איך להשתמש:</strong></p>
+              <p><strong>{t('api_keys.how_to_use') || 'איך להשתמש:'}</strong></p>
               <div className="bg-gray-50 p-3 rounded-lg font-mono text-xs" dir="ltr">
                 <div className="text-gray-400">{`# Authorization header:`}</div>
                 <div>Authorization: Bearer {createdToken?.slice(0, 16)}...</div>
@@ -515,13 +520,13 @@ function CreateKeyModal({
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2 bg-gray-50/50">
           {step === 'form' ? (
             <>
-              <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>ביטול</button>
+              <button onClick={onClose} className="btn-secondary text-sm" disabled={saving}>{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={saving} className="btn-primary text-sm">
                 {saving ? 'יוצר...' : 'צור מפתח'}
               </button>
             </>
           ) : (
-            <button onClick={onCreated} className="btn-primary text-sm">סגור והמשך</button>
+            <button onClick={onCreated} className="btn-primary text-sm">{t('common.close') + ' ' + (t('common.next') || '')}</button>
           )}
         </div>
       </div>
@@ -535,6 +540,7 @@ function PermToggle({ label, checked, onChange, warning }: {
   onChange: (v: boolean) => void;
   warning?: boolean;
 }) {
+  const { t } = useT();
   return (
     <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
       checked
