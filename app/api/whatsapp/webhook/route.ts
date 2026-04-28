@@ -821,7 +821,13 @@ function buildCreateReply(result: any, phone: any): string {
     ? Object.entries(result.fieldsExtracted).slice(0, 3)
         .map(([k, v]) => `${k}: ${v}`).join(', ')
     : '';
-  return `✓ נרשם ב-${result.tableName}\n${fields}\n\n💬 השב להודעה זו לעדכון (לדוגמה: "טופל", "סגור", "שינוי כתובת ל...")`;
+  // Lead with the record number — it's the most useful piece of info for the
+  // user to reference later (forwarding to accountant, asking about status, etc).
+  const idLine = result.recordNumber ? `📋 ${result.recordNumber}` : '';
+  const header = idLine
+    ? `✓ נרשם ב-${result.tableName} · ${idLine}`
+    : `✓ נרשם ב-${result.tableName}`;
+  return `${header}\n${fields}\n\n💬 השב להודעה זו לעדכון (לדוגמה: "טופל", "סגור", "שינוי כתובת ל...")`;
 }
 
 // ============================================================================
@@ -968,7 +974,7 @@ async function classifyAndInsert(opts: {
       source_chat_id: opts.chatId,
       source_message_green_id: opts.greenMessageId,
       assignee_phone_id: opts.forcedAssigneePhoneId || targetTable.default_assignee_phone_id || null,
-    }).select('id').single();
+    }).select('id, record_number').single();
 
   if (insertError) throw new Error(insertError.message);
 
@@ -981,6 +987,7 @@ async function classifyAndInsert(opts: {
   return {
     success: true,
     recordId: newRecord.id,
+    recordNumber: newRecord.record_number,
     tableId: targetTable.id,
     tableName: targetTable.name,
     fieldsExtracted: classification.data || {},
