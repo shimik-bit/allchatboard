@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { getGroupData, stripWhatsAppSuffix } from '@/lib/groupguard/green-api-client';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface BlocklistMatch {
