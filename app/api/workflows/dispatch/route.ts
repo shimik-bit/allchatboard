@@ -50,8 +50,19 @@ export async function POST(req: NextRequest) {
   }
 
   const fired: any[] = [];
+  const scheduled: any[] = [];
 
   for (const wf of workflows) {
+    // Time-based triggers don't run immediately - they're queued for future execution.
+    // We schedule them when their associated record is created/updated.
+    if (wf.trigger_type === 'time_before_field') {
+      const scheduleResult = await scheduleTimeBasedJob(admin, wf, {
+        event_type, workspace_id, table_id, record_id, new_data,
+      });
+      if (scheduleResult) scheduled.push(scheduleResult);
+      continue;
+    }
+
     if (!matchesTrigger(wf, event_type, table_id, changed_fields, old_data, new_data)) continue;
 
     const startedAt = Date.now();
@@ -95,7 +106,96 @@ export async function POST(req: NextRequest) {
     fired.push({ workflow_id: wf.id, name: wf.name, success: overallSuccess });
   }
 
-  return NextResponse.json({ ok: true, fired: fired.length, results: fired });
+  return NextResponse.json({ ok: true, fired: fired.length, scheduled: scheduled.length, results: fired, scheduled_jobs: scheduled });
+}
+
+// ===========================================================================
+// TIME-BASED SCHEDULING (for triggers like "30 min before scheduled_at")
+// ===========================================================================
+/**
+ * Called when a record is created or updated. If the workflow is a
+ * time_before_field trigger, this computes the run_at time based on the
+ * record's datetime field value and queues a job in scheduled_workflow_jobs.
+ *
+ * Trigger config shape:
+ *   {
+ *     "table_id": "...",
+ *     "field_slug": "scheduled_at",       // datetime field on the record
+ *     "offset_minutes": 30,                // run X minutes BEFORE the field value
+ *     "skip_if_past": true                 // don't schedule if run_at < NOW()
+ *   }
+ *
+ * For 'record_updated' events, we also DELETE any existing pending job
+ * for this (workflow, record) pair before scheduling - so if the user
+ * reschedules a meeting, the reminder moves with it.
+ */
+async function scheduleTimeBasedJob(
+  admin: any,
+  workflow: any,
+  ctx: {
+    event_type: string;
+    workspace_id: string;
+    table_id: string;
+    record_id: string;
+    new_data: any;
+  }
+) {
+  const config = workflow.trigger_config || {};
+
+  // Must match the table this workflow is bound to
+  if (config.table_id && config.table_id !== ctx.table_id) return null;
+
+  const fieldSlug = config.field_slug;
+  const offsetMinutes = Number(config.offset_minutes) || 0;
+  const skipIfPast = config.skip_if_past !== false;
+
+  if (!fieldSlug) return null;
+
+  const fieldValue = ctx.new_data?.[fieldSlug];
+  if (!fieldValue) return null;
+
+  const fieldDate = new Date(fieldValue);
+  if (isNaN(fieldDate.getTime())) return null;
+
+  // Compute run_at = fieldDate - offsetMinutes
+  const runAt = new Date(fieldDate.getTime() - offsetMinutes * 60_000);
+
+  if (skipIfPast && runAt.getTime() < Date.now()) {
+    return { workflow_id: workflow.id, skipped: 'run_at_in_past', would_run_at: runAt.toISOString() };
+  }
+
+  // For updates: cancel any existing pending job for this (workflow, record)
+  // so reschedules work correctly.
+  if (ctx.event_type === 'record_updated') {
+    await admin
+      .from('scheduled_workflow_jobs')
+      .update({ status: 'cancelled' })
+      .eq('workflow_id', workflow.id)
+      .eq('record_id', ctx.record_id)
+      .eq('status', 'pending');
+  }
+
+  // Insert new job (UNIQUE constraint will catch dupes for same run_at)
+  const { data, error } = await admin
+    .from('scheduled_workflow_jobs')
+    .insert({
+      workflow_id: workflow.id,
+      workspace_id: ctx.workspace_id,
+      record_id: ctx.record_id,
+      table_id: ctx.table_id,
+      run_at: runAt.toISOString(),
+      trigger_snapshot: { field_slug: fieldSlug, field_value: fieldValue, offset_minutes: offsetMinutes },
+    })
+    .select('id, run_at')
+    .single();
+
+  if (error) {
+    // Duplicate is fine - means already scheduled for this exact time
+    if (error.code === '23505') return { workflow_id: workflow.id, already_scheduled: true };
+    return { workflow_id: workflow.id, error: error.message };
+  }
+
+  return { workflow_id: workflow.id, job_id: data.id, run_at: data.run_at };
 }
 
 // ===========================================================================

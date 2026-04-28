@@ -382,6 +382,23 @@ export default function TableClient({
         {/* Table settings panel (collapsible) */}
         {showSettings && canManageTable && (
           <div className="px-6 py-4 bg-gray-50/70 border-t border-gray-100">
+            {/* CTA banner to the new full settings page */}
+            <Link
+              href={`/dashboard/tables/${table.id}/settings`}
+              className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-gradient-to-l from-violet-50 to-purple-50 px-4 py-3 hover:from-violet-100 hover:to-purple-100 transition group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white">
+                  <Settings2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-violet-900 text-sm">הגדרות מתקדמות ואוטומציות</div>
+                  <div className="text-xs text-violet-700 mt-0.5">תזכורות, התראות, לינקי zoom, ברירות מחדל</div>
+                </div>
+              </div>
+              <span className="text-violet-600 group-hover:translate-x-1 transition">←</span>
+            </Link>
+
             <div className="flex items-start gap-6 flex-wrap">
               <div className="flex-1 min-w-[250px]">
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5">

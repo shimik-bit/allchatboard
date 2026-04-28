@@ -11,12 +11,19 @@
     },
     "app/api/billing/cron/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/workflows/scheduled-cron/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/billing/cron",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/workflows/scheduled-cron",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

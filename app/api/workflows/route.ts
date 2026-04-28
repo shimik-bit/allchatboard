@@ -15,13 +15,20 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const workspaceId = searchParams.get('workspace_id');
+  const tableId = searchParams.get('table_id'); // optional - filter to workflows bound to a specific table
   if (!workspaceId) return NextResponse.json({ error: 'workspace_id required' }, { status: 400 });
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('workflows')
     .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false });
+    .eq('workspace_id', workspaceId);
+
+  // Filter by table_id stored in trigger_config.table_id
+  if (tableId) {
+    query = query.eq('trigger_config->>table_id', tableId);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
