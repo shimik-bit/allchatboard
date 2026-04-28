@@ -160,19 +160,19 @@ async function dispatchAlert(alertId: string): Promise<void> {
 async function sendWhatsAppAlert(phoneNumber: string, alert: any): Promise<void> {
   const admin = createAdminClient();
 
-  // Find ANY active instance to send from. We don't care which workspace —
+  // Find ANY authorized instance to send from. We don't care which workspace —
   // this is a system-level message. Sort by created_at to get a stable
   // primary instance.
   const { data: instance } = await admin
     .from('whatsapp_instances')
-    .select('id_instance, api_token_instance, host_url')
-    .eq('is_active', true)
+    .select('provider_instance_id, provider_token')
+    .eq('state', 'authorized')
     .order('created_at', { ascending: true })
     .limit(1)
     .single();
 
-  if (!instance?.id_instance || !instance?.api_token_instance) {
-    throw new Error('no active WhatsApp instance available to send alert');
+  if (!instance?.provider_instance_id || !instance?.provider_token) {
+    throw new Error('no authorized WhatsApp instance available to send alert');
   }
 
   // Format message - use plain text only, WhatsApp doesn't render markdown well
@@ -199,9 +199,8 @@ async function sendWhatsAppAlert(phoneNumber: string, alert: any): Promise<void>
 
   const result = await sendMessage(
     {
-      idInstance: String(instance.id_instance),
-      apiTokenInstance: instance.api_token_instance,
-      hostUrl: instance.host_url || undefined,
+      idInstance: String(instance.provider_instance_id),
+      apiTokenInstance: instance.provider_token,
     } as any,
     chatId,
     message
