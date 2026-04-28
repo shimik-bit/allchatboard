@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       role: invitation.role,
       display_name: invitation.display_name || user.email?.split('@')[0],
+      accepted_at: new Date().toISOString(),  // CRITICAL: required by user_workspace_ids() RLS helper
     });
 
   if (addError) {
