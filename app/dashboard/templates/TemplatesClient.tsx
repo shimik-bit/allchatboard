@@ -221,6 +221,46 @@ export default function TemplatesClient({
       {/* TEMPLATES TAB */}
       {tab === 'templates' && (
         <div className="space-y-3">
+          {/* Financial Suite spotlight - shown only if user has none of the 3 financial templates installed */}
+          <FinancialSuiteBanner
+            templates={templates}
+            existingSlugs={existingSet}
+            installing={installing}
+            onInstallAll={async () => {
+              setInstalling('financial-suite');
+              setFeedback(null);
+              try {
+                const verticals = ['expenses', 'bank_transactions', 'income_invoices']
+                  .filter((v) => templates.some((t) => t.vertical === v));
+                let total = 0;
+                for (const v of verticals) {
+                  const res = await fetch('/api/workspaces/install', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      workspace_id: workspaceId,
+                      source: 'template',
+                      template_vertical: v,
+                    }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    total += (data.created || []).length;
+                  }
+                }
+                setFeedback({
+                  type: 'success',
+                  text: `הסוויטה הפיננסית הותקנה! ${total} טבלאות נוצרו 🎉`,
+                });
+                router.refresh();
+              } catch (e: any) {
+                setFeedback({ type: 'error', text: e?.message || 'שגיאת התקנה' });
+              } finally {
+                setInstalling(null);
+              }
+            }}
+          />
+
           {filteredTemplates.length === 0 ? (
             <EmptyState searchQ={searchQ} />
           ) : (
@@ -239,6 +279,83 @@ export default function TemplatesClient({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Spotlight banner for the Financial Suite - 3 related templates that work
+ * together (expenses + bank_transactions + income_invoices). Hidden once any
+ * of them is installed (we assume the user discovered the suite already).
+ */
+function FinancialSuiteBanner({
+  templates,
+  existingSlugs,
+  installing,
+  onInstallAll,
+}: {
+  templates: Template[];
+  existingSlugs: Set<string>;
+  installing: string | null;
+  onInstallAll: () => void;
+}) {
+  // Only show if at least one financial template exists in DB
+  const financialVerticals = ['expenses', 'bank_transactions', 'income_invoices'];
+  const available = templates.filter((t) => financialVerticals.includes(t.vertical));
+  if (available.length === 0) return null;
+
+  // Hide once user has installed any of them — they discovered it
+  const alreadyHasAny = available.some((t) =>
+    t.structure.tables.some((tbl) => existingSlugs.has(tbl.slug))
+  );
+  if (alreadyHasAny) return null;
+
+  const isInstalling = installing === 'financial-suite';
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-5 mb-4">
+      <div className="absolute -top-8 -left-8 w-32 h-32 rounded-full bg-emerald-200/30 blur-2xl" />
+      <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-teal-200/30 blur-2xl" />
+
+      <div className="relative flex items-start gap-4 flex-wrap">
+        <div className="text-4xl shrink-0">💼</div>
+        <div className="flex-1 min-w-[240px]">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-bold text-gray-900 text-lg">סוויטה פיננסית מלאה</h3>
+            <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs rounded-full font-medium">
+              חדש
+            </span>
+          </div>
+          <p className="text-sm text-gray-700 mb-3">
+            ניהול הוצאות + חשבוניות הכנסה + תנועות בנק במקום אחד.{' '}
+            <strong>קישור אוטומטי</strong> בין תנועות לחשבוניות בעזרת AI.
+          </p>
+
+          <div className="flex flex-wrap gap-2 text-xs mb-3">
+            {available.map((t) => (
+              <span key={t.vertical} className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 rounded-md text-gray-700">
+                <span>{t.icon}</span>
+                <span>{t.name}</span>
+              </span>
+            ))}
+          </div>
+
+          <ul className="text-xs text-gray-600 space-y-1 mb-4">
+            <li>📱 שלח חשבונית בוואטסאפ → AI מחלץ סכום + ספק + תאריך אוטומטית</li>
+            <li>🏦 העלה Excel מהבנק → AI מזהה את המבנה ומכניס תנועות</li>
+            <li>🔗 קישור אוטומטי בין תנועות בנק לחשבוניות (לפי סכום + תאריך)</li>
+            <li>📊 רואה החשבון מקבל תמונה מסונכרנת ומוכנה</li>
+          </ul>
+        </div>
+
+        <button
+          onClick={onInstallAll}
+          disabled={isInstalling || available.length === 0}
+          className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-200"
+        >
+          {isInstalling ? 'מתקין...' : 'התקן הכל בלחיצה'}
+        </button>
+      </div>
     </div>
   );
 }
