@@ -50,8 +50,6 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  console.log('[scan][debug]', { userId: user.id, userEmail: user.email, groupId });
-
   // 2. Load the group + workspace credentials
   const { data: group, error: groupErr } = await supabase
     .from('whatsapp_groups')
@@ -69,36 +67,37 @@ export async function POST(
     .eq('id', groupId)
     .maybeSingle();
 
-  console.log('[scan][debug] group lookup', {
-    found: !!group,
-    workspace_id: group?.workspace_id,
-    green_api_chat_id: group?.green_api_chat_id,
-    groupErr: groupErr?.message,
-  });
-
   if (groupErr || !group) {
-    // Diagnostic: check if the group exists at all (with admin client) so we
-    // can tell if it's a missing row vs an RLS denial.
+    // DEBUG: include diagnostic info in the response so we can see it
     const { data: groupFromAdmin } = await admin
       .from('whatsapp_groups')
-      .select('id, workspace_id')
+      .select('id, workspace_id, group_name')
       .eq('id', groupId)
       .maybeSingle();
-    console.log('[scan][debug] admin lookup result:', {
-      existsInDb: !!groupFromAdmin,
-      workspace_id: groupFromAdmin?.workspace_id,
-    });
 
-    if (groupFromAdmin) {
-      // Row exists but RLS hid it - check the user's workspace memberships
-      const { data: memberships } = await admin
-        .from('workspace_members')
-        .select('workspace_id, role, accepted_at')
-        .eq('user_id', user.id);
-      console.log('[scan][debug] user memberships:', memberships);
-    }
+    const { data: memberships } = await admin
+      .from('workspace_members')
+      .select('workspace_id, role, accepted_at')
+      .eq('user_id', user.id);
 
-    return NextResponse.json({ error: 'Group not found' }, { status: 404 });
+    return NextResponse.json({
+      error: 'Group not found',
+      _debug: {
+        groupId,
+        userId: user.id,
+        userEmail: user.email,
+        groupErr: groupErr?.message ?? null,
+        existsInDb: !!groupFromAdmin,
+        groupWorkspaceId: groupFromAdmin?.workspace_id ?? null,
+        groupName: groupFromAdmin?.group_name ?? null,
+        userMemberships: memberships ?? [],
+        likely_cause: groupFromAdmin
+          ? (memberships?.some((m: any) => m.workspace_id === groupFromAdmin.workspace_id && m.accepted_at)
+              ? 'UNKNOWN — user is accepted member but RLS still blocking'
+              : 'User is NOT an accepted member of the group\'s workspace')
+          : 'Group does not exist in DB',
+      },
+    }, { status: 404 });
   }
 
   const workspace = Array.isArray(group.workspaces)
