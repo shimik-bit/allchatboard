@@ -12,9 +12,10 @@ import RecordModal from '@/components/RecordModal';
 import MoveRecordModal from '@/components/MoveRecordModal';
 import TablePermissionsModal from '@/components/TablePermissionsModal';
 import FieldsManagerModal from '@/components/FieldsManagerModal';
+import ExcelImportWizard from '@/components/ExcelImportWizard';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
-  Search, Download, UserCircle, Settings2, Shield, Database, Trash2,
+  Search, Download, Upload, UserCircle, Settings2, Shield, Database, Trash2,
   Activity, Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -57,6 +58,7 @@ export default function TableClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
 
   // For "Move record" feature - load list of other tables in workspace lazily
   const [otherTables, setOtherTables] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
@@ -334,6 +336,14 @@ export default function TableClient({
             </div>
             <div className="flex items-center gap-1 md:gap-2 shrink-0">
               <button
+                onClick={() => setShowExcelImport(true)}
+                className="btn-ghost text-xs md:text-sm"
+                title="יבוא נתונים מקובץ Excel או CSV"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">יבוא</span>
+              </button>
+              <button
                 onClick={handleExportCSV}
                 className="btn-ghost text-xs md:text-sm"
                 title="ייצוא לקובץ CSV"
@@ -572,6 +582,17 @@ export default function TableClient({
           workspaceId={table.workspace_id}
           onClose={() => setShowAddField(false)}
           onChange={() => router.refresh()}
+        />
+      )}
+
+      {/* Excel import wizard */}
+      {showExcelImport && (
+        <ExcelImportWizard
+          workspaceId={table.workspace_id}
+          tableId={table.id}
+          fields={fields}
+          onClose={() => setShowExcelImport(false)}
+          onImported={() => router.refresh()}
         />
       )}
     </div>
