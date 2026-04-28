@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import TableSettingsClient from './TableSettingsClient';
 
 export const metadata = { title: 'הגדרות טבלה · AllChatBoard' };
@@ -33,12 +34,22 @@ export default async function TableSettingsPage({
   if (!membership) redirect('/dashboard');
   const isAdmin = ['owner', 'admin'].includes(membership.role);
 
-  // Load fields (used for many tabs - field picker, datetime/phone detection, etc)
-  const { data: fields } = await supabase
+  // Load fields using admin client (RLS bypass).
+  // Since we already verified the user is a member of this workspace above,
+  // it's safe to bypass RLS to ensure all fields load reliably.
+  // (Without this, RLS sometimes returns 0 rows due to function caching issues.)
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { data: fields, error: fieldsError } = await admin
     .from('fields')
     .select('id, name, slug, type, position, options')
     .eq('table_id', params.id)
     .order('position', { ascending: true });
+
+  if (fieldsError) console.error('[settings page] fields load error:', fieldsError.message);
 
   return (
     <TableSettingsClient
