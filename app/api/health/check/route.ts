@@ -54,20 +54,20 @@ async function handler(req: NextRequest) {
   try {
     const { data: instances } = await admin
       .from('whatsapp_instances')
-      .select('id, id_instance, api_token_instance, workspace_id, name, is_active')
-      .eq('is_active', true);
+      .select('id, provider_instance_id, provider_token, workspace_id, display_name, state')
+      .neq('state', 'archived');  // exclude archived/deleted instances
 
     if (instances) {
       for (const inst of instances) {
         stats.instances_checked++;
 
-        if (!inst.id_instance || !inst.api_token_instance) {
+        if (!inst.provider_instance_id || !inst.provider_token) {
           // Misconfigured instance — alert
           await triggerAlert({
             severity: 'error',
             source: 'whatsapp',
-            title: `מופע WhatsApp ללא הגדרות תקינות (${inst.name || inst.id})`,
-            details: `Instance row ${inst.id} is_active=true but missing credentials.`,
+            title: `מופע WhatsApp ללא הגדרות תקינות (${inst.display_name || inst.id})`,
+            details: `Instance row ${inst.id} missing credentials.`,
             workspaceId: inst.workspace_id,
             dedupeKey: `whatsapp_misconfigured_${inst.id}`,
           });
@@ -77,13 +77,11 @@ async function handler(req: NextRequest) {
 
         try {
           const state = await getInstanceState(
-            String(inst.id_instance),
-            inst.api_token_instance
+            String(inst.provider_instance_id),
+            inst.provider_token
           );
 
           // 'authorized' is the only healthy state.
-          // Other states: 'notAuthorized' (logged out), 'starting',
-          //               'sleepMode', 'blocked', 'unknown' (API call failed)
           if (state !== 'authorized') {
             const severity = state === 'blocked' ? 'fatal' : 'error';
             const stateMessages: Record<string, string> = {
@@ -97,29 +95,27 @@ async function handler(req: NextRequest) {
             await triggerAlert({
               severity,
               source: 'whatsapp',
-              title: `מופע WhatsApp לא פעיל: ${inst.name || inst.id_instance}`,
+              title: `מופע WhatsApp לא פעיל: ${inst.display_name || inst.provider_instance_id}`,
               details:
-                `Instance ID: ${inst.id_instance}\n` +
+                `Instance ID: ${inst.provider_instance_id}\n` +
                 `Status: ${state}\n` +
                 `${stateMessages[state] || ''}\n\n` +
                 `Workspace ID: ${inst.workspace_id}\n` +
                 `Action needed: כנס ל-AllChat ובדוק את המופע.`,
               workspaceId: inst.workspace_id,
-              dedupeKey: `whatsapp_disconnect_${inst.id_instance}`,
-              metadata: { state, instance_id: inst.id_instance },
+              dedupeKey: `whatsapp_disconnect_${inst.provider_instance_id}`,
+              metadata: { state, instance_id: inst.provider_instance_id },
             });
             stats.instances_unhealthy++;
           }
         } catch (e: any) {
-          // API call itself failed — likely a transient network issue,
-          // but worth flagging if it persists (dedupe handles the noise).
           await triggerAlert({
             severity: 'warning',
             source: 'whatsapp',
-            title: `שגיאה בבדיקת מופע WhatsApp ${inst.name || inst.id_instance}`,
+            title: `שגיאה בבדיקת מופע WhatsApp ${inst.display_name || inst.provider_instance_id}`,
             details: `Error: ${e?.message || String(e)}`,
             workspaceId: inst.workspace_id,
-            dedupeKey: `whatsapp_check_error_${inst.id_instance}`,
+            dedupeKey: `whatsapp_check_error_${inst.provider_instance_id}`,
           });
           stats.errors.push(`${inst.id}: ${e?.message}`);
         }
