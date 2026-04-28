@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
-  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity,
+  LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
@@ -447,6 +447,13 @@ export default function Sidebar({
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
             >
               <Activity className="w-4 h-4" /> שימוש ב-AI
+            </Link>
+            <Link
+              href="/dashboard/wallet"
+              onClick={() => setShowUserMenu(false)}
+              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <Wallet className="w-4 h-4" /> ארנק AI
             </Link>
             <button
               onClick={() => {
