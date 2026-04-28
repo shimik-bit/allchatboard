@@ -1677,6 +1677,59 @@ async function describeImage(
       }
     }
 
+    // Final fallback: if GPT-4o still refused even after retry, try Claude Sonnet
+    // via the Anthropic API. Claude tends to be far more permissive on receipts
+    // and business documents that contain partial card numbers, transaction
+    // codes, and similar "sensitive-looking" but actually-public information.
+    //
+    // Only attempted when: ANTHROPIC_API_KEY is configured AND GPT-4o refused.
+    // Cost is identical or lower than gpt-4o, so this is a clear win on the
+    // small percentage of images that need it.
+    if (looksLikeRefusal(result) && process.env.ANTHROPIC_API_KEY) {
+      console.warn('vision: GPT-4o still refusing after retry, falling back to Claude');
+
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 1024,
+          system: systemMessage,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: contentType,
+                  data: base64,
+                },
+              },
+              { type: 'text', text: prompt },
+            ],
+          }],
+        }),
+      });
+
+      if (claudeRes.ok) {
+        const claudeData = await claudeRes.json();
+        const claudeText = claudeData.content?.[0]?.text as string | null;
+        if (claudeText && !looksLikeRefusal(claudeText)) {
+          console.log('vision: Claude fallback succeeded');
+          result = claudeText;
+        } else {
+          console.warn('vision: Claude also refused or returned empty', claudeText?.slice(0, 80));
+        }
+      } else {
+        console.error('vision: Claude API call failed', claudeRes.status, (await claudeRes.text()).slice(0, 200));
+      }
+    }
+
     return result;
   } catch (e) {
     console.error('describeImage threw', e);
