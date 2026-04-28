@@ -821,9 +821,13 @@ function buildCreateReply(result: any, phone: any): string {
     ? Object.entries(result.fieldsExtracted).slice(0, 3)
         .map(([k, v]) => `${k}: ${v}`).join(', ')
     : '';
-  // Lead with the record number — it's the most useful piece of info for the
-  // user to reference later (forwarding to accountant, asking about status, etc).
-  const idLine = result.recordNumber ? `📋 ${result.recordNumber}` : '';
+  // Lead with the GLOBAL record ID (e.g. "KBL-EXP-0042") rather than the
+  // workspace-local one. The global form is unique across all workspaces in
+  // the system, so when the user forwards this confirmation to their
+  // accountant — who may also be tracking other clients — the ID still
+  // makes sense. Falls back to local record_number if global isn't available.
+  const displayId = result.globalRecordId || result.recordNumber;
+  const idLine = displayId ? `📋 ${displayId}` : '';
   const header = idLine
     ? `✓ נרשם ב-${result.tableName} · ${idLine}`
     : `✓ נרשם ב-${result.tableName}`;
@@ -999,10 +1003,24 @@ async function classifyAndInsert(opts: {
     console.warn('get_approval_status_text RPC failed', e);
   }
 
+  // Fetch the globally-unique record ID (e.g. "KBL-EXP-0042"). This is what
+  // we surface to anyone outside the workspace context — accountants who
+  // see multiple clients, cross-workspace exports, audit reports, etc.
+  let globalRecordId: string | null = null;
+  try {
+    const { data: globalIdData } = await admin
+      .rpc('get_global_record_id', { p_record_id: newRecord.id });
+    globalRecordId = globalIdData || null;
+  } catch (e) {
+    // Non-fatal: older DBs without the workspace_code column won't have this.
+    console.warn('get_global_record_id RPC failed', e);
+  }
+
   return {
     success: true,
     recordId: newRecord.id,
     recordNumber: newRecord.record_number,
+    globalRecordId, // e.g. "KBL-EXP-0042" - workspace-prefixed unique ID
     tableId: targetTable.id,
     tableName: targetTable.name,
     fieldsExtracted: classification.data || {},
