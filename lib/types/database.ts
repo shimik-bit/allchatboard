@@ -119,7 +119,7 @@ export interface RecordRow {
 }
 
 // View types
-export type ViewType = 'grid' | 'kanban' | 'calendar' | 'gallery' | 'timeline';
+export type ViewType = 'grid' | 'kanban' | 'calendar' | 'gallery' | 'timeline' | 'receipts';
 
 export interface View {
   id: string;
