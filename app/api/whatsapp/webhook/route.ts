@@ -827,7 +827,10 @@ function buildCreateReply(result: any, phone: any): string {
   const header = idLine
     ? `✓ נרשם ב-${result.tableName} · ${idLine}`
     : `✓ נרשם ב-${result.tableName}`;
-  return `${header}\n${fields}\n\n💬 השב להודעה זו לעדכון (לדוגמה: "טופל", "סגור", "שינוי כתובת ל...")`;
+  // Append personalized approval status if the table requires approval.
+  // e.g. "⏳ ממתין לאישור שימי קופרשטוק"
+  const approvalLine = result.approvalStatus ? `\n${result.approvalStatus}` : '';
+  return `${header}\n${fields}${approvalLine}\n\n💬 השב להודעה זו לעדכון (לדוגמה: "טופל", "סגור", "שינוי כתובת ל...")`;
 }
 
 // ============================================================================
@@ -984,6 +987,18 @@ async function classifyAndInsert(opts: {
     processed_at: new Date().toISOString(),
   }).eq('id', messageDbId);
 
+  // Fetch personalized approval status for this record (e.g. "ממתין לאישור שימי")
+  // Only relevant if the table has approval_required=true. Otherwise returns null.
+  let approvalStatus: string | null = null;
+  try {
+    const { data: statusData } = await admin
+      .rpc('get_approval_status_text', { p_record_id: newRecord.id });
+    approvalStatus = statusData || null;
+  } catch (e) {
+    // Non-fatal: function might not exist on older deployments. Just skip.
+    console.warn('get_approval_status_text RPC failed', e);
+  }
+
   return {
     success: true,
     recordId: newRecord.id,
@@ -992,6 +1007,7 @@ async function classifyAndInsert(opts: {
     tableName: targetTable.name,
     fieldsExtracted: classification.data || {},
     confidence: classification.confidence,
+    approvalStatus, // e.g. "⏳ ממתין לאישור שימי" or null
   };
 }
 

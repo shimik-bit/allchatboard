@@ -74,6 +74,13 @@ export async function GET(req: NextRequest) {
     today.setHours(0, 0, 0, 0);
     const todayIso = today.toISOString().slice(0, 10);
 
+    // Optional filter: hide forecast entries derived from un-approved invoices.
+    // The `confirmed_only` flag flips the dashboard from "everything we expect"
+    // (default — includes ⏳ pending invoices at 70% confidence) to "only what's
+    // been verified" (95%+ confidence, no pending). Useful for the user when
+    // they want a conservative cashflow read for planning.
+    const confirmedOnly = req.nextUrl.searchParams.get('confirmed_only') === 'true';
+
     const { data: forecasts } = await admin
       .from('records')
       .select('id, data')
@@ -122,6 +129,13 @@ export async function GET(req: NextRequest) {
 
       // Skip items the user marked as skipped
       if (status === 'skipped') continue;
+
+      // confirmed_only filter: hide pending-invoice rows (confidence=70 +
+      // is_approved !== true). Keeps recurring patterns, VAT obligations,
+      // and explicitly-approved invoices visible.
+      if (confirmedOnly && d.source === 'pending_invoice' && d.is_approved !== true) {
+        continue;
+      }
 
       let bucket = bucketsByDate.get(date);
       if (!bucket) {
