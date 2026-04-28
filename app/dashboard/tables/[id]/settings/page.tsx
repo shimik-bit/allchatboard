@@ -45,7 +45,7 @@ export default async function TableSettingsPage({
   );
   const { data: fields, error: fieldsError } = await admin
     .from('fields')
-    .select('id, name, slug, type, position, options')
+    .select('id, name, slug, type, position, config')
     .eq('table_id', params.id)
     .order('position', { ascending: true });
 

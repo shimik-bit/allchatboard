@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // Get fields so the UI can show field-pickers (e.g. "which field is the phone?")
   const { data: fields } = await supabase
     .from('fields')
-    .select('id, name, slug, type, position, options')
+    .select('id, name, slug, type, position, config')
     .eq('table_id', params.id)
     .order('position', { ascending: true });
 

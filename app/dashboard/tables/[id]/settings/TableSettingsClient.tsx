@@ -32,7 +32,7 @@ export type FieldData = {
   slug: string;
   type: string;
   position: number;
-  options: any;
+  config: any;
 };
 
 type Tab = 'general' | 'automations' | 'defaults' | 'share';
