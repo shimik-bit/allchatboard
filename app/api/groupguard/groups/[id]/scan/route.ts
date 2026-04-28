@@ -44,14 +44,17 @@ export async function POST(
   const supabase = createClient();
   const admin = createAdminClient();
 
-  // 1. Verify user has access to this group's workspace
+  // 1. Verify user is authenticated
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 2. Load the group + workspace credentials
-  const { data: group, error: groupErr } = await supabase
+  // 2. Load the group + workspace credentials using admin client (bypass RLS).
+  //    We do explicit permission check below — RLS was causing edge cases
+  //    where users with valid membership were still denied due to
+  //    cross-workspace context issues.
+  const { data: group, error: groupErr } = await admin
     .from('whatsapp_groups')
     .select(`
       id,
@@ -68,18 +71,6 @@ export async function POST(
     .maybeSingle();
 
   if (groupErr || !group) {
-    // DEBUG: include diagnostic info in the response so we can see it
-    const { data: groupFromAdmin } = await admin
-      .from('whatsapp_groups')
-      .select('id, workspace_id, group_name')
-      .eq('id', groupId)
-      .maybeSingle();
-
-    const { data: memberships } = await admin
-      .from('workspace_members')
-      .select('workspace_id, role, accepted_at')
-      .eq('user_id', user.id);
-
     return NextResponse.json({
       error: 'Group not found',
       _debug: {
@@ -87,17 +78,31 @@ export async function POST(
         userId: user.id,
         userEmail: user.email,
         groupErr: groupErr?.message ?? null,
-        existsInDb: !!groupFromAdmin,
-        groupWorkspaceId: groupFromAdmin?.workspace_id ?? null,
-        groupName: groupFromAdmin?.group_name ?? null,
-        userMemberships: memberships ?? [],
-        likely_cause: groupFromAdmin
-          ? (memberships?.some((m: any) => m.workspace_id === groupFromAdmin.workspace_id && m.accepted_at)
-              ? 'UNKNOWN — user is accepted member but RLS still blocking'
-              : 'User is NOT an accepted member of the group\'s workspace')
-          : 'Group does not exist in DB',
       },
     }, { status: 404 });
+  }
+
+  // 3. Explicit membership check (replaces RLS protection)
+  const { data: membership } = await admin
+    .from('workspace_members')
+    .select('role, accepted_at')
+    .eq('workspace_id', group.workspace_id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!membership || !membership.accepted_at) {
+    return NextResponse.json({
+      error: 'Forbidden — you are not a member of this workspace',
+      _debug: {
+        groupId,
+        userId: user.id,
+        userEmail: user.email,
+        groupWorkspaceId: group.workspace_id,
+        groupName: group.group_name,
+        membership_found: !!membership,
+        membership_accepted: membership?.accepted_at ?? null,
+      },
+    }, { status: 403 });
   }
 
   const workspace = Array.isArray(group.workspaces)
