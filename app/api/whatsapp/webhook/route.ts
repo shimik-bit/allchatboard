@@ -1635,14 +1635,26 @@ async function describeImage(
     // First attempt: high detail for best OCR
     let result = await callVision('high');
 
-    // Detect refusal patterns. GPT-4o's refusal phrasings include:
-    //   "מצטער, איני יכול"
-    //   "I cannot" / "I'm sorry"
-    //   "I'm unable to"
-    // When detected, retry with a more explicit instruction and lower detail
-    // (lower detail processing path tends not to trigger PII detection).
-    const looksLikeRefusal = (text: string | null) =>
-      !!text && /מצטער,?\s*איני\s*יכול|cannot|i'?m\s*sorry|unable\s*to/i.test(text);
+    // Detect refusal patterns. GPT-4o's refusal phrasings include many variants
+    // in both Hebrew and English. We cast a wide net here because false-positives
+    // are cheap (just an extra retry) but false-negatives mean the user gets a
+    // useless "✓ נרשם" with no actual data.
+    //
+    // Hebrew: "מצטער, איני יכול..." or "מצטער, אני לא יכול..." (different
+    // formal/colloquial forms — we catch both).
+    // English: "I cannot", "I can't", "I'm sorry", "Sorry, I can't",
+    // "I'm unable to", "I am unable", "I won't be able to".
+    // Generic refusal markers: "cannot help", "cannot assist", "לא יכול לעזור",
+    // "לא יכול לסייע".
+    //
+    // We also require that the refusal appears in the FIRST 200 chars — if the
+    // model said "here's the data, but I cannot verify card validity..." after
+    // extracting everything, that's not a refusal.
+    const looksLikeRefusal = (text: string | null) => {
+      if (!text) return false;
+      const head = text.slice(0, 200);
+      return /מצטער[,.\s]*(אני|איני)\s*(לא\s*)?יכול|לא\s*יכול\s*(לעזור|לסייע|לספק)|cannot\s*(help|assist|provide)|i'?m\s*sorry|i\s*can'?t|i\s*am\s*unable|unable\s*to/i.test(head);
+    };
 
     if (looksLikeRefusal(result)) {
       console.warn('vision returned refusal, retrying with explicit framing', result?.slice(0, 80));
