@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
-  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield,
+  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -225,6 +225,22 @@ export default function Sidebar({
           <span>תפקס אותי</span>
           <span className={`mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
             pathname === '/dashboard/focus' ? 'bg-white/20' : 'bg-purple-200 text-purple-700'
+          }`}>AI</span>
+        </Link>
+
+        {/* Cashflow Dashboard - prominent */}
+        <Link
+          href="/dashboard/cashflow"
+          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold mb-2 transition-all ${
+            pathname === '/dashboard/cashflow'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+              : 'bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 hover:shadow-sm border border-emerald-100'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>תזרים מזומנים</span>
+          <span className={`mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
+            pathname === '/dashboard/cashflow' ? 'bg-white/20' : 'bg-emerald-200 text-emerald-700'
           }`}>AI</span>
         </Link>
 
