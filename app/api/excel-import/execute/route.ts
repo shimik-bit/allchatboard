@@ -230,6 +230,31 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', importId);
 
+    // ===== AUTO-MATCH HOOK =====
+    // If we just imported bank transactions, kick off the matching engine
+    // in the background. We don't await it - the user gets their import
+    // success message immediately, and the matches appear shortly after.
+    let autoMatchTriggered = false;
+    if (actualInserted > 0) {
+      const { data: destTable } = await admin
+        .from('tables')
+        .select('slug')
+        .eq('id', importRecord.table_id)
+        .single();
+
+      if (destTable?.slug === 'bank_transactions') {
+        autoMatchTriggered = true;
+        // Fire-and-forget — runs synchronously inside the function
+        // (cheap enough to do in-line: ~100ms per 100 transactions)
+        try {
+          await runAutoMatch(admin, importRecord.workspace_id);
+        } catch (e) {
+          console.error('Auto-match after import failed', e);
+          // Non-fatal - user can manually trigger via UI later
+        }
+      }
+    }
+
     return NextResponse.json({
       import_id: importId,
       rows_imported: actualInserted,
@@ -237,6 +262,7 @@ export async function POST(req: NextRequest) {
       rows_failed: failedCount,
       duplicate_rows: duplicateCount,
       sample_inserted: sampleInserted,
+      auto_match_triggered: autoMatchTriggered,
     });
   } catch (e: any) {
     console.error('Excel execute error', e);
@@ -244,6 +270,109 @@ export async function POST(req: NextRequest) {
       { error: e?.message || 'failed to execute import' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Inline auto-matcher — same logic as /api/auto-match/run but called directly
+ * after bulk import for immediate user feedback. Keeps it simple by reusing
+ * the admin client we already have.
+ */
+async function runAutoMatch(admin: any, workspaceId: string): Promise<void> {
+  const { data: workspaceTables } = await admin
+    .from('tables')
+    .select('id, slug')
+    .eq('workspace_id', workspaceId)
+    .in('slug', ['bank_transactions', 'expenses', 'income_invoices']);
+
+  const tablesBySlug = new Map<string, string>(
+    (workspaceTables || []).map((t: any) => [t.slug, t.id])
+  );
+  const bankTableId = tablesBySlug.get('bank_transactions');
+  const expensesTableId = tablesBySlug.get('expenses');
+  const incomeTableId = tablesBySlug.get('income_invoices');
+
+  if (!bankTableId) return;
+  if (!expensesTableId && !incomeTableId) return;
+
+  const { data: bankTxns } = await admin
+    .from('records')
+    .select('id, data')
+    .eq('table_id', bankTableId)
+    .or('data->>match_status.is.null,data->>match_status.eq.unmatched');
+
+  if (!bankTxns?.length) return;
+
+  const invoiceTableIds = [expensesTableId, incomeTableId].filter(Boolean) as string[];
+  const { data: allInvoices } = await admin
+    .from('records')
+    .select('id, table_id, data')
+    .in('table_id', invoiceTableIds);
+
+  const invoicesByAmount = new Map<string, any[]>();
+  for (const inv of allInvoices || []) {
+    const isExpense = inv.table_id === expensesTableId;
+    const amount = Number(inv.data?.amount ?? inv.data?.amount_total);
+    const date = inv.data?.expense_date ?? inv.data?.invoice_date;
+    if (!isFinite(amount) || !date) continue;
+    const key = amount.toFixed(2);
+    if (!invoicesByAmount.has(key)) invoicesByAmount.set(key, []);
+    invoicesByAmount.get(key)!.push({
+      record_id: inv.id,
+      type: isExpense ? 'expense' : 'income',
+      amount, date,
+      vendor: String(inv.data?.vendor ?? inv.data?.customer_name ?? '').toLowerCase().trim(),
+    });
+  }
+
+  const matchInserts: any[] = [];
+  for (const tx of bankTxns) {
+    const txAmount = Number(tx.data?.amount);
+    const txDate = tx.data?.transaction_date;
+    const txDescription = String(tx.data?.description || '').toLowerCase();
+    if (!isFinite(txAmount) || !txDate) continue;
+
+    const candidates = invoicesByAmount.get(Math.abs(txAmount).toFixed(2)) || [];
+    const expectedType = txAmount < 0 ? 'expense' : 'income';
+    const filtered = candidates.filter((c) => c.type === expectedType);
+    if (!filtered.length) continue;
+
+    let best: any = null;
+    let bestScore = 0;
+    for (const c of filtered) {
+      const dayDiff = Math.abs((new Date(txDate).getTime() - new Date(c.date).getTime()) / 86400000);
+      if (dayDiff > 3) continue;
+      let score = 1.0 - dayDiff * 0.15;
+      if (c.vendor && txDescription.includes(c.vendor)) score = Math.min(1.0, score + 0.1);
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+
+    if (!best) continue;
+
+    const status = bestScore >= 0.85 ? 'auto' : 'suggested';
+    matchInserts.push({
+      workspace_id: workspaceId,
+      bank_transaction_record_id: tx.id,
+      invoice_record_id: best.record_id,
+      invoice_type: best.type,
+      confidence: bestScore,
+      match_method: bestScore >= 0.95 ? 'exact_amount_date' : 'amount_close_date',
+      status,
+      confirmed_at: status === 'auto' ? new Date().toISOString() : null,
+    });
+
+    if (status === 'auto') {
+      await admin.from('records').update({
+        data: { ...tx.data, linked_invoice: best.record_id, match_status: 'auto_matched' },
+      }).eq('id', tx.id);
+    }
+  }
+
+  if (matchInserts.length) {
+    await admin.from('record_matches').upsert(matchInserts, {
+      onConflict: 'bank_transaction_record_id,invoice_record_id',
+      ignoreDuplicates: true,
+    });
   }
 }
 
