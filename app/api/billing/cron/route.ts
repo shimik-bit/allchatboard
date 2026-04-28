@@ -155,5 +155,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(results);
+  // Piggyback the daily health check onto this cron run. We can't add a
+  // dedicated /api/health/check cron because Hobby plan caps at 2 daily
+  // crons. Instead we call it inline at the end of billing — both jobs
+  // are independent so failure of one shouldn't affect the other.
+  let healthStats: any = null;
+  try {
+    const healthRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE_URL || 'https://taskflow-ai.com'}/api/health/check`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET || 'dev-cron-secret'}` },
+      }
+    );
+    if (healthRes.ok) {
+      healthStats = await healthRes.json();
+    }
+  } catch (e) {
+    // Non-fatal — log and continue
+    console.error('[billing-cron] health check failed', e);
+  }
+
+  return NextResponse.json({ ...results, health: healthStats });
 }
