@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight, Settings as SettingsIcon, Zap, Database, Link2,
+  ArrowRight, Settings as SettingsIcon, Zap, Database, Link2, Share2,
   AlertCircle, Loader2, Save,
 } from 'lucide-react';
 
 import GeneralTab from './tabs/GeneralTab';
 import AutomationsTab from './tabs/AutomationsTab';
 import DefaultsTab from './tabs/DefaultsTab';
+import ShareTab from './tabs/ShareTab';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type TableData = {
@@ -34,7 +35,7 @@ export type FieldData = {
   options: any;
 };
 
-type Tab = 'general' | 'automations' | 'defaults';
+type Tab = 'general' | 'automations' | 'defaults' | 'share';
 
 // ─── Component ──────────────────────────────────────────────────────────────
 export default function TableSettingsClient({
@@ -55,6 +56,7 @@ export default function TableSettingsClient({
     { id: 'general', label: 'כללי', icon: SettingsIcon, description: 'שם, תיאור, צבע' },
     { id: 'automations', label: 'אוטומציות', icon: Zap, description: 'תזכורות, התראות, רצפים' },
     { id: 'defaults', label: 'ברירות מחדל', icon: Link2, description: 'לינקים, כתובות, משך' },
+    { id: 'share', label: 'שיתוף יומן', icon: Share2, description: 'לינק ציבורי לקביעת פגישות' },
   ];
 
   return (
@@ -132,6 +134,9 @@ export default function TableSettingsClient({
         )}
         {tab === 'defaults' && (
           <DefaultsTab table={table} setTable={setTable} fields={fields} setError={setError} disabled={!isAdmin} />
+        )}
+        {tab === 'share' && (
+          <ShareTab table={table} fields={fields} setError={setError} disabled={!isAdmin} />
         )}
       </main>
     </div>
