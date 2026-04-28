@@ -84,6 +84,9 @@ export default function CashflowClient({
   const [generating, setGenerating] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Toggle: when true, exclude pending-approval invoices from the forecast
+  // (only show committed/approved data). Default false = show everything.
+  const [confirmedOnly, setConfirmedOnly] = useState(false);
 
   const canEdit = ['owner', 'admin', 'editor'].includes(userRole);
 
@@ -91,7 +94,8 @@ export default function CashflowClient({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cashflow/dashboard?workspace_id=${workspaceId}`);
+      const url = `/api/cashflow/dashboard?workspace_id=${workspaceId}${confirmedOnly ? '&confirmed_only=true' : ''}`;
+      const res = await fetch(url);
       const json = await res.json();
       if (!res.ok) {
         setError(json.error || 'שגיאה בטעינת הנתונים');
@@ -103,7 +107,7 @@ export default function CashflowClient({
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, confirmedOnly]);
 
   useEffect(() => {
     if (isInstalled) loadDashboard();
@@ -297,6 +301,25 @@ export default function CashflowClient({
               צפייה בטבלה המלאה
             </Link>
           )}
+          {/* Filter toggle: hide pending-approval invoices (show only verified data).
+              Useful when planning conservatively — pending invoices are 70% confidence
+              and might still be rejected/edited by the finance approver. */}
+          <button
+            onClick={() => setConfirmedOnly((v) => !v)}
+            className={`px-4 py-2 text-sm rounded-lg transition flex items-center gap-2 border ${
+              confirmedOnly
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+            title={
+              confirmedOnly
+                ? 'מציג רק חשבוניות שאושרו על ידי מאשר מורשה'
+                : 'לחץ כדי להציג רק חשבוניות שעברו אישור'
+            }
+          >
+            {confirmedOnly ? '✅' : '⏳'}
+            {confirmedOnly ? 'רק מאושרות' : 'הצג רק מאושרות'}
+          </button>
           {canEdit && (
             <button
               onClick={handleGenerate}

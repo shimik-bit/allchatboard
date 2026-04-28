@@ -443,12 +443,23 @@ async function loadPendingInvoiceForecasts(
   invoiceTableIds: string[],
   expenseTableId: string | null,
   today: Date,
-  horizon: Date
+  horizon: Date,
+  onlyApproved: boolean = false
 ): Promise<any[]> {
-  const { data: invoices } = await admin
+  // Pull approval columns alongside data so we can score confidence correctly
+  // and respect the "only approved" filter from the dashboard.
+  let query = admin
     .from('records')
-    .select('id, table_id, data')
+    .select('id, table_id, data, is_approved, record_number')
     .in('table_id', invoiceTableIds);
+
+  if (onlyApproved) {
+    // Hard filter: caller wants ONLY records that have been verified by an
+    // authorized approver. Skip everything else.
+    query = query.eq('is_approved', true);
+  }
+
+  const { data: invoices } = await query;
 
   if (!invoices) return [];
 
@@ -456,8 +467,11 @@ async function loadPendingInvoiceForecasts(
 
   for (const inv of invoices) {
     const status = inv.data?.status || inv.data?.payment_status;
-    const isPaid = status === 'paid' || status === 'sent_to_accountant' || status === 'approved';
+    const isPaid = status === 'paid' || status === 'sent_to_accountant';
     if (isPaid) continue;
+
+    // Skip explicitly rejected records — they should never appear in forecasts
+    if (inv.is_approved === false) continue;
 
     const isExpense = inv.table_id === expenseTableId;
     const amount = Number(inv.data?.amount ?? inv.data?.amount_total);
@@ -478,7 +492,18 @@ async function loadPendingInvoiceForecasts(
     }
     if (dueDate > horizon) continue;
 
-    const vendor = inv.data?.vendor ?? inv.data?.customer_name ?? 'חשבונית';
+    const vendor = inv.data?.vendor_name ?? inv.data?.vendor ?? inv.data?.customer_name ?? 'חשבונית';
+
+    // Confidence calibration:
+    //   approved (is_approved=true)  → 95% (committed, verified)
+    //   pending (is_approved=null)   → 70% (might still be rejected/edited)
+    // This way the cashflow chart distinguishes verified expenses from
+    // ones still under review, and the user can mentally apply the right
+    // discount when planning.
+    const confidence = inv.is_approved === true ? 95 : 70;
+    const approvalNote = inv.is_approved === true
+      ? '✅ מאושר'
+      : '⏳ ממתין לאישור';
 
     out.push({
       expected_date: isoDate(dueDate),
@@ -486,11 +511,14 @@ async function loadPendingInvoiceForecasts(
       amount: isExpense ? -Math.abs(amount) : Math.abs(amount),
       kind: isExpense ? 'expense' : 'income',
       source: 'pending_invoice',
-      confidence: 95, // invoices are committed amounts
+      confidence,
       category: isExpense ? 'vendors' : 'customers',
       status: 'forecast',
       vat_amount: Number(inv.data?.vat_amount) || 0,
-      notes: `מחשבונית מס׳ ${inv.data?.invoice_number || '?'}`,
+      record_id: inv.id,
+      record_number: inv.record_number,
+      is_approved: inv.is_approved,
+      notes: `${approvalNote} · מחשבונית מס׳ ${inv.data?.invoice_number || inv.record_number || '?'}`,
     });
   }
 
