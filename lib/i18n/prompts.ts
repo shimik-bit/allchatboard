@@ -11,6 +11,65 @@
 import type { Locale } from './locales';
 
 // ─────────────────────────────────────────────────────────────────────────
+// Helper: Generate a date context block to inject into every prompt.
+// ─────────────────────────────────────────────────────────────────────────
+// Without this, the model has NO IDEA what today's date is and will invent
+// random dates for relative expressions like "next Sunday", "in two weeks",
+// or "tomorrow at 11am". This causes records to be created with completely
+// wrong scheduled_at / due_date values.
+//
+// The block is timezone-aware to Israel (Asia/Jerusalem) since the platform
+// is Israeli-first. We give the model:
+//   - Today's full date + day of the week (in both Hebrew and English names)
+//   - Tomorrow's date
+//   - Next 7 days mapped to weekdays (so "Sunday" → exact ISO date)
+//
+// This is added to the BEGINNING of every prompt so the model sees it before
+// any other context.
+function getDateContext(locale: Locale): string {
+  const now = new Date();
+  const israelNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
+
+  const heDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const enDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const todayDow = israelNow.getDay();
+  const todayIso = israelNow.toISOString().split('T')[0];
+
+  // Build "next 7 days" map so model can resolve "next Sunday" / "this Friday" exactly.
+  const upcoming: string[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(israelNow);
+    d.setDate(d.getDate() + i);
+    const iso = d.toISOString().split('T')[0];
+    const dayName = locale === 'he' ? heDays[d.getDay()] : enDays[d.getDay()];
+    upcoming.push(`${dayName}: ${iso}`);
+  }
+
+  if (locale === 'he') {
+    return `📅 הקשר זמן (חיוני לפענוח ביטויים יחסיים כמו "מחר", "יום ראשון הקרוב", "בעוד שבועיים"):
+- היום: יום ${heDays[todayDow]}, ${todayIso}
+- שעון מקומי (ישראל): ${israelNow.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+- 7 הימים הקרובים:
+${upcoming.map((d) => `  - ${d}`).join('\n')}
+
+⚠️ חובה: לעולם אל תמציא תאריכים. השתמש אך ורק בתאריכים מהרשימה למעלה כשהמשתמש מבקש משהו עתידי יחסי. תאריך = YYYY-MM-DD, שעה כלולה = ISO 8601.
+
+`;
+  }
+
+  return `📅 Date context (essential for resolving relative expressions like "tomorrow", "next Sunday", "in two weeks"):
+- Today: ${enDays[todayDow]}, ${todayIso}
+- Local time (Israel): ${israelNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+- Next 7 days:
+${upcoming.map((d) => `  - ${d}`).join('\n')}
+
+⚠️ CRITICAL: Never invent dates. Use ONLY dates from the list above when the user requests something relative to "today". Date format = YYYY-MM-DD, with time = ISO 8601.
+
+`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Prompt 1: Classify a new WhatsApp message into a table
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -20,8 +79,9 @@ export function getClassifyPrompt(
   businessDescription: string | null,
   senderInfo: string,
 ): string {
+  const dateContext = getDateContext(locale);
   if (locale === 'en') {
-    return `You are an AI assistant that classifies WhatsApp messages into tables.
+    return dateContext + `You are an AI assistant that classifies WhatsApp messages into tables.
 ${businessDescription ? `Business description: ${businessDescription}\n` : ''}
 Available tables:
 ${JSON.stringify(schema, null, 2)}
@@ -50,7 +110,7 @@ Rules:
   }
 
   // Hebrew (default)
-  return `אתה עוזר שמסווג הודעות וואטסאפ בעברית לטבלאות.
+  return dateContext + `אתה עוזר שמסווג הודעות וואטסאפ בעברית לטבלאות.
 ${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
 הטבלאות הזמינות:
 ${JSON.stringify(schema, null, 2)}
@@ -90,8 +150,9 @@ export function getUpdatePrompt(
   businessDescription: string | null,
   senderInfo: string,
 ): string {
+  const dateContext = getDateContext(locale);
   if (locale === 'en') {
-    return `You are an AI assistant updating an existing record based on a WhatsApp user reply.
+    return dateContext + `You are an AI assistant updating an existing record based on a WhatsApp user reply.
 ${businessDescription ? `Business description: ${businessDescription}\n` : ''}
 Current record from "${tableName}" table:
 ${JSON.stringify(recordData, null, 2)}
@@ -115,7 +176,7 @@ Return ONLY valid JSON:
   }
 
   // Hebrew (default)
-  return `אתה עוזר שמעדכן רשומה קיימת לפי תגובת משתמש בוואטסאפ.
+  return dateContext + `אתה עוזר שמעדכן רשומה קיימת לפי תגובת משתמש בוואטסאפ.
 ${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
 הרשומה הנוכחית מטבלת "${tableName}":
 ${JSON.stringify(recordData, null, 2)}
@@ -147,8 +208,9 @@ export function getQueryPrompt(
   schema: any,
   businessDescription: string | null,
 ): string {
+  const dateContext = getDateContext(locale);
   if (locale === 'en') {
-    return `You are an AI assistant that detects read-queries from WhatsApp messages and translates them into table searches.
+    return dateContext + `You are an AI assistant that detects read-queries from WhatsApp messages and translates them into table searches.
 ${businessDescription ? `Business description: ${businessDescription}\n` : ''}
 Tables:
 ${JSON.stringify(schema, null, 2)}
@@ -178,7 +240,7 @@ If this is not a read-query (it's a create/update) → return {"is_query": false
   }
 
   // Hebrew (default)
-  return `אתה עוזר שמזהה שאילתות-קריאה מהודעות וואטסאפ בעברית ומתרגם אותן לחיפוש בטבלאות.
+  return dateContext + `אתה עוזר שמזהה שאילתות-קריאה מהודעות וואטסאפ בעברית ומתרגם אותן לחיפוש בטבלאות.
 ${businessDescription ? `תיאור העסק: ${businessDescription}\n` : ''}
 הטבלאות:
 ${JSON.stringify(schema, null, 2)}
