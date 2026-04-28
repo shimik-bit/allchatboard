@@ -59,7 +59,11 @@ export default function ShareTab({
   useEffect(() => { load(); }, [load]);
 
   // Detect required fields automatically
-  const datetimeFields = fields.filter((f) => f.type === 'datetime' || f.type === 'date');
+  // Be lenient about datetime: accept various spellings/types that mean a date+time field
+  const datetimeFields = fields.filter((f) => {
+    const t = (f.type || '').toLowerCase();
+    return t === 'datetime' || t === 'date' || t === 'timestamp' || t === 'datetime-local' || t === 'time';
+  });
   const phoneFields = fields.filter((f) => f.type === 'phone' || f.slug.includes('phone') || f.slug.includes('טלפון'));
   const textFields = fields.filter((f) => f.type === 'text' || f.type === 'string');
   const canCreate = datetimeFields.length > 0;
@@ -141,9 +145,21 @@ export default function ShareTab({
             קבל URL ציבורי שתשלח ללקוחות. הם יבחרו זמן פנוי, ימלאו פרטים, וזה ייכנס אוטומטית לטבלה.
           </p>
           {!canCreate ? (
-            <div className="mt-4 inline-flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 max-w-md text-right">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>הטבלה צריכה לפחות שדה תאריך/שעה אחד כדי לאפשר שיתוף יומן. <a href={`/dashboard/${table.id}`} className="underline font-medium">הוסף שדה</a></span>
+            <div className="mt-4 inline-flex flex-col items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 max-w-md text-right">
+              <div className="inline-flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>הטבלה צריכה לפחות שדה תאריך/שעה אחד כדי לאפשר שיתוף יומן. <a href={`/dashboard/${table.id}`} className="underline font-medium">הוסף שדה</a></span>
+              </div>
+              {fields.length > 0 && (
+                <details className="text-xs text-amber-700 w-full">
+                  <summary className="cursor-pointer font-medium">פרטי דיבאג ({fields.length} שדות נמצאו)</summary>
+                  <div className="mt-1 font-mono space-y-0.5">
+                    {fields.map((f) => (
+                      <div key={f.slug}>{f.name} → <code className="bg-amber-100 px-1 rounded">{f.type}</code></div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           ) : (
             <button
