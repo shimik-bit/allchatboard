@@ -50,6 +50,8 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  console.log('[scan][debug]', { userId: user.id, userEmail: user.email, groupId });
+
   // 2. Load the group + workspace credentials
   const { data: group, error: groupErr } = await supabase
     .from('whatsapp_groups')
@@ -67,7 +69,35 @@ export async function POST(
     .eq('id', groupId)
     .maybeSingle();
 
+  console.log('[scan][debug] group lookup', {
+    found: !!group,
+    workspace_id: group?.workspace_id,
+    green_api_chat_id: group?.green_api_chat_id,
+    groupErr: groupErr?.message,
+  });
+
   if (groupErr || !group) {
+    // Diagnostic: check if the group exists at all (with admin client) so we
+    // can tell if it's a missing row vs an RLS denial.
+    const { data: groupFromAdmin } = await admin
+      .from('whatsapp_groups')
+      .select('id, workspace_id')
+      .eq('id', groupId)
+      .maybeSingle();
+    console.log('[scan][debug] admin lookup result:', {
+      existsInDb: !!groupFromAdmin,
+      workspace_id: groupFromAdmin?.workspace_id,
+    });
+
+    if (groupFromAdmin) {
+      // Row exists but RLS hid it - check the user's workspace memberships
+      const { data: memberships } = await admin
+        .from('workspace_members')
+        .select('workspace_id, role, accepted_at')
+        .eq('user_id', user.id);
+      console.log('[scan][debug] user memberships:', memberships);
+    }
+
     return NextResponse.json({ error: 'Group not found' }, { status: 404 });
   }
 
