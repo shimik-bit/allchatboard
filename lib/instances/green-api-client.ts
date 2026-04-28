@@ -4,7 +4,7 @@
  * THREE TIERS OF API:
  *
  * 1. INSTANCE API (per-instance, requires instance_id + api_token):
- *    https://7107.api.green-api.com/waInstance{instance_id}/{method}/{api_token}
+ *    https://7107.api.greenapi.com/waInstance{instance_id}/{method}/{api_token}
  *    Used for: send messages, get state, set webhooks, get QR code
  *
  * 2. PARTNER API (account-level, requires partner_token):
@@ -233,14 +233,19 @@ export async function getInstanceDetails(
 
 // ─── Helper: pick the right base URL for an instance ───
 // Green API uses different sub-domains per ID range to distribute load.
-// The exact mapping is documented in their API but the prefix of the ID
-// usually indicates the host. Default is api.green-api.com which redirects.
-function getInstanceBaseUrl(instanceId: string): string {
-  // For most instances, using their generic domain works:
-  // https://7107.api.green-api.com (works for IDs starting with 7107)
-  // But the safest is to use api.green-api.com which auto-redirects.
-  const prefix = instanceId.substring(0, 4);
-  return `https://${prefix}.api.green-api.com`;
+// The first 4 digits of the instance ID determine the host:
+//   instance 7107597263  →  https://7107.api.greenapi.com
+//   instance 1103xxxxxx  →  https://1103.api.greenapi.com
+//
+// IMPORTANT: Newer instances (created after ~2024) DO NOT work with the
+// generic https://api.green-api.com host - it does NOT auto-redirect.
+// We MUST use the per-instance prefix for ALL outgoing calls.
+//
+// Note the domain: greenapi.com (no hyphen) for the per-instance hosts.
+export function getInstanceBaseUrl(instanceId: string | number): string {
+  const id = String(instanceId);
+  const prefix = id.substring(0, 4);
+  return `https://${prefix}.api.greenapi.com`;
 }
 
 // ─── Public utility: extract phone from WID ───

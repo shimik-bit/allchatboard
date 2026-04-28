@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { getInstanceBaseUrl } from '@/lib/instances/green-api-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -109,7 +110,7 @@ async function sendNotification(opts: {
   }
 
   try {
-    const url = `https://api.green-api.com/waInstance${workspace.whatsapp_instance_id}/sendMessage/${workspace.whatsapp_token}`;
+    const url = `${getInstanceBaseUrl(workspace.whatsapp_instance_id)}/waInstance${workspace.whatsapp_instance_id}/sendMessage/${workspace.whatsapp_token}`;
     const payload: any = { chatId: opts.chatId, message: opts.message };
     if (opts.quotedMessageId) payload.quotedMessageId = opts.quotedMessageId;
 

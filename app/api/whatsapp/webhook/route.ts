@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getClassifyPrompt, getUpdatePrompt, getQueryPrompt } from '@/lib/i18n/prompts';
 import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { getInstanceBaseUrl } from '@/lib/instances/green-api-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -2250,7 +2251,7 @@ async function sendGreenApiReply(opts: {
 }): Promise<string | null> {
   const { instanceId, token, chatId, text, quotedMessageId, persist } = opts;
   try {
-    const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+    const url = `${getInstanceBaseUrl(instanceId)}/waInstance${instanceId}/sendMessage/${token}`;
     const body: any = { chatId, message: text };
     if (quotedMessageId) body.quotedMessageId = quotedMessageId;
 
@@ -2319,7 +2320,7 @@ async function sendGreenApiFile(opts: {
 }): Promise<string | null> {
   const { instanceId, token, chatId, fileUrl, fileName, caption } = opts;
   try {
-    const url = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
+    const url = `${getInstanceBaseUrl(instanceId)}/waInstance${instanceId}/sendFileByUrl/${token}`;
     const body: any = { chatId, urlFile: fileUrl, fileName };
     if (caption) body.caption = caption;
 

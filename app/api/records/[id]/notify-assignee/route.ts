@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { getInstanceBaseUrl } from '@/lib/instances/green-api-client';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -112,7 +113,7 @@ export async function POST(
 
   // 7 — Send via Green API
   try {
-    const url = `https://api.green-api.com/waInstance${workspace.whatsapp_instance_id}/sendMessage/${workspace.whatsapp_token}`;
+    const url = `${getInstanceBaseUrl(workspace.whatsapp_instance_id)}/waInstance${workspace.whatsapp_instance_id}/sendMessage/${workspace.whatsapp_token}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,7 +149,7 @@ export async function POST(
           || 'file';
         const fileName = `${tableName.replace(/[^\p{L}\p{N}_-]/gu, '-').slice(0, 20) || 'file'}-${notifiedAt.slice(0, 10)}.${ext}`;
 
-        const fileUrl = `https://api.green-api.com/waInstance${workspace.whatsapp_instance_id}/sendFileByUrl/${workspace.whatsapp_token}`;
+        const fileUrl = `${getInstanceBaseUrl(workspace.whatsapp_instance_id)}/waInstance${workspace.whatsapp_instance_id}/sendFileByUrl/${workspace.whatsapp_token}`;
         await fetch(fileUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

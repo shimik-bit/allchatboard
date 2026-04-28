@@ -3,6 +3,8 @@
  * notifications) use the same Green API integration.
  */
 
+import { getInstanceBaseUrl } from '@/lib/instances/green-api-client';
+
 export type SendResult =
   | { ok: true; message_id?: string }
   | { ok: false; error: string };
@@ -30,7 +32,7 @@ export async function sendWhatsAppText(
   // chatId for Green API: 9725XXXXXXXX@c.us for individual, group@g.us for groups
   const chatId = normalized.includes('@') ? normalized : `${normalized}@c.us`;
 
-  const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+  const url = `${getInstanceBaseUrl(instanceId)}/waInstance${instanceId}/sendMessage/${token}`;
 
   try {
     const res = await fetch(url, {

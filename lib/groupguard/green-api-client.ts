@@ -17,7 +17,7 @@
 interface GreenApiCredentials {
   instanceId: string;
   apiToken: string;
-  apiUrl?: string; // ברירת מחדל: https://api.green-api.com
+  apiUrl?: string; // ברירת מחדל: per-instance prefix (https://{prefix}.api.greenapi.com)
 }
 
 interface GreenApiResult<T = unknown> {
@@ -47,7 +47,10 @@ function buildUrl(
   creds: GreenApiCredentials,
   method: string,
 ): string {
-  const base = creds.apiUrl ?? 'https://api.green-api.com';
+  // Use the per-instance prefix host (e.g. https://7107.api.greenapi.com).
+  // The generic api.green-api.com host does NOT auto-redirect for newer instances.
+  const prefix = String(creds.instanceId).substring(0, 4);
+  const base = creds.apiUrl ?? `https://${prefix}.api.greenapi.com`;
   return `${base}/waInstance${creds.instanceId}/${method}/${creds.apiToken}`;
 }
 

@@ -86,8 +86,12 @@ export default function WhatsAppClient({
     setTestingConn(true);
     setTestResult(null);
     try {
-      // Green API getStateInstance — checks if phone is authorized
-      const url = `https://api.green-api.com/waInstance${instanceId.trim()}/getStateInstance/${token.trim()}`;
+      // Green API getStateInstance — checks if phone is authorized.
+      // Must use the per-instance prefix (first 4 digits of instanceId) -
+      // the generic api.green-api.com host doesn't work for newer instances.
+      const trimmedId = instanceId.trim();
+      const prefix = trimmedId.substring(0, 4);
+      const url = `https://${prefix}.api.greenapi.com/waInstance${trimmedId}/getStateInstance/${token.trim()}`;
       const res = await fetch(url);
       const data = await res.json();
       if (res.ok && data.stateInstance === 'authorized') {
