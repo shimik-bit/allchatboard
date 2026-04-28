@@ -7,6 +7,7 @@ import type { Table, Field, RecordRow, View, ViewType, MemberRole } from '@/lib/
 import GridView from '@/components/views/GridView';
 import KanbanView from '@/components/views/KanbanView';
 import CalendarView from '@/components/views/CalendarView';
+import ReceiptsView from '@/components/views/ReceiptsView';
 import RecordModal from '@/components/RecordModal';
 import MoveRecordModal from '@/components/MoveRecordModal';
 import TablePermissionsModal from '@/components/TablePermissionsModal';
@@ -14,7 +15,7 @@ import FieldsManagerModal from '@/components/FieldsManagerModal';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, UserCircle, Settings2, Shield, Database, Trash2,
-  Activity,
+  Activity, Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DevModeOnly } from '@/components/DevMode';
@@ -112,6 +113,16 @@ export default function TableClient({
   const dateField = useMemo(
     () => fields.find((f) => f.type === 'date' || f.type === 'datetime') || null,
     [fields]
+  );
+
+  // Receipts view is shown only if the table has an attachment field (for invoices/receipts).
+  // We also enable it whenever any record in the current set carries an attachment_url —
+  // covers tables created before adding an explicit attachment field.
+  const hasAttachmentField = useMemo(
+    () =>
+      fields.some((f) => f.type === 'attachment') ||
+      records.some((r) => !!r.attachment_url),
+    [fields, records]
   );
 
   // Filter records by search term
@@ -441,6 +452,14 @@ export default function TableClient({
               icon={<CalendarIcon className="w-4 h-4" />}
               label="לוח שנה"
             />
+            {hasAttachmentField && (
+              <ViewButton
+                active={activeView === 'receipts'}
+                onClick={() => setActiveView('receipts')}
+                icon={<Receipt className="w-4 h-4" />}
+                label="חשבוניות"
+              />
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-1 min-w-[180px] max-w-xs">
@@ -489,6 +508,13 @@ export default function TableClient({
             records={filteredRecords}
             dateField={dateField}
             primaryField={primaryField}
+            onRecordClick={openEditModal}
+          />
+        )}
+        {activeView === 'receipts' && (
+          <ReceiptsView
+            fields={fields}
+            records={filteredRecords}
             onRecordClick={openEditModal}
           />
         )}
