@@ -211,7 +211,11 @@ export default function Sidebar({
         </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3">
+      {/* pb-safe: extra bottom padding to clear iOS home-indicator (the bar at the
+          bottom of the screen on phones without home button) - otherwise the last
+          menu items get hidden behind it. Combined with env(safe-area-inset-bottom)
+          for browsers that support it. */}
+      <nav className="flex-1 overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* Focus Mode - prominent */}
         <Link
           href="/dashboard/focus"

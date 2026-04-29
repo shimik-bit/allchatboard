@@ -43,6 +43,20 @@ export default async function DashboardPage() {
   // Other verticals will branch here as we build them. Falls through to the
   // original generic dashboard for vertical='general' (the existing UX).
 
+  // Find other workspaces this user has with non-general verticals so we can
+  // surface a banner link that lets them quickly jump to the themed experience.
+  // This is mainly a discovery aid for the demo / for accountants managing
+  // multiple client workspaces of different verticals.
+  const { data: otherVerticalWorkspaces } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, workspaces(id, name, vertical, icon, workspace_code, primary_color)')
+    .eq('user_id', user.id)
+    .neq('workspace_id', workspaceId);
+
+  const themedWorkspaces = (otherVerticalWorkspaces || [])
+    .map((m: any) => Array.isArray(m.workspaces) ? m.workspaces[0] : m.workspaces)
+    .filter((w: any) => w && w.vertical && w.vertical !== 'general' && w.vertical !== vertical);
+
   // Stats
   const [{ count: tablesCount }, { count: recordsCount }, { count: messagesCount }, { data: tables }] =
     await Promise.all([
@@ -65,6 +79,47 @@ export default async function DashboardPage() {
         <h1 className="font-display font-bold text-xl md:text-3xl mb-1">{t('dashboard.overview')}</h1>
         <p className="text-gray-500">{t('dashboard.overview_subtitle')}</p>
       </div>
+
+      {/* Themed workspace switcher banner — surfaces other workspaces with
+          vertical-specific UX so the user can jump in directly. Only shown
+          when there's at least one other vertical workspace. */}
+      {themedWorkspaces.length > 0 && (
+        <div className="mb-6 grid sm:grid-cols-2 gap-3">
+          {themedWorkspaces.slice(0, 4).map((ws: any) => {
+            // Visual cue per vertical so the banner hints at what to expect
+            const verticalEmoji: Record<string, string> = {
+              beauty: '💅', finance: '💼', construction: '🏗️',
+              restaurant: '🍕', legal: '⚖️',
+            };
+            const verticalLabel: Record<string, string> = {
+              beauty: 'יופי וקוסמטיקה', finance: 'פיננסי', construction: 'בנייה',
+              restaurant: 'מסעדנות', legal: 'משפטי',
+            };
+            const emoji = verticalEmoji[ws.vertical] || '✨';
+            const label = verticalLabel[ws.vertical] || ws.vertical;
+            return (
+              <a
+                key={ws.id}
+                href={`/api/workspace/switch?id=${ws.id}`}
+                className="group flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-brand-400 hover:bg-brand-50/40 transition-all bg-white"
+              >
+                <div className="text-3xl">{emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    חוויית {label}
+                  </div>
+                  <div className="font-semibold text-sm group-hover:text-brand-700 transition-colors truncate">
+                    {ws.name}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    לחץ למעבר לדשבורד מותאם →
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard icon={<Database />} label={t('dashboard.stat_tables')} value={tablesCount || 0} />

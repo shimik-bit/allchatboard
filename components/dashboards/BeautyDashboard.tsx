@@ -91,7 +91,7 @@ export default function BeautyDashboard({ data }: { data: BeautyDashboardData })
         <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-[#fce4a3] rounded-full blur-3xl opacity-30" />
       </div>
 
-      <div className="relative px-5 py-6 md:py-10 max-w-5xl mx-auto" style={{ color: theme.colors.textBody }}>
+      <div className="relative px-5 py-6 md:py-10 pb-32 md:pb-12 max-w-5xl mx-auto" style={{ color: theme.colors.textBody }}>
         {/* Hero greeting */}
         <header className="mb-8">
           <div className="text-xs font-medium opacity-60 mb-2 tracking-wide">
