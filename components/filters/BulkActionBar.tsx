@@ -143,9 +143,12 @@ export default function BulkActionBar({
         />
       )}
 
-      {/* Floating bar - bottom-center on desktop, bottom-full on mobile */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[95vw]">
-        <div className="bg-gray-900 text-white rounded-xl shadow-2xl px-3 py-2 flex items-center gap-2 flex-wrap">
+      {/* Floating bar - bottom-center on desktop, bottom-full-width on mobile.
+          Uses overflow-x-auto + flex-nowrap so all action buttons remain
+          accessible by horizontal scroll if there are many (rather than
+          stacking awkwardly). */}
+      <div className="fixed bottom-2 sm:bottom-4 inset-x-2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:max-w-[95vw]">
+        <div className="bg-gray-900 text-white rounded-xl shadow-2xl px-2 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
           {/* Count + close */}
           <div className="flex items-center gap-2 px-2 py-1 bg-gray-800 rounded-lg">
             <span className="text-sm font-bold">{count} נבחרו</span>
@@ -321,7 +324,7 @@ function DropdownAction({
         <ChevronDown className="w-3 h-3" />
       </button>
       {isOpen && (
-        <div className="absolute bottom-full mb-2 right-0 bg-white rounded-lg shadow-2xl p-1 min-w-[160px] max-h-64 overflow-y-auto" dir="rtl">
+        <div className="absolute bottom-full mb-2 right-0 bg-white rounded-lg shadow-2xl p-1 min-w-[160px] max-w-[80vw] max-h-64 overflow-y-auto" dir="rtl">
           {children}
         </div>
       )}

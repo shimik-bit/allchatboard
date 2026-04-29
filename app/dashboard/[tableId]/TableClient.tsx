@@ -24,7 +24,7 @@ import { useGridCopyPaste } from '@/lib/hooks/useGridCopyPaste';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, Upload, UserCircle, Settings2, Shield, Database, Trash2,
-  Activity, Receipt,
+  Activity, Receipt, MoreHorizontal,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DevModeOnly } from '@/components/DevMode';
@@ -65,6 +65,9 @@ export default function TableClient({
   const [editingRecord, setEditingRecord] = useState<RecordRow | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
+  // Mobile overflow menu — collapses Upload/Download/Settings buttons into
+  // a single ⋯ button at narrow widths to keep the toolbar from overflowing.
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [showExcelImport, setShowExcelImport] = useState(false);
   // Filter state - the FilterGroup applied to records before display.
@@ -481,9 +484,58 @@ export default function TableClient({
               </div>
             </div>
             <div className="flex items-center gap-1 md:gap-2 shrink-0">
+              {/* Mobile: collapse Upload/Download/Settings into a single ⋯ menu.
+                  On md+ screens, all three are visible directly. This keeps
+                  the title from getting truncated when there are 5+ buttons
+                  competing for the row width. */}
+              <div className="relative md:hidden">
+                <button
+                  onClick={() => setShowMobileMenu((v) => !v)}
+                  className="btn-ghost p-1.5"
+                  aria-label="עוד פעולות"
+                  aria-expanded={showMobileMenu}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+                {showMobileMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowMobileMenu(false)}
+                    />
+                    <div className="absolute top-full mt-1 left-0 z-40 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px]">
+                      <button
+                        onClick={() => { setShowExcelImport(true); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-50 text-right"
+                      >
+                        <Upload className="w-4 h-4 text-gray-500" />
+                        <span>יבוא Excel</span>
+                      </button>
+                      <button
+                        onClick={() => { handleExportCSV(); setShowMobileMenu(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-50 text-right"
+                      >
+                        <Download className="w-4 h-4 text-gray-500" />
+                        <span>ייצוא CSV</span>
+                      </button>
+                      {canManageTable && (
+                        <button
+                          onClick={() => { setShowSettings(!showSettings); setShowMobileMenu(false); }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-gray-50 text-right"
+                        >
+                          <Settings2 className="w-4 h-4 text-gray-500" />
+                          <span>הגדרות</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Desktop-only direct buttons (hidden on mobile - menu above takes over) */}
               <button
                 onClick={() => setShowExcelImport(true)}
-                className="btn-ghost text-xs md:text-sm"
+                className="btn-ghost text-xs md:text-sm hidden md:inline-flex"
                 title="יבוא נתונים מקובץ Excel או CSV"
               >
                 <Upload className="w-4 h-4" />
@@ -491,7 +543,7 @@ export default function TableClient({
               </button>
               <button
                 onClick={handleExportCSV}
-                className="btn-ghost text-xs md:text-sm"
+                className="btn-ghost text-xs md:text-sm hidden md:inline-flex"
                 title="ייצוא לקובץ CSV"
               >
                 <Download className="w-4 h-4" />
@@ -500,7 +552,7 @@ export default function TableClient({
               {canManageTable && (
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className={`btn-ghost text-xs md:text-sm ${showSettings ? 'bg-gray-100' : ''}`}
+                  className={`btn-ghost text-xs md:text-sm hidden md:inline-flex ${showSettings ? 'bg-gray-100' : ''}`}
                   title="הגדרות טבלה"
                 >
                   <Settings2 className="w-4 h-4" />

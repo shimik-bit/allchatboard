@@ -135,7 +135,11 @@ export default function FilterPanel({ fields, filters, onChange, tableId, worksp
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute top-full mt-2 left-0 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-[480px] max-w-[90vw]"
+          className="
+            fixed inset-x-2 top-auto mt-2 z-50
+            sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:left-auto sm:w-[480px] sm:max-w-[calc(100vw-1rem)]
+            bg-white rounded-xl shadow-2xl border border-gray-200 p-3 sm:p-4
+          "
           dir="rtl"
         >
           <div className="flex items-center justify-between mb-3">
@@ -209,8 +213,8 @@ function ConditionRow({
   const needsArray = ARRAY_VALUE_OPERATORS.has(condition.operator);
 
   return (
-    <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg p-2">
-      <span className="text-xs font-bold text-gray-500 w-8 text-center shrink-0">
+    <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg p-2 flex-wrap">
+      <span className="text-xs font-bold text-gray-500 w-8 text-center shrink-0 hidden sm:inline">
         {isFirst ? 'איפה' : 'וגם'}
       </span>
 
