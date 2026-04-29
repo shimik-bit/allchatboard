@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Filter, Plus, X, ChevronDown } from 'lucide-react';
+import { Filter, Plus, X, ChevronDown, Save } from 'lucide-react';
 import type { Field } from '@/lib/types/database';
 import {
   type FilterGroup, type FilterCondition, type FilterOperator,
@@ -12,9 +12,14 @@ interface FilterPanelProps {
   fields: Field[];
   filters: FilterGroup;
   onChange: (filters: FilterGroup) => void;
+  /** Optional: when present, enables "save filter" button */
+  tableId?: string;
+  workspaceId?: string;
+  /** Called after successful save - parent should reload SavedFiltersBar */
+  onFilterSaved?: () => void;
 }
 
-export default function FilterPanel({ fields, filters, onChange }: FilterPanelProps) {
+export default function FilterPanel({ fields, filters, onChange, tableId, workspaceId, onFilterSaved }: FilterPanelProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +75,43 @@ export default function FilterPanel({ fields, filters, onChange }: FilterPanelPr
     setOpen(false);
   };
 
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveFilter = async () => {
+    if (!tableId || !workspaceId) return;
+    if (filters.conditions.length === 0) {
+      alert('הוסף לפחות תנאי אחד לפני שמירה');
+      return;
+    }
+    const name = window.prompt('שם הפילטר:', '');
+    if (!name || !name.trim()) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/saved-filters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_id: tableId,
+          workspace_id: workspaceId,
+          name: name.trim(),
+          filters,
+        }),
+      });
+      if (res.ok) {
+        // Trigger SavedFiltersBar reload
+        (window as any).__refreshSavedFilters?.();
+        onFilterSaved?.();
+        setOpen(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'שגיאה בשמירה');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="relative" ref={panelRef}>
       {/* Filter trigger button */}
@@ -98,14 +140,26 @@ export default function FilterPanel({ fields, filters, onChange }: FilterPanelPr
         >
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-bold text-gray-900">סינון רשומות</div>
-            {conditionCount > 0 && (
-              <button
-                onClick={clearAll}
-                className="text-xs text-red-600 hover:text-red-700 font-medium"
-              >
-                נקה הכל
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {tableId && workspaceId && conditionCount > 0 && (
+                <button
+                  onClick={handleSaveFilter}
+                  disabled={saving}
+                  className="text-xs text-emerald-700 hover:text-emerald-800 font-medium flex items-center gap-1 disabled:opacity-50"
+                >
+                  <Save className="w-3 h-3" />
+                  {saving ? 'שומר...' : 'שמור פילטר'}
+                </button>
+              )}
+              {conditionCount > 0 && (
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
+                >
+                  נקה הכל
+                </button>
+              )}
+            </div>
           </div>
 
           {conditionCount === 0 ? (

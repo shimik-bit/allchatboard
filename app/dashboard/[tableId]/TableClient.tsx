@@ -14,6 +14,8 @@ import TablePermissionsModal from '@/components/TablePermissionsModal';
 import FieldsManagerModal from '@/components/FieldsManagerModal';
 import ExcelImportWizard from '@/components/ExcelImportWizard';
 import FilterPanel from '@/components/filters/FilterPanel';
+import SavedFiltersBar from '@/components/filters/SavedFiltersBar';
+import BulkActionBar from '@/components/filters/BulkActionBar';
 import { applyFilters, type FilterGroup } from '@/lib/filters';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
@@ -66,6 +68,12 @@ export default function TableClient({
   // (the DB column already exists) in a follow-up to make filters survive
   // page refresh.
   const [filters, setFilters] = useState<FilterGroup>({ operator: 'and', conditions: [] });
+  // Track which saved filter (if any) is currently active so we can highlight
+  // its chip in the SavedFiltersBar
+  const [activeSavedFilterId, setActiveSavedFilterId] = useState<string | null>(null);
+  // Selection state for bulk actions. A Set is fine for ~hundreds of records;
+  // for very large tables we'd switch to "select-all-with-filter" semantics.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // For "Move record" feature - load list of other tables in workspace lazily
   const [otherTables, setOtherTables] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
@@ -507,7 +515,13 @@ export default function TableClient({
             <FilterPanel
               fields={fields}
               filters={filters}
-              onChange={setFilters}
+              onChange={(newFilters) => {
+                setFilters(newFilters);
+                // If user manually edits filters, they're no longer using a saved one
+                setActiveSavedFilterId(null);
+              }}
+              tableId={table.id}
+              workspaceId={table.workspace_id}
             />
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -526,6 +540,24 @@ export default function TableClient({
         </div>
       </div>
 
+      {/* Saved filters chip bar - shows my private saved filters as quick-apply chips */}
+      <div className="px-6 -mt-1">
+        <SavedFiltersBar
+          tableId={table.id}
+          workspaceId={table.workspace_id}
+          currentFilters={filters}
+          activeId={activeSavedFilterId}
+          onApply={(savedFilters, savedId) => {
+            setFilters(savedFilters);
+            setActiveSavedFilterId(savedId);
+          }}
+          onClear={() => {
+            setFilters({ operator: 'and', conditions: [] });
+            setActiveSavedFilterId(null);
+          }}
+        />
+      </div>
+
       {/* View content */}
       <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
         {activeView === 'grid' && (
@@ -536,6 +568,20 @@ export default function TableClient({
               phones={phones}
               onRecordClick={openEditModal}
               onRecordUpdate={handleInlineUpdate}
+              selectedIds={selectedIds}
+              onToggleSelect={(id) => {
+                const next = new Set(selectedIds);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                setSelectedIds(next);
+              }}
+              onSelectAll={(allChecked) => {
+                if (allChecked) {
+                  setSelectedIds(new Set(filteredRecords.map((r) => r.id)));
+                } else {
+                  setSelectedIds(new Set());
+                }
+              }}
             />
           </div>
         )}
@@ -631,6 +677,17 @@ export default function TableClient({
           onImported={() => router.refresh()}
         />
       )}
+
+      {/* Floating bulk action bar - only renders when records are selected */}
+      <BulkActionBar
+        selectedIds={selectedIds}
+        records={filteredRecords}
+        fields={fields}
+        table={table}
+        userRole={userRole}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onActionComplete={() => router.refresh()}
+      />
     </div>
   );
 }
