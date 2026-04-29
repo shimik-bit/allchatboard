@@ -13,6 +13,8 @@ import MoveRecordModal from '@/components/MoveRecordModal';
 import TablePermissionsModal from '@/components/TablePermissionsModal';
 import FieldsManagerModal from '@/components/FieldsManagerModal';
 import ExcelImportWizard from '@/components/ExcelImportWizard';
+import FilterPanel from '@/components/filters/FilterPanel';
+import { applyFilters, type FilterGroup } from '@/lib/filters';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, Upload, UserCircle, Settings2, Shield, Database, Trash2,
@@ -59,6 +61,11 @@ export default function TableClient({
   const [showPermissions, setShowPermissions] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [showExcelImport, setShowExcelImport] = useState(false);
+  // Filter state - the FilterGroup applied to records before display.
+  // Lives in component state for now; could be persisted to views.filters
+  // (the DB column already exists) in a follow-up to make filters survive
+  // page refresh.
+  const [filters, setFilters] = useState<FilterGroup>({ operator: 'and', conditions: [] });
 
   // For "Move record" feature - load list of other tables in workspace lazily
   const [otherTables, setOtherTables] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
@@ -127,15 +134,21 @@ export default function TableClient({
     [fields, records]
   );
 
-  // Filter records by search term
+  // Filter records by search term + filter conditions
+  // Two-stage pipeline: structured filters first (cheaper, reduces dataset),
+  // then full-text search on the smaller result.
   const filteredRecords = useMemo(() => {
-    if (!searchTerm.trim()) return records;
+    // Stage 1: apply structured filters
+    const afterFilters = applyFilters(records, filters);
+
+    // Stage 2: apply text search
+    if (!searchTerm.trim()) return afterFilters;
     const q = searchTerm.toLowerCase();
-    return records.filter((r) => {
+    return afterFilters.filter((r) => {
       const values = Object.values(r.data || {});
       return values.some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [records, searchTerm]);
+  }, [records, searchTerm, filters]);
 
   // Handlers
   const openCreateModal = () => {
@@ -489,7 +502,13 @@ export default function TableClient({
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-1 min-w-[180px] max-w-xs">
+          <div className="flex items-center gap-2 flex-1 min-w-[180px] max-w-md">
+            {/* Filter panel - structured filtering by field/operator/value */}
+            <FilterPanel
+              fields={fields}
+              filters={filters}
+              onChange={setFilters}
+            />
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
