@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import type { Field, RecordRow } from '@/lib/types/database';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { MessageSquare, Bell, Check, Pencil } from 'lucide-react';
+import { MessageSquare, Bell, Check, Pencil, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 import SummaryRow from '@/components/SummaryRow';
 import { useT } from '@/lib/i18n/useT';
+import type { SortState } from '@/lib/grid/sort';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
   selectedIds, onToggleSelect, onSelectAll,
+  sort, onSortChange, activeCell, onCellActivate,
 }: {
   fields: Field[];
   records: RecordRow[];
@@ -25,6 +27,14 @@ export default function GridView({
   onToggleSelect?: (id: string) => void;
   /** Toggle all visible records (true = check all, false = uncheck all) */
   onSelectAll?: (allChecked: boolean) => void;
+  /** Current sort state (null = unsorted) */
+  sort?: SortState | null;
+  /** Called when a header is clicked */
+  onSortChange?: (fieldSlug: string) => void;
+  /** Currently active (keyboard-selected) cell - row/col indices */
+  activeCell?: { row: number; col: number } | null;
+  /** Called when a cell is clicked - sets the active cell */
+  onCellActivate?: (coord: { row: number; col: number }) => void;
 }) {
   const { t } = useT();
   if (records.length === 0) {
@@ -64,14 +74,28 @@ export default function GridView({
                 />
               </th>
             )}
-            {fields.map((f) => (
-              <th
-                key={f.id}
-                className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap"
-              >
-                {f.name}
-              </th>
-            ))}
+            {fields.map((f) => {
+              const isSorted = sort?.fieldSlug === f.slug;
+              const sortDir = isSorted ? sort!.direction : null;
+              return (
+                <th
+                  key={f.id}
+                  className={`text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap ${
+                    onSortChange ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
+                  } ${isSorted ? 'bg-emerald-50/50 text-emerald-800' : ''}`}
+                  onClick={onSortChange ? () => onSortChange(f.slug) : undefined}
+                  title={onSortChange ? 'לחץ למיון' : undefined}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {f.name}
+                    {/* Sort indicator: only render an icon when active to keep
+                        headers visually quiet when no sort is applied */}
+                    {sortDir === 'asc' && <ArrowUp className="w-3 h-3 text-emerald-600" />}
+                    {sortDir === 'desc' && <ArrowDown className="w-3 h-3 text-emerald-600" />}
+                  </span>
+                </th>
+              );
+            })}
             <th className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
               {t('records.assignee')}
             </th>
@@ -91,10 +115,11 @@ export default function GridView({
           </tr>
         </thead>
         <tbody>
-          {records.map((r) => (
+          {records.map((r, rowIndex) => (
             <RecordRowComponent
               key={r.id}
               record={r}
+              rowIndex={rowIndex}
               fields={fields}
               phones={phones || []}
               onRowClick={() => onRecordClick(r)}
@@ -102,6 +127,8 @@ export default function GridView({
               isSelected={selectedIds?.has(r.id)}
               showCheckbox={selectedIds !== undefined}
               onToggleSelect={onToggleSelect}
+              activeCell={activeCell}
+              onCellActivate={onCellActivate}
             />
           ))}
         </tbody>
@@ -119,10 +146,12 @@ export default function GridView({
 }
 
 function RecordRowComponent({
-  record, fields, phones, onRowClick, onUpdate,
+  record, rowIndex, fields, phones, onRowClick, onUpdate,
   isSelected, showCheckbox, onToggleSelect,
+  activeCell, onCellActivate,
 }: {
   record: RecordRow;
+  rowIndex: number;
   fields: Field[];
   phones: { id: string; display_name: string; job_title: string | null }[];
   onRowClick: () => void;
@@ -130,6 +159,8 @@ function RecordRowComponent({
   isSelected?: boolean;
   showCheckbox?: boolean;
   onToggleSelect?: (id: string) => void;
+  activeCell?: { row: number; col: number } | null;
+  onCellActivate?: (coord: { row: number; col: number }) => void;
 }) {
   const { t } = useT();
   return (
@@ -153,23 +184,38 @@ function RecordRowComponent({
           />
         </td>
       )}
-      {fields.map((f) => (
-        <td
-          key={f.id}
-          className="px-4 py-2 align-top max-w-[280px]"
-        >
-          <EditableCell
-            field={f}
-            record={record}
-            value={record.data?.[f.slug]}
-            onChange={(newVal, opts) => {
-              if (!onUpdate) return Promise.resolve();
-              return onUpdate(record.id, { data: { [f.slug]: newVal } }, opts);
+      {fields.map((f, colIndex) => {
+        const isActive = activeCell?.row === rowIndex && activeCell?.col === colIndex;
+        return (
+          <td
+            key={f.id}
+            className={`px-4 py-2 align-top max-w-[280px] transition-shadow ${
+              isActive ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/40' : ''
+            }`}
+            data-cell-row={rowIndex}
+            data-cell-col={colIndex}
+            onClick={(e) => {
+              // Single click → set as active. Double click is what actually
+              // edits, handled by EditableCell (existing behavior).
+              if (onCellActivate) {
+                e.stopPropagation();
+                onCellActivate({ row: rowIndex, col: colIndex });
+              }
             }}
-            onRowClick={onRowClick}
-          />
-        </td>
-      ))}
+          >
+            <EditableCell
+              field={f}
+              record={record}
+              value={record.data?.[f.slug]}
+              onChange={(newVal, opts) => {
+                if (!onUpdate) return Promise.resolve();
+                return onUpdate(record.id, { data: { [f.slug]: newVal } }, opts);
+              }}
+              onRowClick={onRowClick}
+            />
+          </td>
+        );
+      })}
       {/* בטיפול (assignee) */}
       <td className="px-4 py-2 align-top whitespace-nowrap">
         <AssigneeCell

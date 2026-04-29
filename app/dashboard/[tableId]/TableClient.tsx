@@ -17,6 +17,10 @@ import FilterPanel from '@/components/filters/FilterPanel';
 import SavedFiltersBar from '@/components/filters/SavedFiltersBar';
 import BulkActionBar from '@/components/filters/BulkActionBar';
 import { applyFilters, type FilterGroup } from '@/lib/filters';
+import { applySort, cycleSortState, type SortState } from '@/lib/grid/sort';
+import { useUndoStack, useCtrlZ } from '@/lib/hooks/useUndoStack';
+import { useGridKeyboardNav } from '@/lib/hooks/useGridKeyboardNav';
+import { useGridCopyPaste } from '@/lib/hooks/useGridCopyPaste';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, Upload, UserCircle, Settings2, Shield, Database, Trash2,
@@ -74,6 +78,10 @@ export default function TableClient({
   // Selection state for bulk actions. A Set is fine for ~hundreds of records;
   // for very large tables we'd switch to "select-all-with-filter" semantics.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Sort state for grid view — single column at a time, cycles asc/desc/off.
+  const [sort, setSort] = useState<SortState | null>(null);
+  // Undo stack for cell edits — Ctrl+Z reverts the last single-cell change.
+  const undoStack = useUndoStack();
 
   // For "Move record" feature - load list of other tables in workspace lazily
   const [otherTables, setOtherTables] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
@@ -142,21 +150,29 @@ export default function TableClient({
     [fields, records]
   );
 
-  // Filter records by search term + filter conditions
-  // Two-stage pipeline: structured filters first (cheaper, reduces dataset),
-  // then full-text search on the smaller result.
+  // Filter records by search term + filter conditions + sort
+  // Pipeline order:
+  //   1. structured filters (cheapest, removes rows wholesale)
+  //   2. text search (also removes rows)
+  //   3. sort (touches every remaining row but only once)
   const filteredRecords = useMemo(() => {
     // Stage 1: apply structured filters
     const afterFilters = applyFilters(records, filters);
 
     // Stage 2: apply text search
-    if (!searchTerm.trim()) return afterFilters;
-    const q = searchTerm.toLowerCase();
-    return afterFilters.filter((r) => {
-      const values = Object.values(r.data || {});
-      return values.some((v) => String(v).toLowerCase().includes(q));
-    });
-  }, [records, searchTerm, filters]);
+    const afterSearch = !searchTerm.trim()
+      ? afterFilters
+      : (() => {
+          const q = searchTerm.toLowerCase();
+          return afterFilters.filter((r) => {
+            const values = Object.values(r.data || {});
+            return values.some((v) => String(v).toLowerCase().includes(q));
+          });
+        })();
+
+    // Stage 3: apply sort (no-op if sort is null)
+    return applySort(afterSearch, sort, fields);
+  }, [records, searchTerm, filters, sort, fields]);
 
   // Handlers
   const openCreateModal = () => {
@@ -171,6 +187,23 @@ export default function TableClient({
 
   const handleInlineUpdate = useCallback(
     async (recordId: string, patch: { data?: any; notes?: string; assignee_phone_id?: string | null }, opts?: { notify?: boolean }) => {
+      // Capture the previous value(s) for the undo stack BEFORE we mutate.
+      // We only push to undo for `data` patches that touch a single field —
+      // those are the granular cell edits users expect Ctrl+Z to revert.
+      // (Notes / assignee changes are tracked too but with a generic label.)
+      if (patch.data && Object.keys(patch.data).length === 1) {
+        const fieldSlug = Object.keys(patch.data)[0];
+        const prevRecord = records.find((r) => r.id === recordId);
+        if (prevRecord) {
+          undoStack.push({
+            recordId,
+            fieldSlug,
+            oldValue: prevRecord.data?.[fieldSlug] ?? null,
+            description: `${fieldSlug}: ${prevRecord.data?.[fieldSlug] ?? '(ריק)'}`,
+          });
+        }
+      }
+
       // Optimistic update
       setRecords((prev) =>
         prev.map((r) => {
@@ -203,8 +236,100 @@ export default function TableClient({
         alert('שגיאה בעדכון: ' + (err.error || res.statusText));
       }
     },
-    [phones]
+    [phones, records, undoStack]
   );
+
+  // ===== Undo handler (Ctrl+Z) =====
+  // Pops the most recent edit off the stack and re-applies the OLD value.
+  // We deliberately don't push to the stack again here, otherwise undo
+  // itself would create a new entry that you could undo (infinite loop).
+  const handleUndo = useCallback(async () => {
+    const entry = undoStack.pop();
+    if (!entry) return;
+    // Optimistic update with old value
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === entry.recordId
+          ? { ...r, data: { ...r.data, [entry.fieldSlug]: entry.oldValue } }
+          : r
+      )
+    );
+    // Persist via API directly (skip handleInlineUpdate to avoid the
+    // undo-stack push that would happen on re-application)
+    await fetch(`/api/records/${entry.recordId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { [entry.fieldSlug]: entry.oldValue } }),
+    });
+  }, [undoStack]);
+
+  // Wire Ctrl+Z (and Cmd+Z on Mac) to undo
+  useCtrlZ(handleUndo);
+
+  // ===== Active cell coordinates (keyboard nav) =====
+  // The grid view is the only one that uses these; other views ignore them.
+  const colCount = fields.length;
+  const rowCount = filteredRecords.length;
+
+  const { active: activeCell, setCell } = useGridKeyboardNav({
+    rowCount,
+    colCount,
+    enabled: activeView === 'grid' && !modalOpen,
+    scrollToCell: ({ row, col }) => {
+      // Find the cell DOM node and scroll it into view smoothly
+      const el = document.querySelector(
+        `[data-cell-row="${row}"][data-cell-col="${col}"]`
+      ) as HTMLElement | null;
+      el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    },
+  });
+
+  // Read text representation of a cell (for clipboard)
+  const getCellText = useCallback(
+    ({ row, col }: { row: number; col: number }) => {
+      const record = filteredRecords[row];
+      const field = fields[col];
+      if (!record || !field) return '';
+      const value = record.data?.[field.slug];
+      if (value === null || value === undefined) return '';
+      // For relations and complex types, just stringify. For simple types,
+      // toString gives us what the user expects (numbers, dates as ISO, etc.)
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    },
+    [filteredRecords, fields]
+  );
+
+  // Apply pasted text to a cell
+  const onPasteCell = useCallback(
+    async ({ row, col }: { row: number; col: number }, text: string) => {
+      const record = filteredRecords[row];
+      const field = fields[col];
+      if (!record || !field) return;
+
+      // Type-aware coercion. Errors fall back to leaving the value as-is.
+      let newValue: any = text;
+      try {
+        if (field.type === 'number' || field.type === 'currency' || field.type === 'rating') {
+          const n = Number(text);
+          if (!isFinite(n)) return; // refuse invalid number
+          newValue = n;
+        } else if (field.type === 'checkbox') {
+          newValue = text.toLowerCase() === 'true' || text === '✓' || text === '1';
+        } else if (field.type === 'date' || field.type === 'datetime') {
+          // Trust user — let backend reject if needed
+          newValue = text;
+        }
+      } catch {
+        return;
+      }
+
+      await handleInlineUpdate(record.id, { data: { [field.slug]: newValue } });
+    },
+    [filteredRecords, fields, handleInlineUpdate]
+  );
+
+  useGridCopyPaste({ activeCell, getCellText, onPasteCell });
 
   // Update table's default assignee
   const updateDefaultAssignee = useCallback(
@@ -582,6 +707,10 @@ export default function TableClient({
                   setSelectedIds(new Set());
                 }
               }}
+              sort={sort}
+              onSortChange={(fieldSlug) => setSort(cycleSortState(sort, fieldSlug))}
+              activeCell={activeCell}
+              onCellActivate={(coord) => setCell(coord)}
             />
           </div>
         )}
