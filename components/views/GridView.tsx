@@ -48,7 +48,11 @@ export default function GridView({
   }
 
   return (
-    <div className="overflow-x-auto">
+    // overscroll-contain prevents the page from scrolling when the user
+    // reaches the end of horizontal scroll inside the table.
+    // The right shadow gradient is a subtle visual hint that there's
+    // more content off-screen — Excel/Sheets do similar.
+    <div className="overflow-x-auto overscroll-x-contain relative">
       {/* table-auto + min-w-max lets columns size to their content instead of
           getting squeezed together. Combined with the parent overflow-x-auto,
           this gives natural horizontal scroll on mobile while looking normal
@@ -80,7 +84,7 @@ export default function GridView({
               return (
                 <th
                   key={f.id}
-                  className={`text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap ${
+                  className={`text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-700 whitespace-nowrap ${
                     onSortChange ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
                   } ${isSorted ? 'bg-emerald-50/50 text-emerald-800' : ''}`}
                   onClick={onSortChange ? () => onSortChange(f.slug) : undefined}
@@ -96,22 +100,22 @@ export default function GridView({
                 </th>
               );
             })}
-            <th className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
+            <th className="text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-700 whitespace-nowrap">
               {t('records.assignee')}
             </th>
-            <th className="text-right px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap">
+            <th className="text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-700 whitespace-nowrap">
               {t('common.notes')}
             </th>
-            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
+            <th className="px-2 sm:px-4 py-2 sm:py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
               {t('records.created_at')}
             </th>
-            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
+            <th className="px-2 sm:px-4 py-2 sm:py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
               {t('records.assignee')}
             </th>
-            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
+            <th className="px-2 sm:px-4 py-2 sm:py-2.5 text-right font-medium text-gray-500 text-xs whitespace-nowrap">
               {t('records.last_updated')}
             </th>
-            <th className="px-4 py-2.5 text-right font-medium text-gray-500 text-xs"  >{t('common.type')}</th>
+            <th className="px-2 sm:px-4 py-2 sm:py-2.5 text-right font-medium text-gray-500 text-xs"  >{t('common.type')}</th>
           </tr>
         </thead>
         <tbody>
@@ -189,7 +193,7 @@ function RecordRowComponent({
         return (
           <td
             key={f.id}
-            className={`px-4 py-2 align-top max-w-[280px] transition-shadow ${
+            className={`px-2 sm:px-4 py-2 align-top max-w-[200px] sm:max-w-[280px] transition-shadow ${
               isActive ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/40' : ''
             }`}
             data-cell-row={rowIndex}
@@ -217,7 +221,7 @@ function RecordRowComponent({
         );
       })}
       {/* בטיפול (assignee) */}
-      <td className="px-4 py-2 align-top whitespace-nowrap">
+      <td className="px-2 sm:px-4 py-2 align-top whitespace-nowrap">
         <AssigneeCell
           record={record}
           phones={phones}
