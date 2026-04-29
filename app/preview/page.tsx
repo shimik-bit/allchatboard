@@ -41,7 +41,7 @@ export default function PreviewHub() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Finance card */}
           <Link
-            href="/dashboard/preview/finance"
+            href="/preview/finance"
             className="group relative overflow-hidden rounded-3xl bg-[#0a1628] text-white p-8 md:p-10 hover:shadow-2xl transition-shadow"
           >
             <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#8b6914]/30 rounded-full blur-3xl" />
@@ -69,7 +69,7 @@ export default function PreviewHub() {
 
           {/* Beauty card */}
           <Link
-            href="/dashboard/preview/beauty"
+            href="/preview/beauty"
             className="group relative overflow-hidden rounded-3xl p-8 md:p-10 hover:shadow-2xl transition-shadow"
             style={{
               background: 'linear-gradient(135deg, #fdf2ef 0%, #fbe4dd 35%, #f5d5e0 70%, #ede2f0 100%)',
