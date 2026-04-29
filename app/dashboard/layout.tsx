@@ -80,8 +80,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             userEmail={user.email || ''}
           />
           {/* Padding-top on mobile so the hamburger button (top-3 right-3) doesn't
-              overlap content. Reset on md+ where the hamburger is hidden. */}
-          <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+              overlap content. Reset on md+ where the hamburger is hidden.
+              Bottom padding accounts for iOS home indicator + browser navbar. */}
+          <main className="flex-1 overflow-y-auto pt-14 md:pt-0 pb-[env(safe-area-inset-bottom)]">
             {children}
           </main>
         </div>
