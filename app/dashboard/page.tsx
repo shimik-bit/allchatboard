@@ -4,6 +4,8 @@ import { LayoutGrid, MessageSquare, Database, TrendingUp, BookOpen, Code, FileTe
 import { getT } from '@/lib/i18n/server';
 import { formatRelativeTime as i18nFormatRelativeTime } from '@/lib/i18n/format';
 import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import BeautyDashboard from '@/components/dashboards/BeautyDashboard';
+import { loadBeautyDashboardData } from '@/lib/themes/beauty-data';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -13,7 +15,7 @@ export default async function DashboardPage() {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id, workspaces(locale)')
+    .select('workspace_id, workspaces(locale, vertical, name)')
     .eq('user_id', user.id)
     .limit(1)
     .single();
@@ -25,6 +27,21 @@ export default async function DashboardPage() {
   const ws = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces;
   const locale: Locale = isValidLocale((ws as any)?.locale) ? (ws as any).locale : DEFAULT_LOCALE;
   const { t } = getT(locale);
+
+  // Vertical-aware routing: if this workspace has a vertical-specific dashboard,
+  // render that instead of the generic stats overview. The layout above already
+  // wrapped us in <ThemeProvider> with the correct theme, so the BeautyDashboard
+  // (and future vertical dashboards) can read theme tokens via useTheme().
+  const vertical = (ws as any)?.vertical || 'general';
+  const userName = user.email?.split('@')[0] || 'משתמש';
+  const workspaceName = (ws as any)?.name || '';
+
+  if (vertical === 'beauty') {
+    const beautyData = await loadBeautyDashboardData(supabase, workspaceId, userName, workspaceName);
+    return <BeautyDashboard data={beautyData} />;
+  }
+  // Other verticals will branch here as we build them. Falls through to the
+  // original generic dashboard for vertical='general' (the existing UX).
 
   // Stats
   const [{ count: tablesCount }, { count: recordsCount }, { count: messagesCount }, { data: tables }] =

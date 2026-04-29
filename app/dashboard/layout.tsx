@@ -6,6 +6,8 @@ import OnboardingTour from '@/components/OnboardingTour';
 import { DevModeIndicator } from '@/components/DevMode';
 import { LanguageProvider } from '@/lib/i18n/provider';
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { ThemeProvider } from '@/lib/themes/ThemeProvider';
+import { getTheme } from '@/lib/themes';
 
 const ACTIVE_WS_COOKIE = 'tf_active_workspace';
 
@@ -58,9 +60,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('is_archived', false)
     .order('position');
 
+  // Resolve the theme for this workspace's vertical (defaults to general).
+  // The theme drives colors, typography, and microcopy throughout the dashboard.
+  const theme = getTheme((workspace as any).vertical);
+
   return (
     <LanguageProvider locale={locale}>
-      <div className="h-screen flex flex-col bg-gray-50" dir={locale === 'he' ? 'rtl' : 'ltr'}>
+      <ThemeProvider theme={theme}>
+      <div className="h-screen flex flex-col" style={{ background: 'var(--theme-background)' }} dir={locale === 'he' ? 'rtl' : 'ltr'}>
         {/* DevMode banner above everything - covers the full width */}
         <DevModeIndicator />
 
@@ -80,6 +87,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         <OnboardingTour />
       </div>
+      </ThemeProvider>
     </LanguageProvider>
   );
 }
