@@ -12,12 +12,19 @@ import { useT } from '@/lib/i18n/useT';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
+  selectedIds, onToggleSelect, onSelectAll,
 }: {
   fields: Field[];
   records: RecordRow[];
   phones?: { id: string; display_name: string; job_title: string | null }[];
   onRecordClick: (r: RecordRow) => void;
   onRecordUpdate?: (recordId: string, patch: { data?: any; notes?: string; assignee_phone_id?: string | null }, opts?: { notify?: boolean }) => Promise<void>;
+  /** Selection state — when undefined, the checkbox column is hidden entirely */
+  selectedIds?: Set<string>;
+  /** Toggle a single record's selection */
+  onToggleSelect?: (id: string) => void;
+  /** Toggle all visible records (true = check all, false = uncheck all) */
+  onSelectAll?: (allChecked: boolean) => void;
 }) {
   const { t } = useT();
   if (records.length === 0) {
@@ -39,6 +46,24 @@ export default function GridView({
       <table className="text-sm table-auto min-w-max">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50/50">
+            {selectedIds !== undefined && onSelectAll && (
+              <th className="px-3 py-2.5 text-center w-10 sticky right-0 bg-gray-50/50">
+                <input
+                  type="checkbox"
+                  checked={records.length > 0 && records.every((r) => selectedIds.has(r.id))}
+                  ref={(el) => {
+                    if (el) {
+                      const someChecked = records.some((r) => selectedIds.has(r.id));
+                      const allChecked = records.length > 0 && records.every((r) => selectedIds.has(r.id));
+                      el.indeterminate = someChecked && !allChecked;
+                    }
+                  }}
+                  onChange={(e) => onSelectAll(e.target.checked)}
+                  className="rounded cursor-pointer"
+                  title="בחר הכל"
+                />
+              </th>
+            )}
             {fields.map((f) => (
               <th
                 key={f.id}
@@ -74,6 +99,9 @@ export default function GridView({
               phones={phones || []}
               onRowClick={() => onRecordClick(r)}
               onUpdate={onRecordUpdate}
+              isSelected={selectedIds?.has(r.id)}
+              showCheckbox={selectedIds !== undefined}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </tbody>
@@ -92,20 +120,39 @@ export default function GridView({
 
 function RecordRowComponent({
   record, fields, phones, onRowClick, onUpdate,
+  isSelected, showCheckbox, onToggleSelect,
 }: {
   record: RecordRow;
   fields: Field[];
   phones: { id: string; display_name: string; job_title: string | null }[];
   onRowClick: () => void;
   onUpdate?: (recordId: string, patch: { data?: any; notes?: string; assignee_phone_id?: string | null }, opts?: { notify?: boolean }) => Promise<void>;
+  isSelected?: boolean;
+  showCheckbox?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const { t } = useT();
   return (
     <tr
       onClick={onRowClick}
-      className="border-b border-gray-100 hover:bg-brand-50/40 transition-colors group cursor-pointer"
+      className={`border-b border-gray-100 transition-colors group cursor-pointer ${
+        isSelected ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-brand-50/40'
+      }`}
       title={t('records.edit')}
     >
+      {showCheckbox && (
+        <td
+          className="px-3 py-2 text-center align-middle sticky right-0 bg-inherit"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={isSelected || false}
+            onChange={() => onToggleSelect?.(record.id)}
+            className="rounded cursor-pointer"
+          />
+        </td>
+      )}
       {fields.map((f) => (
         <td
           key={f.id}
