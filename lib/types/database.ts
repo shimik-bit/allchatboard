@@ -58,6 +58,45 @@ export interface AgencyClient {
   updated_at: string;
 }
 
+/** Why an escalation was created. Drives UI prioritization and per-reason
+ *  routing rules in the future (e.g. complaints → manager). */
+export type EscalationReason =
+  | 'ai_uncertain'
+  | 'client_requested_human'
+  | 'complaint'
+  | 'schedule_conflict'
+  | 'payment_issue'
+  | 'out_of_scope'
+  | 'other';
+
+export type EscalationPriority = 'urgent' | 'normal' | 'low';
+
+export type EscalationStatus = 'open' | 'in_progress' | 'resolved' | 'dismissed';
+
+/** A row in the escalation queue — something the AI couldn't or shouldn't
+ *  handle alone, awaiting human review at /dashboard/inbox. */
+export interface Escalation {
+  id: string;
+  workspace_id: string;
+  record_id: string | null;
+  chat_id: string | null;
+  source_phone: string | null;
+  source_phone_id: string | null;
+  reason: EscalationReason;
+  priority: EscalationPriority;
+  status: EscalationStatus;
+  title: string | null;
+  last_message_excerpt: string | null;
+  ai_explanation: string | null;
+  assigned_to_user_id: string | null;
+  assigned_at: string | null;
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkspaceMember {
   id: string;
   workspace_id: string;
