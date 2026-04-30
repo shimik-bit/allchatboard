@@ -768,6 +768,7 @@ export default function TableClient({
               activeCell={activeCell}
               onCellActivate={(coord) => setCell(coord)}
               workspaceCode={workspaceCode}
+              tableId={table.id}
             />
           </div>
         )}
