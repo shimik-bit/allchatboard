@@ -15,6 +15,7 @@ export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
   selectedIds, onToggleSelect, onSelectAll,
   sort, onSortChange, activeCell, onCellActivate,
+  workspaceCode,
 }: {
   fields: Field[];
   records: RecordRow[];
@@ -35,6 +36,11 @@ export default function GridView({
   activeCell?: { row: number; col: number } | null;
   /** Called when a cell is clicked - sets the active cell */
   onCellActivate?: (coord: { row: number; col: number }) => void;
+  /** Workspace's short code (KBL, BEA, etc.) - rendered as a leading column
+      together with each record's record_number, e.g. "KBL-EXP-0042". This
+      gives accountants and multi-workspace users an unambiguous reference
+      for any record. Only shown when workspaceCode AND record_number exist. */
+  workspaceCode?: string | null;
 }) {
   const { t } = useT();
   if (records.length === 0) {
@@ -76,6 +82,14 @@ export default function GridView({
                   className="rounded cursor-pointer"
                   title="בחר הכל"
                 />
+              </th>
+            )}
+            {/* Global ID column — only renders when this workspace has a code
+                AND at least one record has a record_number. Otherwise it would
+                just be a column of em-dashes wasting horizontal real estate. */}
+            {workspaceCode && records.some((r) => r.record_number) && (
+              <th className="text-right px-2 sm:px-3 py-2 sm:py-2.5 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">
+                מזהה
               </th>
             )}
             {fields.map((f) => {
@@ -133,6 +147,8 @@ export default function GridView({
               onToggleSelect={onToggleSelect}
               activeCell={activeCell}
               onCellActivate={onCellActivate}
+              workspaceCode={workspaceCode}
+              showIdColumn={!!workspaceCode && records.some((rr) => rr.record_number)}
             />
           ))}
         </tbody>
@@ -141,6 +157,8 @@ export default function GridView({
             <SummaryRow
               fields={fields}
               records={records}
+              showCheckbox={selectedIds !== undefined}
+              showIdColumn={!!workspaceCode && records.some((r) => r.record_number)}
             />
           </tfoot>
         )}
@@ -153,6 +171,7 @@ function RecordRowComponent({
   record, rowIndex, fields, phones, onRowClick, onUpdate,
   isSelected, showCheckbox, onToggleSelect,
   activeCell, onCellActivate,
+  workspaceCode, showIdColumn,
 }: {
   record: RecordRow;
   rowIndex: number;
@@ -165,8 +184,18 @@ function RecordRowComponent({
   onToggleSelect?: (id: string) => void;
   activeCell?: { row: number; col: number } | null;
   onCellActivate?: (coord: { row: number; col: number }) => void;
+  workspaceCode?: string | null;
+  showIdColumn?: boolean;
 }) {
   const { t } = useT();
+  // Pre-compute the global ID once per row. Cheap since record_number rarely
+  // changes between renders. Returns null when either the workspace doesn't
+  // have a code or this specific record doesn't have a number yet (edge case
+  // for very old records pre-numbering migration).
+  const globalId =
+    workspaceCode && record.record_number
+      ? `${workspaceCode}-${record.record_number}`
+      : null;
   return (
     <tr
       onClick={onRowClick}
@@ -186,6 +215,20 @@ function RecordRowComponent({
             onChange={() => onToggleSelect?.(record.id)}
             className="rounded cursor-pointer"
           />
+        </td>
+      )}
+      {/* Global ID cell — only rendered when showIdColumn is true (i.e. the
+          workspace has a code AND at least some records have record_numbers).
+          The cell uses a monospace tabular-num font and gray text so it reads
+          as metadata, not data. Per-row em-dash fallback so unnumbered
+          records (very old, pre-numbering migration) still occupy the column. */}
+      {showIdColumn && (
+        <td
+          className="px-2 sm:px-3 py-2 align-middle whitespace-nowrap font-mono text-xs text-gray-500 tabular-nums"
+          onClick={(e) => e.stopPropagation()}
+          title={globalId ? `מזהה גלובלי: ${globalId}` : 'אין מזהה'}
+        >
+          {globalId || <span className="text-gray-300">—</span>}
         </td>
       )}
       {fields.map((f, colIndex) => {

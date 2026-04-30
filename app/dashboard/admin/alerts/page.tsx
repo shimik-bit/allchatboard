@@ -37,5 +37,12 @@ export default async function SystemAlertsPage() {
     );
   }
 
-  return <AlertsClient />;
+  // Detect whether email channel is actually deliverable. The system_alerts
+  // library throws "RESEND_API_KEY not configured" when the env var is
+  // missing — we can do that check here and surface it as a banner so the
+  // admin knows email alerts won't actually fire even if they enable the
+  // channel in settings.
+  const hasResendKey = !!process.env.RESEND_API_KEY;
+
+  return <AlertsClient emailConfigured={hasResendKey} />;
 }

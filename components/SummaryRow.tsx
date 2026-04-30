@@ -26,15 +26,28 @@ export default function SummaryRow({
   fields,
   records,
   canEdit = true,
+  showCheckbox = false,
+  showIdColumn = false,
 }: {
   fields: Field[];
   records: RecordRow[];
   canEdit?: boolean;
+  /** Whether the parent table has a leading checkbox column - if so we need
+      an empty td to keep the summary aligned with the field headers. */
+  showCheckbox?: boolean;
+  /** Whether the parent table has a leading global-ID column. Same idea. */
+  showIdColumn?: boolean;
 }) {
   return (
     <tr
       className="sticky bottom-0 bg-gradient-to-b from-gray-50 to-gray-100/95 backdrop-blur border-t-2 border-gray-200 font-medium z-10 shadow-[0_-4px_8px_-4px_rgba(0,0,0,0.05)]"
     >
+      {/* Empty leading cells to match the header layout. The order MUST match
+          the GridView header order: checkbox first (right side in RTL), then
+          global ID, then the field columns. */}
+      {showCheckbox && <td className="px-3 py-2"></td>}
+      {showIdColumn && <td className="px-2 sm:px-3 py-2"></td>}
+
       {/* First column: total record count */}
       <td className="px-4 py-2 text-sm whitespace-nowrap">
         <span className="text-gray-700 font-bold">

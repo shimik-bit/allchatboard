@@ -66,7 +66,14 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'אחר',
 };
 
-export default function AlertsClient() {
+export default function AlertsClient({
+  emailConfigured = true,
+}: {
+  /** When false, the page renders a banner explaining how to enable
+      email alerts. We compute this server-side from process.env so it
+      reflects the actual runtime config rather than a DB setting. */
+  emailConfigured?: boolean;
+} = {}) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +160,62 @@ export default function AlertsClient() {
             רענן
           </button>
         </div>
+
+        {/* Email channel config banner — appears when RESEND_API_KEY is missing.
+            Without that env var the email dispatcher in lib/system-alerts/index.ts
+            throws on every send attempt, so alerts only go to WhatsApp +
+            dashboard. We surface this here so the admin doesn't think email
+            alerts are silently working. */}
+        {!emailConfigured && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-100 grid place-items-center shrink-0">
+              <AlertCircle className="w-4 h-4 text-amber-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-amber-900 mb-1">
+                התראות במייל לא פעילות
+              </h3>
+              <p className="text-sm text-amber-800 mb-2">
+                כדי לקבל התראות במייל בנוסף ל-WhatsApp, יש להגדיר משתנה סביבה{' '}
+                <code className="px-1.5 py-0.5 bg-amber-100 rounded text-xs font-mono">
+                  RESEND_API_KEY
+                </code>{' '}
+                ב-Vercel.
+              </p>
+              <details className="text-xs text-amber-800">
+                <summary className="cursor-pointer hover:underline font-medium">
+                  הוראות הגדרה
+                </summary>
+                <ol className="mt-2 mr-4 space-y-1 list-decimal">
+                  <li>
+                    הירשמ/י ב-
+                    <a
+                      href="https://resend.com/signup"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-medium hover:text-amber-900"
+                    >
+                      resend.com
+                    </a>{' '}
+                    (3,000 מיילים בחודש בחינם)
+                  </li>
+                  <li>צרי API Key מ-Settings → API Keys</li>
+                  <li>
+                    הוסיפי לפרויקט ב-Vercel:{' '}
+                    <code className="px-1.5 py-0.5 bg-amber-100 rounded font-mono">
+                      vercel env add RESEND_API_KEY production
+                    </code>
+                  </li>
+                  <li>הדבק/י את הKey ולחץ Enter</li>
+                  <li>הפעל deploy מחדש - מספיק push ריק או trigger ידני ב-Vercel</li>
+                </ol>
+                <p className="mt-2 text-amber-700">
+                  💡 דרך אחרת: ב-Vercel UI → Settings → Environment Variables → Add New
+                </p>
+              </details>
+            </div>
+          </div>
+        )}
 
         {/* Summary tiles */}
         <div className="grid grid-cols-3 gap-4">

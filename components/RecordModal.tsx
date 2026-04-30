@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow } from '@/lib/types/database';
-import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft } from 'lucide-react';
+import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 import CityAutocomplete from '@/components/CityAutocomplete';
 import { useT } from '@/lib/i18n/useT';
@@ -31,10 +31,28 @@ export default function RecordModal({
   const [formData, setFormData] = useState<Record<string, any>>(record?.data || {});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Track approval state locally for optimistic UI; mirrors record.is_approved
+  // until the user takes action, then optimistically updates so the badge
+  // changes immediately without waiting for a refetch.
+  const [approvalState, setApprovalState] = useState<{
+    is_approved: boolean | null;
+    approved_by_name?: string | null;
+    rejection_reason?: string | null;
+  }>({
+    is_approved: record?.is_approved ?? null,
+    approved_by_name: record?.approved_by_name ?? null,
+    rejection_reason: record?.rejection_reason ?? null,
+  });
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
   useEffect(() => {
     setFormData(record?.data || {});
     setErrors({});
+    setApprovalState({
+      is_approved: record?.is_approved ?? null,
+      approved_by_name: record?.approved_by_name ?? null,
+      rejection_reason: record?.rejection_reason ?? null,
+    });
   }, [record]);
 
   // Close on ESC
@@ -89,6 +107,52 @@ export default function RecordModal({
       await onDelete(record.id);
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Approve or reject this record. Calls /api/records/[id]/approve which
+   * checks that the current user is in the table's approver_phone_ids list
+   * (or is workspace owner/admin). Updates approvalState optimistically.
+   *
+   * For rejection, prompts the user for a reason — this gets surfaced back
+   * to the original submitter via the WhatsApp confirmation thread.
+   */
+  const handleApproval = async (action: 'approve' | 'reject') => {
+    if (!record || approvalBusy) return;
+
+    let reason: string | null = null;
+    if (action === 'reject') {
+      reason = window.prompt('סיבת הדחייה (תוצג למבקש):');
+      if (reason === null) return; // user cancelled
+    }
+
+    setApprovalBusy(true);
+    try {
+      const res = await fetch(`/api/records/${record.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert('שגיאה: ' + (json.error || 'לא הצליח לעדכן'));
+        return;
+      }
+
+      // Optimistic update of the local approval state.
+      // The full record refresh happens when the parent re-fetches; for now
+      // we just flip the badge so the user sees immediate feedback.
+      setApprovalState({
+        is_approved: action === 'approve' ? true : false,
+        approved_by_name: json.approved_by_name || null,
+        rejection_reason: action === 'reject' ? reason : null,
+      });
+    } catch (e: any) {
+      alert('שגיאת רשת: ' + (e?.message || ''));
+    } finally {
+      setApprovalBusy(false);
     }
   };
 
@@ -177,6 +241,73 @@ export default function RecordModal({
             <RelatedRecordsSection recordId={record.id} />
           )}
         </div>
+
+        {/* Approval banner — shown for tables with approval_required.
+            Mid-modal placement (between content and footer) so it's
+            unmissable. Color-coded by current state:
+              - amber: pending (is_approved is null)
+              - emerald: approved
+              - rose: rejected (with the rejection reason if known)
+            Buttons only render when canEdit and the record is still pending,
+            because once it's been actioned the user shouldn't accidentally
+            flip it without a deliberate "reset" action (not built yet). */}
+        {!isNew && record && table.approval_required && (
+          <div className={`px-4 md:px-6 py-3 border-t border-gray-200 ${
+            approvalState.is_approved === true
+              ? 'bg-emerald-50/60'
+              : approvalState.is_approved === false
+              ? 'bg-rose-50/60'
+              : 'bg-amber-50/60'
+          }`}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-sm flex-1 min-w-0">
+                {approvalState.is_approved === true && (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span className="font-medium text-emerald-900">
+                      אושר{approvalState.approved_by_name ? ` על ידי ${approvalState.approved_by_name}` : ''}
+                    </span>
+                  </>
+                )}
+                {approvalState.is_approved === false && (
+                  <>
+                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <span className="font-medium text-rose-900 truncate">
+                      נדחה{approvalState.rejection_reason ? `: ${approvalState.rejection_reason}` : ''}
+                    </span>
+                  </>
+                )}
+                {approvalState.is_approved === null && (
+                  <>
+                    <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span className="font-medium text-amber-900">ממתין לאישור</span>
+                  </>
+                )}
+              </div>
+
+              {canEdit && approvalState.is_approved === null && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleApproval('approve')}
+                    disabled={approvalBusy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    אישור
+                  </button>
+                  <button
+                    onClick={() => handleApproval('reject')}
+                    disabled={approvalBusy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-rose-300 text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    דחייה
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer - sticky bottom action bar with mobile-friendly shadow */}
         <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-3 md:py-4 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:shadow-none md:bg-gray-50/50">
