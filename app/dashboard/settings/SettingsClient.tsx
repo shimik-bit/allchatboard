@@ -37,28 +37,79 @@ export default function SettingsClient({
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.business_description || '');
   const [color, setColor] = useState(workspace.primary_color);
+  // workspace_code controls the prefix in global record IDs (KBL-EXP-0042).
+  // Only owners can change it because changing it changes how every record
+  // appears externally (in WhatsApp confirmations, exports, etc.).
+  const [wsCode, setWsCode] = useState((workspace as any).workspace_code || '');
+  const [wsCodeError, setWsCodeError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
 
   const canEdit = myRole === 'owner' || myRole === 'admin';
   const isOwner = myRole === 'owner';
 
+  /** Validate workspace_code: 2-6 uppercase ASCII letters/digits.
+      Mirrors the DB constraint workspace_code_format so we fail fast in the UI
+      before hitting a 23514 from Postgres. */
+  function validateWsCode(code: string): string | null {
+    if (!code) return null; // empty is OK — server will keep existing value
+    const trimmed = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{2,6}$/.test(trimmed)) {
+      return 'הקוד חייב להיות 2-6 תווים, אותיות אנגליות גדולות או ספרות בלבד';
+    }
+    return null;
+  }
+
   async function handleSave() {
     if (!canEdit) return;
+
+    // Workspace code: only owners can change it because it's part of the
+    // global record ID — accidentally changing this would make all
+    // historical references in WhatsApp/exports look weird.
+    const codeChanged = wsCode.trim().toUpperCase() !== ((workspace as any).workspace_code || '');
+    if (codeChanged && !isOwner) {
+      setSavedMsg('רק בעלים יכול לשנות את קוד החלל');
+      return;
+    }
+
+    if (codeChanged) {
+      const err = validateWsCode(wsCode);
+      if (err) {
+        setWsCodeError(err);
+        return;
+      }
+      setWsCodeError(null);
+    }
+
     setSaving(true);
     setSavedMsg('');
+
+    // Build the update payload conditionally so we only send fields the
+    // user actually has permission to change.
+    const update: any = {
+      name: name.trim(),
+      business_description: description.trim() || null,
+      primary_color: color,
+    };
+    if (codeChanged && isOwner) {
+      update.workspace_code = wsCode.trim().toUpperCase();
+    }
+
     const { error } = await supabase
       .from('workspaces')
-      .update({
-        name: name.trim(),
-        business_description: description.trim() || null,
-        primary_color: color,
-      })
+      .update(update)
       .eq('id', workspace.id);
 
     setSaving(false);
     if (error) {
-      setSavedMsg(t('errors.save_failed') + ': ' + error.message);
+      // Postgres unique-violation on workspace_code is code 23505
+      if (error.code === '23505') {
+        setWsCodeError('הקוד כבר תפוס על ידי חלל אחר');
+      } else if (error.code === '23514') {
+        setWsCodeError('הקוד לא תקין (חייב 2-6 תווים A-Z או 0-9)');
+      } else {
+        setSavedMsg(t('errors.save_failed') + ': ' + error.message);
+      }
     } else {
       setSavedMsg(t('records.saved') + ' ✓');
       setTimeout(() => setSavedMsg(''), 3000);
@@ -134,6 +185,52 @@ export default function SettingsClient({
               placeholder="תיאור קצר (עוזר ל-AI לסווג הודעות טוב יותר)"
               className="input-field"
             />
+          </div>
+
+          {/* Workspace code: short identifier used as a prefix in global
+              record IDs (KBL-EXP-0042). Only owners can edit. The input
+              auto-uppercases on blur because the DB stores uppercase only. */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              קוד חלל עבודה
+              {!isOwner && (
+                <span className="mr-2 text-xs text-gray-400">(רק בעלים יכול לשנות)</span>
+              )}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={wsCode}
+                onChange={(e) => {
+                  setWsCode(e.target.value.toUpperCase());
+                  setWsCodeError(null);
+                }}
+                onBlur={(e) => setWsCode(e.target.value.trim().toUpperCase())}
+                disabled={!isOwner || saving}
+                maxLength={6}
+                placeholder="KBL"
+                className={`input-field uppercase tracking-wider font-mono text-center max-w-[140px] ${
+                  wsCodeError ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''
+                }`}
+                aria-invalid={!!wsCodeError}
+                aria-describedby={wsCodeError ? 'ws-code-error' : 'ws-code-help'}
+              />
+              <div className="text-xs text-gray-500">
+                <code className="px-1.5 py-0.5 bg-gray-100 rounded font-mono">
+                  {wsCode || 'KBL'}-EXP-0042
+                </code>
+              </div>
+            </div>
+            {wsCodeError ? (
+              <p id="ws-code-error" className="mt-1.5 text-xs text-red-600">
+                {wsCodeError}
+              </p>
+            ) : (
+              <p id="ws-code-help" className="mt-1.5 text-xs text-gray-500">
+                2-6 תווים באנגלית/ספרות. משמש כקידומת במזהי רשומות גלובליים
+                (כך רואי חשבון יודעים מאיזה עסק הרשומה).
+              </p>
+            )}
           </div>
 
           <div>
