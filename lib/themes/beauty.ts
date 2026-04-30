@@ -32,6 +32,19 @@ export const beautyTheme: Theme = {
     textBody:    '#3d2535',  // deep wine, softer than black
     textMuted:   '#8a6b78',
     border:      '#f5e0d8',
+    // Tailwind brand palette - dusty rose family.
+    // Each shade is the equivalent saturation/lightness step of the primary
+    // color so existing brand-50/brand-700 etc. all read as a coherent rose
+    // ramp. Generated via HSL adjustment, not just darken/lighten of one hex.
+    brandPalette: {
+      '50':  '253 242 239', // #fdf2ef - barely tinted cream
+      '100': '251 228 221', // #fbe4dd - very soft blush
+      '400': '201 113 149', // #c97195 - mid rose
+      '500': '168 82 122',  // #a8527a - the primary
+      '600': '138 63 99',   // #8a3f63 - hover state
+      '700': '106 47 76',   // #6a2f4c - deep wine rose
+      '900': '60 23 41',    // #3c1729 - near-black wine
+    },
   },
 
   typography: {
