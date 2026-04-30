@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGrid, MessageSquare, Database, TrendingUp, BookOpen, Code, FileText, ArrowLeft } from 'lucide-react';
 import { getT } from '@/lib/i18n/server';
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id, workspaces(locale, vertical, name)')
+    .select('workspace_id, workspaces(locale, vertical, name, type)')
     .eq('user_id', user.id)
     .limit(1)
     .single();
@@ -27,6 +28,16 @@ export default async function DashboardPage() {
   const ws = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces;
   const locale: Locale = isValidLocale((ws as any)?.locale) ? (ws as any).locale : DEFAULT_LOCALE;
   const { t } = getT(locale);
+
+  // Workspace-type routing: agency workspaces show the Agency Hub (a list of
+  // managed clients), not the regular records dashboard. We use redirect()
+  // rather than rendering inline because the Agency Hub has its own URL —
+  // users should be able to bookmark it, share it, and the URL bar should
+  // reflect where they actually are.
+  const wsType = (ws as any)?.type || 'standalone';
+  if (wsType === 'agency') {
+    redirect('/dashboard/agency');
+  }
 
   // Vertical-aware routing: if this workspace has a vertical-specific dashboard,
   // render that instead of the generic stats overview. The layout above already

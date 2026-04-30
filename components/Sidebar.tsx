@@ -210,6 +210,37 @@ export default function Sidebar({
           )}
         </div>
 
+      {/* Agency context bar — shown when:
+          - The current workspace is type='agency' → link back to Agency Hub
+          - The current workspace is type='client' → "managed by X" badge
+          Both cases give the user clear context about WHERE they are in the
+          agency-client hierarchy, so they don't get confused after switching
+          into a client from the hub. */}
+      {(workspace as any).type === 'agency' && (
+        <Link
+          href="/dashboard/agency"
+          className={`mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+            pathname === '/dashboard/agency' || pathname?.startsWith('/dashboard/agency/')
+              ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300'
+              : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+          }`}
+        >
+          <span className="text-base">👑</span>
+          חלל סוכנות
+        </Link>
+      )}
+      {(workspace as any).type === 'client' && (
+        <div className="mx-3 mb-2 px-3 py-2 rounded-lg text-xs bg-blue-50 text-blue-800 ring-1 ring-blue-100">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span>🏢</span>
+            לקוח של סוכנות
+          </div>
+          <div className="text-blue-600/80 mt-0.5 text-[11px]">
+            חלל זה מנוהל על ידי סוכנות חיצונית
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       {/* pb-safe: extra bottom padding to clear iOS home-indicator (the bar at the
           bottom of the screen on phones without home button) - otherwise the last
