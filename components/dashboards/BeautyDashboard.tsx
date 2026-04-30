@@ -33,6 +33,9 @@ export interface BeautyDashboardData {
     appointmentsThisWeek: number;
     revenueThisMonth: number;
     averageRating: number | null;
+    /** How many appointments contributed to the average. Used to render
+        "מתוך X ביקורות" so the rating has context. */
+    ratingCount: number;
   };
   /** Whether the workspace has the beauty template installed yet */
   hasBeautyTables: boolean;
@@ -140,12 +143,22 @@ export default function BeautyDashboard({ data }: { data: BeautyDashboardData })
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <StatPill icon="💖" label="לקוחות פעילות" value={data.stats.clientCount.toString()} note="סך הכל" theme={theme} />
           <StatPill icon="📅" label="פגישות השבוע" value={data.stats.appointmentsThisWeek.toString()} note="בלוח זמנים" theme={theme} />
-          <StatPill icon="✨" label="הכנסה החודש" value={`₪${data.stats.revenueThisMonth.toLocaleString()}`} note="מצטבר" theme={theme} />
+          <StatPill
+            icon="✨"
+            label="הכנסה החודש"
+            value={`₪${data.stats.revenueThisMonth.toLocaleString()}`}
+            note={data.stats.revenueThisMonth === 0 ? 'אין עדיין' : 'מצטבר השבוע'}
+            theme={theme}
+          />
           <StatPill
             icon="⭐"
             label="דירוג ממוצע"
             value={data.stats.averageRating ? data.stats.averageRating.toFixed(1) : '—'}
-            note={data.stats.averageRating ? 'מהלקוחות' : 'אין דירוגים'}
+            note={
+              data.stats.averageRating
+                ? `מתוך ${data.stats.ratingCount} ביקורות`
+                : 'אין דירוגים עדיין'
+            }
             theme={theme}
           />
         </section>
