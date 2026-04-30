@@ -48,6 +48,11 @@ export interface Table {
   is_archived: boolean;
   created_at: string;
   updated_at: string;
+  // Approval workflow fields - optional because not every workspace uses them.
+  // When approval_required=true, new records start with is_approved=null and
+  // need an authorized phone (in approver_phone_ids) to call /api/records/[id]/approve.
+  approval_required?: boolean;
+  approver_phone_ids?: string[] | null;
 }
 
 // Field types
@@ -112,6 +117,18 @@ export interface RecordRow {
   status_updated_by: string | null;
   created_at: string;
   updated_at: string;
+  // Approval workflow (only set when the table has approval_required=true)
+  is_approved?: boolean | null;
+  approved_at?: string | null;
+  approved_by_phone_id?: string | null;
+  approved_by_name?: string | null;
+  rejected_at?: string | null;
+  rejected_by_phone_id?: string | null;
+  rejection_reason?: string | null;
+  // Local record number (e.g. "EXP-0042"), separate from id (UUID).
+  // Combined with workspace_code via get_global_record_id() it becomes
+  // the globally-unique "KBL-EXP-0042" identifier.
+  record_number?: string | null;
   // Optional joined data
   _creator_name?: string | null;
   _phone_name?: string | null;

@@ -45,6 +45,7 @@ export default function TableClient({
   phones,
   userRole,
   focusRecordId,
+  workspaceCode,
 }: {
   table: Table;
   fields: Field[];
@@ -53,6 +54,9 @@ export default function TableClient({
   phones: PhoneOption[];
   userRole: MemberRole;
   focusRecordId?: string | null;
+  /** Workspace's 2-6 char code (e.g. "KBL"). Combined with each record's
+      record_number to form the global ID "KBL-EXP-0042" shown in the table. */
+  workspaceCode?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -763,6 +767,7 @@ export default function TableClient({
               onSortChange={(fieldSlug) => setSort(cycleSortState(sort, fieldSlug))}
               activeCell={activeCell}
               onCellActivate={(coord) => setCell(coord)}
+              workspaceCode={workspaceCode}
             />
           </div>
         )}

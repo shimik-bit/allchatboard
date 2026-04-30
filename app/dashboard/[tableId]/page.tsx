@@ -13,14 +13,24 @@ export default async function TablePage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  // Get table and verify access
+  // Get table and verify access. Joining workspaces to also pull
+  // workspace_code, which we need for the global record IDs (KBL-EXP-0042
+  // is the workspace_code + record_number of each record).
   const { data: table, error: tableError } = await supabase
     .from('tables')
-    .select('*')
+    .select('*, workspaces(workspace_code, vertical)')
     .eq('id', params.tableId)
     .single();
 
   if (tableError || !table) notFound();
+
+  // Pull the joined workspace fields up to top-level so they're easy to pass.
+  // Supabase returns the joined row as either an object or array depending on
+  // foreign key config, so we normalize.
+  const joinedWs = Array.isArray((table as any).workspaces)
+    ? (table as any).workspaces[0]
+    : (table as any).workspaces;
+  const workspaceCode: string | null = joinedWs?.workspace_code ?? null;
 
   // Check user is member of this workspace
   const { data: membership } = await supabase
@@ -81,6 +91,7 @@ export default async function TablePage({
       phones={phones || []}
       userRole={membership.role}
       focusRecordId={searchParams.focus || null}
+      workspaceCode={workspaceCode}
     />
   );
 }
