@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
-  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp,
+  ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp, Inbox,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -46,6 +46,30 @@ export default function Sidebar({
   // toggled via a hamburger button. On desktop, this state is irrelevant —
   // the sidebar is always visible thanks to md:translate-x-0 below.
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Open escalation count for the inbox badge. Polled every 30s as a cheap
+  // approximation of real-time — proper WebSocket subscriptions could come
+  // later but for the MVP, polling is good enough and uses no extra infra.
+  // Resets when the workspace changes (different workspace = different count).
+  const [openEscalationCount, setOpenEscalationCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCount() {
+      try {
+        const { count } = await supabase
+          .from('escalations')
+          .select('id', { count: 'exact', head: true })
+          .eq('workspace_id', workspace.id)
+          .eq('status', 'open');
+        if (!cancelled) setOpenEscalationCount(count || 0);
+      } catch {
+        // Silent on error — badge just stays at last known value
+      }
+    }
+    loadCount();
+    const t = setInterval(loadCount, 30000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [workspace.id, supabase]);
 
   // Auto-close the drawer when the user navigates to a new page. Without
   // this, tapping a link on mobile would change the route but leave the
@@ -261,6 +285,30 @@ export default function Sidebar({
           <span className={`mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
             pathname === '/dashboard/focus' ? 'bg-white/20' : 'bg-purple-200 text-purple-700'
           }`}>AI</span>
+        </Link>
+
+        {/* Inbox - escalation queue. Badge shows # open escalations.
+            We render a non-zero badge in red so it's hard to ignore — these are
+            things waiting for human attention, after all. */}
+        <Link
+          href="/dashboard/inbox"
+          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold mb-2 transition-all ${
+            pathname === '/dashboard/inbox' || pathname?.startsWith('/dashboard/inbox/')
+              ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md'
+              : 'bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 hover:shadow-sm border border-amber-100'
+          }`}
+        >
+          <Inbox className="w-4 h-4" />
+          <span>תיבה נכנסת</span>
+          {openEscalationCount > 0 && (
+            <span className={`mr-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+              pathname === '/dashboard/inbox' || pathname?.startsWith('/dashboard/inbox/')
+                ? 'bg-white/30 text-white'
+                : 'bg-red-500 text-white'
+            }`}>
+              {openEscalationCount}
+            </span>
+          )}
         </Link>
 
         {/* Cashflow Dashboard - prominent */}
