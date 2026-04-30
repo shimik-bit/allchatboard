@@ -197,3 +197,86 @@ body {
   border-color: #d4801a;
 }
 .rtl-prose .callout.warning strong { color: #b06005; }
+
+/* ============================================================================
+   WhatsApp Web style - chat thread background
+   ============================================================================
+   Authentic WhatsApp Web look: muted beige base with a subtle repeating
+   doodle pattern. The pattern is an inline SVG so we don't need an extra
+   asset, and color-controlled via a low-opacity layer so it works on both
+   light and dark themes.
+
+   Used by the escalation inbox thread pane to give it a "chat" feel
+   instead of "form" feel. Visual cue that this is conversational, not data.
+============================================================================ */
+.wa-chat-bg {
+  background-color: #efeae2;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'><g fill='%23d1c4b5' fill-opacity='0.35'><circle cx='40' cy='40' r='3'/><circle cx='100' cy='80' r='2'/><circle cx='180' cy='50' r='2.5'/><circle cx='240' cy='110' r='2'/><circle cx='80' cy='160' r='3'/><circle cx='160' cy='200' r='2'/><circle cx='220' cy='240' r='2.5'/><circle cx='30' cy='220' r='2'/><circle cx='130' cy='250' r='2'/><path d='M 50 100 Q 60 95 70 100 T 90 100' stroke='%23d1c4b5' stroke-width='1.2' fill='none' opacity='0.5'/><path d='M 150 30 Q 165 25 180 30' stroke='%23d1c4b5' stroke-width='1.2' fill='none' opacity='0.5'/><path d='M 200 150 Q 215 145 230 150' stroke='%23d1c4b5' stroke-width='1.2' fill='none' opacity='0.5'/><path d='M 60 250 Q 75 245 90 250' stroke='%23d1c4b5' stroke-width='1.2' fill='none' opacity='0.5'/></g></svg>");
+  background-repeat: repeat;
+}
+
+/* WhatsApp message bubble shapes - the iconic "tail" on the corner.
+   We use clip-path on a pseudo-element to draw the tail without an extra
+   <span>. The bubble itself stays a normal rounded box so text reflow
+   works correctly. */
+.wa-bubble-out {
+  background: #d9fdd3;        /* Their iconic light green for outbound */
+  border-radius: 7.5px;
+  border-top-right-radius: 0; /* RTL: tail visually attaches to the right */
+  position: relative;
+}
+.wa-bubble-out::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 8px;
+  height: 13px;
+  background: #d9fdd3;
+  clip-path: polygon(0 0, 0% 100%, 100% 0);
+}
+
+.wa-bubble-in {
+  background: #ffffff;
+  border-radius: 7.5px;
+  border-top-left-radius: 0; /* RTL: tail attaches to the left */
+  position: relative;
+}
+.wa-bubble-in::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 8px;
+  height: 13px;
+  background: #ffffff;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+
+/* Date separator pill - WhatsApp style centered badge */
+.wa-date-pill {
+  display: inline-block;
+  padding: 5px 12px;
+  background: rgba(225, 245, 254, 0.92);
+  color: #54656f;
+  font-size: 12.5px;
+  border-radius: 7.5px;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+
+/* WhatsApp green palette helpers - readable shorthand for the inbox */
+.wa-green-bg     { background-color: #00a884; }
+.wa-green-bg-hover:hover { background-color: #008f6f; }
+.wa-green-text   { color: #00a884; }
+.wa-header-bg    { background-color: #f0f2f5; }
+.wa-list-bg      { background-color: #ffffff; }
+.wa-list-active  { background-color: #f0f2f5; }
+.wa-list-hover:hover { background-color: #f5f6f6; }
+
+/* Search highlighting - yellow background like every search UI ever */
+.wa-search-hit {
+  background: #faf267;
+  color: #111;
+  padding: 0 2px;
+  border-radius: 2px;
+}
