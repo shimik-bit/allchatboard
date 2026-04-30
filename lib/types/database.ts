@@ -2,6 +2,15 @@
 export type WorkspacePlan = 'trial' | 'starter' | 'business' | 'enterprise';
 export type MemberRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
+/** A workspace's organizational role.
+ *  - standalone: a regular business that owns itself (default for all
+ *    existing workspaces).
+ *  - agency: a workspace that manages OTHER workspaces (accountants, agencies,
+ *    salon chain HQs). Sees an "Agency Hub" instead of a regular dashboard.
+ *  - client: a workspace managed by an agency. Shows a "managed by X" badge
+ *    in its UI but otherwise behaves like a standalone for its own users. */
+export type WorkspaceType = 'standalone' | 'agency' | 'client';
+
 export interface Workspace {
   id: string;
   name: string;
@@ -24,6 +33,29 @@ export interface Workspace {
       ("KBL-EXP-0042"). Auto-derived from name on creation; editable in settings
       by owners only. */
   workspace_code?: string | null;
+  /** Organizational role of this workspace - see WorkspaceType. */
+  type?: WorkspaceType;
+  /** Emoji or short string shown next to the workspace name in the sidebar. */
+  icon?: string | null;
+}
+
+/** Bridges an agency workspace to a client workspace it manages. Read by
+ *  the Agency Hub to populate the client list, and by RLS to grant agency
+ *  members access to client data. */
+export interface AgencyClient {
+  id: string;
+  agency_workspace_id: string;
+  client_workspace_id: string;
+  /** Internal-to-agency nickname for the client. Doesn't affect the client's
+      own name — the client still calls themselves whatever they call themselves. */
+  nickname: string | null;
+  can_view: boolean;
+  can_edit: boolean;
+  can_manage_members: boolean;
+  can_view_finances: boolean;
+  created_at: string;
+  created_by: string | null;
+  updated_at: string;
 }
 
 export interface WorkspaceMember {
