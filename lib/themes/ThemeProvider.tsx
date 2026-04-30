@@ -78,7 +78,7 @@ export function ThemeProvider({ vertical, children }: ThemeProviderProps) {
   // Compose CSS variables for the theme. These are inherited by all
   // descendants so any component can read them via var(--theme-X).
   const cssVars: React.CSSProperties = {
-    // Colors
+    // Theme tokens — these are what new vertical-aware components consume directly
     ['--theme-primary' as any]:        theme.colors.primary,
     ['--theme-primary-dark' as any]:   theme.colors.primaryDark,
     ['--theme-primary-tint' as any]:   theme.colors.primaryTint,
@@ -97,6 +97,23 @@ export function ThemeProvider({ vertical, children }: ThemeProviderProps) {
     ['--theme-font-body' as any]:      theme.typography.bodyFont,
     fontFamily: theme.typography.bodyFont,
   };
+
+  // Brand palette overrides — when the theme provides a brandPalette,
+  // override the Tailwind --brand-* CSS variables so that EVERY existing
+  // className like bg-brand-500 / text-brand-700 / focus:ring-brand-500/20
+  // automatically adopts the vertical's color, without changing any markup.
+  if (theme.colors.brandPalette) {
+    const p = theme.colors.brandPalette;
+    Object.assign(cssVars, {
+      ['--brand-50' as any]:  p['50'],
+      ['--brand-100' as any]: p['100'],
+      ['--brand-400' as any]: p['400'],
+      ['--brand-500' as any]: p['500'],
+      ['--brand-600' as any]: p['600'],
+      ['--brand-700' as any]: p['700'],
+      ['--brand-900' as any]: p['900'],
+    });
+  }
 
   return (
     <ThemeContext.Provider value={theme}>

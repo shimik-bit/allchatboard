@@ -9,6 +9,17 @@
   --foreground: 17 17 23;
   --muted: 247 247 250;
   --border: 229 229 235;
+
+  /* Default brand palette = the original purple. ThemeProvider overrides
+     these on the dashboard root for vertical-themed workspaces. Values are
+     space-separated RGB triples (Tailwind's alpha-value syntax expects this). */
+  --brand-50:  245 243 255;
+  --brand-100: 237 233 254;
+  --brand-400: 167 139 250;
+  --brand-500: 139 92 246;
+  --brand-600: 124 58 237;
+  --brand-700: 109 40 217;
+  --brand-900: 76 29 149;
 }
 
 * {

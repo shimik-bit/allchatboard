@@ -37,6 +37,25 @@ export interface ThemeColors {
   textMuted: string;
   /** Border color */
   border: string;
+  /**
+   * Optional brand palette overrides. When provided, these REPLACE the
+   * --brand-50..900 CSS variables that Tailwind reads. Values must be
+   * space-separated RGB triples (e.g. "168 82 122" not "#a8527a") because
+   * that's what Tailwind's alpha-value syntax expects.
+   *
+   * Setting this lets every existing className="bg-brand-500" instantly
+   * adopt the vertical's color without any code changes — sidebar
+   * highlights, focus rings, button gradients, the lot.
+   */
+  brandPalette?: {
+    '50':  string;
+    '100': string;
+    '400': string;
+    '500': string;
+    '600': string;
+    '700': string;
+    '900': string;
+  };
 }
 
 export interface ThemeTypography {
