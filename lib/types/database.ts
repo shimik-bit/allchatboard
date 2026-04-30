@@ -20,6 +20,10 @@ export interface Workspace {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** 2-6 char identifier (e.g. "KBL"). Used as a prefix in global record IDs
+      ("KBL-EXP-0042"). Auto-derived from name on creation; editable in settings
+      by owners only. */
+  workspace_code?: string | null;
 }
 
 export interface WorkspaceMember {

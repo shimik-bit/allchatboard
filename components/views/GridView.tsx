@@ -10,12 +10,13 @@ import RelationCell from '@/components/RelationCell';
 import SummaryRow from '@/components/SummaryRow';
 import { useT } from '@/lib/i18n/useT';
 import type { SortState } from '@/lib/grid/sort';
+import { useColumnWidths } from '@/lib/hooks/useColumnWidths';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
   selectedIds, onToggleSelect, onSelectAll,
   sort, onSortChange, activeCell, onCellActivate,
-  workspaceCode,
+  workspaceCode, tableId,
 }: {
   fields: Field[];
   records: RecordRow[];
@@ -41,7 +42,11 @@ export default function GridView({
       gives accountants and multi-workspace users an unambiguous reference
       for any record. Only shown when workspaceCode AND record_number exist. */
   workspaceCode?: string | null;
+  /** Table ID — used to scope per-column-width localStorage entries so each
+      table remembers its own custom widths separately. */
+  tableId?: string;
 }) {
+  const { widths, setWidth } = useColumnWidths(tableId || 'default');
   const { t } = useT();
   if (records.length === 0) {
     return (
@@ -64,8 +69,13 @@ export default function GridView({
           this gives natural horizontal scroll on mobile while looking normal
           on desktop. */}
       <table className="text-sm table-auto min-w-max">
-        <thead>
-          <tr className="border-b border-gray-200 bg-gray-50/50">
+        {/* Sticky thead - column headers stay visible during vertical scroll.
+            top-0 anchors to the scroll container (the parent overflow-x-auto
+            div). The bg-gray-50 ensures rows underneath don't bleed through.
+            z-20 keeps it above the active-cell ring (z-10) and below the
+            tfoot summary (also z-10) — order works because tfoot sticks bottom. */}
+        <thead className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur shadow-sm">
+          <tr className="border-b border-gray-200">
             {selectedIds !== undefined && onSelectAll && (
               <th className="px-3 py-2.5 text-center w-10 sticky right-0 bg-gray-50/50">
                 <input
@@ -95,14 +105,17 @@ export default function GridView({
             {fields.map((f) => {
               const isSorted = sort?.fieldSlug === f.slug;
               const sortDir = isSorted ? sort!.direction : null;
+              const customWidth = widths[f.slug];
               return (
                 <th
                   key={f.id}
-                  className={`text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-700 whitespace-nowrap ${
+                  data-field-slug={f.slug}
+                  className={`text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium text-gray-700 whitespace-nowrap relative ${
                     onSortChange ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
                   } ${isSorted ? 'bg-emerald-50/50 text-emerald-800' : ''}`}
                   onClick={onSortChange ? () => onSortChange(f.slug) : undefined}
-                  title={onSortChange ? 'לחץ למיון' : undefined}
+                  title={onSortChange ? 'לחץ למיון · גרור את הקצה לשינוי רוחב' : undefined}
+                  style={customWidth ? { width: customWidth, minWidth: customWidth, maxWidth: customWidth } : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
                     {f.name}
@@ -111,6 +124,38 @@ export default function GridView({
                     {sortDir === 'asc' && <ArrowUp className="w-3 h-3 text-emerald-600" />}
                     {sortDir === 'desc' && <ArrowDown className="w-3 h-3 text-emerald-600" />}
                   </span>
+                  {/* Resize handle - thin draggable strip on the LEFT edge.
+                      In RTL, "left" of a header visually means the boundary
+                      between this column and the next one (since columns
+                      flow right-to-left). Mouse-down here begins a drag;
+                      mousemove updates width via setWidth; mouseup ends.
+                      We skip this on the rightmost column (sticky to right
+                      edge) to avoid the handle being cut off. */}
+                  <ResizeHandle
+                    onResize={(deltaPx) => {
+                      const currentWidth =
+                        customWidth ??
+                        // Read the current rendered width as the starting
+                        // baseline when the user has never resized this col
+                        // before. We wrap in a tiny try/catch because some
+                        // server-side renders don't have getBoundingClientRect.
+                        (() => {
+                          try {
+                            const el = document.querySelector(
+                              `[data-field-slug="${f.slug}"]`
+                            ) as HTMLElement | null;
+                            return el?.getBoundingClientRect().width ?? 150;
+                          } catch {
+                            return 150;
+                          }
+                        })();
+                      // In RTL, dragging the handle TO THE LEFT widens the
+                      // column (the column extends further left). In LTR
+                      // it'd be the opposite. Since the dashboard is locked
+                      // RTL, we negate the delta.
+                      setWidth(f.slug, currentWidth - deltaPx);
+                    }}
+                  />
                 </th>
               );
             })}
@@ -149,6 +194,7 @@ export default function GridView({
               onCellActivate={onCellActivate}
               workspaceCode={workspaceCode}
               showIdColumn={!!workspaceCode && records.some((rr) => rr.record_number)}
+              columnWidths={widths}
             />
           ))}
         </tbody>
@@ -171,7 +217,7 @@ function RecordRowComponent({
   record, rowIndex, fields, phones, onRowClick, onUpdate,
   isSelected, showCheckbox, onToggleSelect,
   activeCell, onCellActivate,
-  workspaceCode, showIdColumn,
+  workspaceCode, showIdColumn, columnWidths,
 }: {
   record: RecordRow;
   rowIndex: number;
@@ -186,6 +232,9 @@ function RecordRowComponent({
   onCellActivate?: (coord: { row: number; col: number }) => void;
   workspaceCode?: string | null;
   showIdColumn?: boolean;
+  /** Map of fieldSlug → custom width (px). Cells with a custom width get
+      style.width applied so the row's td widths track the th widths. */
+  columnWidths?: Record<string, number>;
 }) {
   const { t } = useT();
   // Pre-compute the global ID once per row. Cheap since record_number rarely
@@ -233,14 +282,22 @@ function RecordRowComponent({
       )}
       {fields.map((f, colIndex) => {
         const isActive = activeCell?.row === rowIndex && activeCell?.col === colIndex;
+        // Apply the same custom width as the header so columns line up.
+        // When no custom width, fall back to Tailwind's max-w utilities.
+        const customWidth = columnWidths?.[f.slug];
         return (
           <td
             key={f.id}
-            className={`px-2 sm:px-4 py-2 align-top max-w-[200px] sm:max-w-[280px] transition-shadow ${
-              isActive ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/40' : ''
-            }`}
+            className={`px-2 sm:px-4 py-2 align-top transition-shadow ${
+              !customWidth ? 'max-w-[200px] sm:max-w-[280px]' : ''
+            } ${isActive ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/40' : ''}`}
             data-cell-row={rowIndex}
             data-cell-col={colIndex}
+            style={
+              customWidth
+                ? { width: customWidth, minWidth: customWidth, maxWidth: customWidth }
+                : undefined
+            }
             onClick={(e) => {
               // Single click → set as active. Double click is what actually
               // edits, handled by EditableCell (existing behavior).
@@ -493,6 +550,62 @@ function EditableCell({
   );
 }
 
+/**
+ * ResizeHandle — invisible drag-handle strip rendered on the column boundary.
+ *
+ * Pointer down: capture the start position. Pointer move: emit deltas to
+ * the parent header which decides what the new width is. Pointer up:
+ * release and dispatch a final resize.
+ *
+ * Visual: 4px wide strip flush against the column edge. Becomes a blue line
+ * only on hover so the headers don't look noisy when not in use.
+ *
+ * Why pointer events instead of mouse events? Pointer events normalize
+ * touch + mouse + pen, and pointer capture means we keep getting moves
+ * even if the cursor leaves the element — which it will when the column
+ * gets narrow.
+ */
+function ResizeHandle({ onResize }: { onResize: (deltaPx: number) => void }) {
+  const startXRef = useRef<number | null>(null);
+
+  return (
+    <div
+      // Position: absolutely placed at the start (left in RTL) of the cell.
+      // The 1px width with 4px hit area trick = visible strip is 1px but
+      // pointer hit zone is ~5px so it's easier to grab.
+      className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-brand-500 transition-colors"
+      // Stop sort from firing when user clicks the handle
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        startXRef.current = e.clientX;
+        // Capture so we keep getting moves even when leaving the strip
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (startXRef.current === null) return;
+        const delta = e.clientX - startXRef.current;
+        // Throttle: only fire once we've moved at least 1px
+        if (Math.abs(delta) < 1) return;
+        onResize(delta);
+        startXRef.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        startXRef.current = null;
+        try {
+          (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore — capture might already be released
+        }
+      }}
+      onPointerCancel={() => {
+        startXRef.current = null;
+      }}
+    />
+  );
+}
+
 function SelectCell({
   field, record, value, onChange,
 }: {
@@ -621,6 +734,10 @@ function TextCell({
   const [draft, setDraft] = useState(value?.toString() ?? '');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The cell wrapper is focusable so it can receive keyboard events even
+  // when not in edit mode. tabIndex=-1 keeps it out of the tab cycle but
+  // still focusable programmatically.
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editing && inputRef.current) inputRef.current.select();
@@ -661,9 +778,49 @@ function TextCell({
 
   return (
     <div
-      onClick={(e) => { e.stopPropagation(); setEditing(true); setDraft(value?.toString() ?? ''); }}
-      className="cursor-text hover:bg-gray-100 -mx-1 px-1 py-0.5 rounded min-h-[1.5rem]"
-      title={t('common.edit')}
+      ref={wrapRef}
+      tabIndex={-1}
+      onClick={(e) => {
+        // First click on a cell selects it (the parent td handles activation
+        // via the data-cell-row/col attributes). We don't auto-open the
+        // editor on first click — that's now reserved for double-click,
+        // matching Excel/Sheets convention.
+        e.stopPropagation();
+      }}
+      onDoubleClick={(e) => {
+        // Double-click opens the inline editor — this is the Excel pattern
+        // users already expect.
+        e.stopPropagation();
+        setDraft(value?.toString() ?? '');
+        setEditing(true);
+      }}
+      onKeyDown={(e) => {
+        // F2 or Enter on a focused but-not-editing cell opens the editor.
+        // We don't preventDefault on Enter inside an input (handled in the
+        // editor block above), only when the cell is the focused element.
+        if (e.key === 'F2' || e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          setDraft(value?.toString() ?? '');
+          setEditing(true);
+          return;
+        }
+        // Typing a printable character opens the editor with that char as
+        // the new initial value (Excel: "type to overwrite"). Filter out
+        // navigation keys, modifiers, and special keys that shouldn't
+        // accidentally start an edit.
+        if (
+          e.key.length === 1 &&
+          !e.ctrlKey && !e.metaKey && !e.altKey
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          setDraft(e.key);
+          setEditing(true);
+        }
+      }}
+      className="cursor-text hover:bg-gray-100 -mx-1 px-1 py-0.5 rounded min-h-[1.5rem] focus:outline-none"
+      title={`${t('common.edit')} (לחיצה כפולה / F2)`}
     >
       <DisplayValue field={field} value={value} />
     </div>
