@@ -18,6 +18,15 @@ type Permission = {
   id: string;
   member_id: string;
   permission: PermissionLevel;
+  hidden_fields: string[] | null;
+  visible_fields: string[] | null;
+};
+
+type FieldInfo = {
+  id: string;
+  slug: string;
+  name: string;
+  type: string;
 };
 
 export default function TablePermissionsModal({
@@ -35,6 +44,14 @@ export default function TablePermissionsModal({
   const [accessMode, setAccessMode] = useState<AccessMode>('open');
   const [members, setMembers] = useState<Member[]>([]);
   const [overrides, setOverrides] = useState<Map<string, PermissionLevel>>(new Map());
+  // Per-member hidden fields (deny-list of field slugs). Only populated for
+  // members who actually have a permission override AND want to restrict
+  // some fields. Members without any override are not in this map at all.
+  const [hiddenFieldsMap, setHiddenFieldsMap] = useState<Map<string, string[]>>(new Map());
+  // Available fields in this table - needed to render the picker
+  const [tableFields, setTableFields] = useState<FieldInfo[]>([]);
+  // When set, the field-picker popover is open for this member id
+  const [pickerOpenForMember, setPickerOpenForMember] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   // Load current permissions
@@ -47,11 +64,17 @@ export default function TablePermissionsModal({
         } else {
           setAccessMode(d.table?.access_mode || 'open');
           setMembers(d.members || []);
+          setTableFields(d.fields || []);
           const map = new Map<string, PermissionLevel>();
-          (d.permissions || []).forEach((p: Permission) =>
-            map.set(p.member_id, p.permission)
-          );
+          const hiddenMap = new Map<string, string[]>();
+          (d.permissions || []).forEach((p: Permission) => {
+            map.set(p.member_id, p.permission);
+            if (p.hidden_fields && p.hidden_fields.length > 0) {
+              hiddenMap.set(p.member_id, p.hidden_fields);
+            }
+          });
           setOverrides(map);
+          setHiddenFieldsMap(hiddenMap);
         }
         setLoading(false);
       })
@@ -72,9 +95,19 @@ export default function TablePermissionsModal({
     setSaving(true);
     setError(null);
     try {
+      // Build the save payload. Each member with an override gets its
+      // hidden_fields list attached if any are configured for them.
+      // Members without an override aren't sent (the API replaces all
+      // overrides with this list, so omitted = removed).
       const memberArr = Array.from(overrides.entries()).map(([member_id, permission]) => ({
         member_id,
         permission,
+        hidden_fields: hiddenFieldsMap.get(member_id) || null,
+        // visible_fields: not used in this UI yet — we always go via
+        // the hidden_fields deny-list because it's easier to reason about
+        // ("hide salary from this person" rather than "show everything
+        // except salary"). Both columns exist in DB for future use.
+        visible_fields: null,
       }));
       const res = await fetch(`/api/tables/${tableId}/permissions`, {
         method: 'POST',
@@ -212,12 +245,46 @@ export default function TablePermissionsModal({
                             {eff.label}
                           </span>
                         ) : (
-                          <PermissionSelector
-                            value={overrides.get(m.id) ?? null}
-                            currentEffective={eff.perm}
-                            defaultLabel={eff.label}
-                            onChange={(perm) => setMemberPerm(m.id, perm)}
-                          />
+                          <div className="flex items-center gap-1.5">
+                            {/* Field restrictor — only visible when this member
+                                has a 'view' or 'edit' override (not 'none' or
+                                no override). Hides specific fields from them.
+                                Indicator shows count of currently-hidden fields. */}
+                            {(overrides.get(m.id) === 'view' || overrides.get(m.id) === 'edit') && (
+                              <FieldRestrictor
+                                fields={tableFields}
+                                hiddenSlugs={hiddenFieldsMap.get(m.id) || []}
+                                isOpen={pickerOpenForMember === m.id}
+                                onToggle={() =>
+                                  setPickerOpenForMember(
+                                    pickerOpenForMember === m.id ? null : m.id
+                                  )
+                                }
+                                onChange={(slugs) => {
+                                  const next = new Map(hiddenFieldsMap);
+                                  if (slugs.length === 0) next.delete(m.id);
+                                  else next.set(m.id, slugs);
+                                  setHiddenFieldsMap(next);
+                                }}
+                              />
+                            )}
+                            <PermissionSelector
+                              value={overrides.get(m.id) ?? null}
+                              currentEffective={eff.perm}
+                              defaultLabel={eff.label}
+                              onChange={(perm) => {
+                                setMemberPerm(m.id, perm);
+                                // If user removes the override or sets to 'none',
+                                // clear any field restrictions too — they don't
+                                // make sense without a base permission.
+                                if (perm === null || perm === 'none') {
+                                  const next = new Map(hiddenFieldsMap);
+                                  next.delete(m.id);
+                                  setHiddenFieldsMap(next);
+                                }
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
                     );
@@ -390,4 +457,126 @@ function roleLabel(role: string): string {
     editor: 'עורך',
     viewer: 'צופה',
   }[role] || role;
+}
+
+/**
+ * FieldRestrictor - per-member control to hide specific fields from view.
+ *
+ * Renders as a small button (with badge showing # hidden fields if any).
+ * Clicking opens a popover with checkboxes, one per field. Checked = visible
+ * (default), unchecked = hidden. We invert the UX from the underlying data
+ * model (hidden_fields is a deny-list) because users think in terms of
+ * "what can they see" rather than "what should I hide".
+ */
+function FieldRestrictor({
+  fields,
+  hiddenSlugs,
+  isOpen,
+  onToggle,
+  onChange,
+}: {
+  fields: FieldInfo[];
+  hiddenSlugs: string[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onChange: (newHiddenSlugs: string[]) => void;
+}) {
+  const hiddenSet = new Set(hiddenSlugs);
+  const hiddenCount = hiddenSlugs.length;
+
+  function toggleField(slug: string) {
+    const next = new Set(hiddenSet);
+    if (next.has(slug)) next.delete(slug);
+    else next.add(slug);
+    onChange(Array.from(next));
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={onToggle}
+        className={`text-xs px-2 py-1 rounded-md border transition flex items-center gap-1 ${
+          hiddenCount > 0
+            ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+        }`}
+        title={hiddenCount > 0 ? `${hiddenCount} שדות מוסתרים` : 'בחר שדות נסתרים'}
+      >
+        {hiddenCount > 0 ? (
+          <>
+            <span>👁️‍🗨️</span>
+            <span>{hiddenCount} מוסתרים</span>
+          </>
+        ) : (
+          <>
+            <span>👁️</span>
+            <span>שדות</span>
+          </>
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Click-outside catcher */}
+          <div className="fixed inset-0 z-30" onClick={onToggle} />
+
+          {/* Popover - left-anchored in RTL means it opens to the right
+              from the button (toward the table center, away from edge) */}
+          <div className="absolute z-40 top-full mt-1 left-0 bg-white rounded-lg shadow-2xl border border-gray-200 min-w-[220px] max-h-[280px] overflow-y-auto py-1">
+            <div className="px-3 py-2 border-b border-gray-100 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+              שדות שהמשתמש יראה
+            </div>
+            {fields.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-gray-500 text-center">
+                לטבלה אין שדות עדיין
+              </div>
+            ) : (
+              fields.map((f) => {
+                const isHidden = hiddenSet.has(f.slug);
+                return (
+                  <label
+                    key={f.id}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!isHidden}
+                      onChange={() => toggleField(f.slug)}
+                      className="rounded"
+                    />
+                    <span className={isHidden ? 'text-gray-400 line-through' : 'text-gray-900'}>
+                      {f.name}
+                    </span>
+                    <span className="ml-auto text-[10px] text-gray-400 font-mono">
+                      {f.type}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+            {fields.length > 0 && (
+              <div className="px-3 py-2 border-t border-gray-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => onChange([])}
+                  className="text-[11px] text-brand-600 hover:underline"
+                  disabled={hiddenCount === 0}
+                >
+                  הצג הכל
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange(fields.map((f) => f.slug))}
+                  className="text-[11px] text-amber-700 hover:underline"
+                  disabled={hiddenCount === fields.length}
+                >
+                  הסתר הכל
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

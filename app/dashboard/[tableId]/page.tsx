@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import TableClient from './TableClient';
+import { resolveFieldVisibility, filterFields, filterRecords } from '@/lib/permissions/field-filter';
 
 export default async function TablePage({
   params,
@@ -82,11 +83,24 @@ export default async function TablePage({
       : null,
   }));
 
+  // Apply field-level permissions: strip values for hidden fields and
+  // omit them from the fields[] array entirely. Owners/admins bypass.
+  // Done server-side so the data never reaches the browser - even DevTools
+  // can't see what they shouldn't.
+  const visibility = await resolveFieldVisibility(
+    supabase,
+    user.id,
+    params.tableId,
+    table.workspace_id
+  );
+  const visibleFields = filterFields(fields || [], visibility);
+  const visibleRecords = filterRecords(records, visibility);
+
   return (
     <TableClient
       table={table}
-      fields={fields || []}
-      initialRecords={records || []}
+      fields={visibleFields}
+      initialRecords={visibleRecords}
       views={views || []}
       phones={phones || []}
       userRole={membership.role}

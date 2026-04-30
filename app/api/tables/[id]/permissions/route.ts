@@ -37,10 +37,13 @@ export async function GET(
     return NextResponse.json({ error: 'table not found' }, { status: 404 });
   }
 
-  // Get permission overrides
+  // Get permission overrides — now including the field-level lists.
+  // hidden_fields: deny-list, takes precedence over visible_fields when both
+  //                are set (which the UI prevents anyway, but be safe)
+  // visible_fields: allow-list. NULL means "all fields visible".
   const { data: perms } = await supabase
     .from('table_member_permissions')
-    .select('id, member_id, permission, created_at')
+    .select('id, member_id, permission, hidden_fields, visible_fields, created_at')
     .eq('table_id', params.id);
 
   // Get all workspace members so the UI can show who's missing from the list
@@ -49,10 +52,19 @@ export async function GET(
     .select('id, user_id, display_name, role, whatsapp_phone')
     .eq('workspace_id', table.workspace_id);
 
+  // Get the table's fields too — UI needs the full list to render the
+  // hide/show pickers per member. Saves a separate fetch round-trip.
+  const { data: fields } = await supabase
+    .from('fields')
+    .select('id, slug, name, type')
+    .eq('table_id', params.id)
+    .order('position');
+
   return NextResponse.json({
     table: { id: table.id, name: table.name, access_mode: table.access_mode },
     permissions: perms || [],
     members: members || [],
+    fields: fields || [],
   });
 }
 
@@ -67,7 +79,14 @@ export async function POST(
   const body = await req.json();
   const { access_mode, members } = body as {
     access_mode?: 'open' | 'view_only' | 'restricted';
-    members?: Array<{ member_id: string; permission: 'view' | 'edit' | 'none' }>;
+    members?: Array<{
+      member_id: string;
+      permission: 'view' | 'edit' | 'none';
+      /** Optional deny-list of field slugs this member should NOT see. */
+      hidden_fields?: string[] | null;
+      /** Optional allow-list of field slugs (NULL = all visible). */
+      visible_fields?: string[] | null;
+    }>;
   };
 
   // Verify user is owner/admin of the workspace owning this table
@@ -133,6 +152,11 @@ export async function POST(
         table_id: params.id,
         member_id: m.member_id,
         permission: m.permission,
+        // Field-level lists. Both default to NULL when not supplied,
+        // which keeps backward compatibility with old clients that
+        // don't send these fields.
+        hidden_fields:  Array.isArray(m.hidden_fields)  && m.hidden_fields.length  > 0 ? m.hidden_fields  : null,
+        visible_fields: Array.isArray(m.visible_fields) && m.visible_fields.length > 0 ? m.visible_fields : null,
         created_by: user.id,
       }));
       const { error: insErr } = await supabase
