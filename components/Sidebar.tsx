@@ -8,6 +8,7 @@ import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp, Inbox,
+  Layers, Briefcase, UtensilsCrossed, Target,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -41,6 +42,7 @@ export default function Sidebar({
     window.location.href = '/dashboard';
   }
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showHubMenu, setShowHubMenu] = useState(true); // Hub submenu open by default
 
   // Mobile drawer state. The sidebar is hidden by default on mobile (<md) and
   // toggled via a hamburger button. On desktop, this state is irrelevant —
@@ -326,6 +328,77 @@ export default function Sidebar({
             pathname === '/dashboard/cashflow' ? 'bg-white/20' : 'bg-emerald-200 text-emerald-700'
           }`}>AI</span>
         </Link>
+
+        {/* ============ Hub - Modular Dashboards ============ */}
+        <div className="mb-1">
+          <button
+            onClick={() => setShowHubMenu(!showHubMenu)}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              pathname.startsWith('/dashboard/hub')
+                ? 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border border-purple-100'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Hub - מודולים</span>
+            <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">NEW</span>
+            <ChevronDown 
+              className={`w-3.5 h-3.5 transition-transform ${showHubMenu ? 'rotate-180' : ''}`} 
+            />
+          </button>
+
+          {showHubMenu && (
+            <div className="mt-1 mr-3 pr-2 border-r-2 border-purple-100 space-y-0.5">
+              <Link
+                href="/dashboard/hub"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>סקירה כללית</span>
+              </Link>
+              
+              <Link
+                href="/dashboard/hub/crm"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub/crm'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <Target className="w-3.5 h-3.5 text-purple-600" />
+                <span>CRM - לידים</span>
+              </Link>
+              
+              <Link
+                href="/dashboard/hub/buildbot"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub/buildbot'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5 text-amber-600" />
+                <span>BuildBot - בנייה</span>
+              </Link>
+              
+              <Link
+                href="/dashboard/hub/restobot"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub/restobot'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5 text-red-600" />
+                <span>RestoBot - מסעדה</span>
+              </Link>
+            </div>
+          )}
+        </div>
 
         <Link
           href="/dashboard"
