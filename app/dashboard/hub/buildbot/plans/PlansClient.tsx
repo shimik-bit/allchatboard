@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/lib/i18n/useT';
 import PlanUploadWizard from '@/components/buildbot/PlanUploadWizard';
-import { Plus, FileText, Image as ImageIcon, X, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import PlanAnalysisStatus from '@/components/buildbot/PlanAnalysisStatus';
+import { Plus, FileText, Image as ImageIcon, X, CheckCircle2, AlertCircle, Clock, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Locale } from '@/lib/i18n/locales';
 
 type ProjectRecord = {
@@ -100,6 +101,7 @@ export default function PlansClient({
   const router = useRouter();
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
 
   const projectMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {};
@@ -109,11 +111,31 @@ export default function PlansClient({
     return map;
   }, [projects, t]);
 
+  const toggleExpand = (id: string): void => {
+    setExpandedPlanId((prev: string | null) => (prev === id ? null : id));
+  };
+
   const handleComplete = (planIds: string[]): void => {
     setShowWizard(false);
     setSelectedProjectId('');
     if (planIds.length > 0) {
-      router.refresh();
+      // Fire-and-forget trigger analysis for every newly uploaded plan.
+      // The Edge Function returns within 100ms (it queues the actual AI call
+      // via EdgeRuntime.waitUntil), so we don't await responses here.
+      Promise.all(
+        planIds.map((id: string) =>
+          fetch('/api/plans/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: id }),
+          }).catch((err: unknown) => {
+            console.error('[plans] analyze trigger failed:', err);
+          })
+        )
+      ).finally(() => {
+        // Refresh server data so the new rows appear with status='analyzing'.
+        router.refresh();
+      });
     }
   };
 
@@ -209,46 +231,79 @@ export default function PlansClient({
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="divide-y divide-gray-100">
-            {plans.map((plan: PlanRow) => (
-              <div key={plan.id} className="p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <FileTypeIcon type={plan.file_type} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="font-medium text-gray-900 truncate">
-                        {plan.file_name}
+            {plans.map((plan: PlanRow) => {
+              const isExpanded = expandedPlanId === plan.id;
+              const isActionable =
+                plan.status === 'analyzing' ||
+                plan.status === 'analyzed' ||
+                plan.status === 'failed' ||
+                plan.status === 'uploaded';
+              return (
+                <div key={plan.id} className="hover:bg-gray-50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(plan.id)}
+                    disabled={!isActionable}
+                    className="w-full text-start p-4 disabled:cursor-default"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileTypeIcon type={plan.file_type} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="font-medium text-gray-900 truncate">
+                            {plan.file_name}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={plan.status} />
+                            {isActionable && (
+                              isExpanded
+                                ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                                : <ChevronDown className="w-4 h-4 text-gray-400" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                          <span>{formatBytes(plan.file_size_bytes)}</span>
+                          <span>·</span>
+                          <span>{formatDate(plan.created_at, locale)}</span>
+                          {plan.project_id && projectMap[plan.project_id] && (
+                            <>
+                              <span>·</span>
+                              <span className="text-amber-700">
+                                🏗️ {projectMap[plan.project_id]}
+                              </span>
+                            </>
+                          )}
+                          {plan.detected_total_area_sqm && (
+                            <>
+                              <span>·</span>
+                              <span>📐 {plan.detected_total_area_sqm} {t('hub.buildbot_sqm')}</span>
+                            </>
+                          )}
+                          {plan.ai_confidence_score && (
+                            <>
+                              <span>·</span>
+                              <span>{t('buildbot.plan_confidence')}: {plan.ai_confidence_score}%</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <StatusBadge status={plan.status} />
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                      <span>{formatBytes(plan.file_size_bytes)}</span>
-                      <span>·</span>
-                      <span>{formatDate(plan.created_at, locale)}</span>
-                      {plan.project_id && projectMap[plan.project_id] && (
-                        <>
-                          <span>·</span>
-                          <span className="text-amber-700">
-                            🏗️ {projectMap[plan.project_id]}
-                          </span>
-                        </>
-                      )}
-                      {plan.detected_total_area_sqm && (
-                        <>
-                          <span>·</span>
-                          <span>📐 {plan.detected_total_area_sqm} {t('hub.buildbot_sqm')}</span>
-                        </>
-                      )}
-                      {plan.ai_confidence_score && (
-                        <>
-                          <span>·</span>
-                          <span>{t('buildbot.plan_confidence')}: {plan.ai_confidence_score}%</span>
-                        </>
-                      )}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4">
+                      <PlanAnalysisStatus
+                        planId={plan.id}
+                        initialStatus={plan.status}
+                        autoStart={plan.status === 'uploaded'}
+                        onAnalyzed={() => router.refresh()}
+                      />
                     </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

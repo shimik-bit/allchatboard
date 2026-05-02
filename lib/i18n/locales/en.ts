@@ -1202,6 +1202,19 @@ export const en: LocaleDictionary = {
     plan_status_analyzing: 'Analyzing',
     plan_status_analyzed: 'Analyzed',
     plan_status_failed: 'Failed',
+
+    plan_upload_analyzing: 'AI is analyzing the plan...',
+    plan_analysis_eta: 'Usually takes 10–60 seconds',
+    plan_analysis_done: 'Analysis complete',
+    plan_analysis_timeout: 'Analysis is taking too long, try refreshing',
+    plan_reanalyze: 'Re-analyze',
+    plan_type_label: 'Plan type',
+    plan_type_floor_plan: 'Floor plan',
+    plan_type_elevation: 'Elevation',
+    plan_type_section: 'Section',
+    plan_type_site_plan: 'Site plan',
+    plan_type_detail: 'Detail',
+    plan_type_other: 'Other',
   },
 
   /* ────────────── Inbox Insights ────────────── */

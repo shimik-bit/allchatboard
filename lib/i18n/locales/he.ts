@@ -1203,6 +1203,19 @@ export const he = {
     plan_status_analyzing: 'מנתח',
     plan_status_analyzed: 'נותח',
     plan_status_failed: 'נכשל',
+
+    plan_upload_analyzing: 'ה-AI מנתח את התוכנית...',
+    plan_analysis_eta: 'זה בדרך כלל לוקח 10–60 שניות',
+    plan_analysis_done: 'הניתוח הושלם',
+    plan_analysis_timeout: 'הניתוח ארך יותר מדי, נסה לרענן',
+    plan_reanalyze: 'נתח שוב',
+    plan_type_label: 'סוג תוכנית',
+    plan_type_floor_plan: 'תוכנית קומה',
+    plan_type_elevation: 'חזית',
+    plan_type_section: 'חתך',
+    plan_type_site_plan: 'תוכנית מגרש',
+    plan_type_detail: 'פרט',
+    plan_type_other: 'אחר',
   },
 
   /* ────────────── Inbox Insights ────────────── */
