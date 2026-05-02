@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
   // Call the Edge Function
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
   const fnUrl = `${supabaseUrl}/functions/v1/analyze-plan`;
 
@@ -75,7 +76,14 @@ export async function POST(req: NextRequest) {
       'Authorization': `Bearer ${serviceKey}`,
       'apikey': serviceKey,
     },
-    body: JSON.stringify({ plan_id, workspace_id: plan.workspace_id }),
+    body: JSON.stringify({
+      plan_id,
+      workspace_id: plan.workspace_id,
+      // Pass the key from Vercel env to Supabase Edge Function over HTTPS.
+      // Both endpoints are ours; the alternative (setting the Supabase secret)
+      // requires CLI access we don't have here.
+      anthropic_api_key: anthropicKey,
+    }),
   });
 
   const respText = await fnResp.text();
