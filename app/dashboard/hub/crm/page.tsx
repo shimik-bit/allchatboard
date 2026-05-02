@@ -76,6 +76,22 @@ export default async function CRMDashboard() {
           </Link>
         </header>
 
+        {/* View Switcher */}
+        <div className="mb-4 flex gap-2">
+          <Link
+            href="/dashboard/hub/crm"
+            className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium"
+          >
+            📊 דשבורד
+          </Link>
+          <Link
+            href="/dashboard/hub/crm/kanban"
+            className="px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 text-sm font-medium"
+          >
+            🎯 קנבן (גרירה)
+          </Link>
+        </div>
+
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <KPICard icon="📊" color="#7C3AED" value={k.active_leads || 0} label="לידים פעילים" />
