@@ -1216,6 +1216,12 @@ export const he = {
     plan_type_site_plan: 'תוכנית מגרש',
     plan_type_detail: 'פרט',
     plan_type_other: 'אחר',
+
+    plan_rooms_breakdown: 'חדרים שזוהו',
+    plan_rooms_saved: 'נשמרו {n} חדרים בטבלה',
+    plan_open_in_table: 'פתח בטבלה ועריכה',
+    plan_no_table_yet: 'טבלת החדרים טרם הותקנה ב-workspace',
+    floor_short: 'קומה',
   },
 
   /* ────────────── Inbox Insights ────────────── */

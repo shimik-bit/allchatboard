@@ -1215,6 +1215,12 @@ export const en: LocaleDictionary = {
     plan_type_site_plan: 'Site plan',
     plan_type_detail: 'Detail',
     plan_type_other: 'Other',
+
+    plan_rooms_breakdown: 'Detected rooms',
+    plan_rooms_saved: '{n} rooms saved to table',
+    plan_open_in_table: 'Open in table & edit',
+    plan_no_table_yet: 'Plan rooms table not yet installed in workspace',
+    floor_short: 'Floor',
   },
 
   /* ────────────── Inbox Insights ────────────── */
