@@ -374,6 +374,18 @@ export default function Sidebar({
               </Link>
               
               <Link
+                href="/dashboard/hub/crm/kanban"
+                className={`flex items-center gap-2 px-3 py-1.5 pr-6 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub/crm/kanban'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-xs">↳</span>
+                <span>קנבן (גרירה)</span>
+              </Link>
+              
+              <Link
                 href="/dashboard/hub/buildbot"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   pathname === '/dashboard/hub/buildbot'
