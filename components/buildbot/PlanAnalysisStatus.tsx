@@ -117,9 +117,12 @@ export default function PlanAnalysisStatus({
   }, [planId, fetchStatus]);
 
   // ---- Auto-start the analysis if the plan is freshly uploaded ----
+  // We always fetch the current status first so the UI reflects DB state,
+  // even when `autoStart` is false (e.g. a plan that already failed). The
+  // initial status from the server tells us whether to also kick off a new
+  // run via /api/plans/analyze.
   useEffect(() => {
-    if (!autoStart) return;
-    if (initialStatus === 'uploaded') {
+    if (autoStart && initialStatus === 'uploaded') {
       void triggerAnalysis();
     } else {
       void fetchStatus();
