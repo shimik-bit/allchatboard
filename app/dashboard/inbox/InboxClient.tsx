@@ -24,7 +24,9 @@ import {
   CheckCircle2, XCircle, Clock, AlertOctagon, Calendar,
   HelpCircle, CreditCard, Megaphone, MessageSquare, User as UserIcon,
   Sparkles, Inbox as InboxIcon, Phone, X, Filter, Check, FileText, Loader2,
+  UserPlus, BarChart3,
 } from 'lucide-react';
+import Link from 'next/link';
 import type { Escalation, EscalationReason, EscalationPriority } from '@/lib/types/database';
 import Avatar from '@/components/inbox/Avatar';
 import EmojiPicker from '@/components/inbox/EmojiPicker';
@@ -214,7 +216,15 @@ export default function InboxClient({
         {/* Header bar w/ title and (eventual) account actions */}
         <div className="wa-header-bg px-4 py-2.5 flex items-center justify-between">
           <h1 className="text-base font-semibold text-gray-900">תיבה נכנסת</h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/dashboard/inbox/insights"
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+              title="תובנות ואנליטיקה"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>תובנות</span>
+            </Link>
             <span className="text-xs text-gray-500">{counts.open} פתוח{counts.open === 1 ? '' : 'ים'}</span>
           </div>
         </div>
@@ -502,6 +512,40 @@ function ActionBar({ escalation, busy, onAction }: {
   busy: boolean;
   onAction: (a: 'take' | 'resolve' | 'dismiss') => void;
 }) {
+  const [converting, setConverting] = useState(false);
+  const [convertResult, setConvertResult] = useState<{ ok: boolean; msg: string; lead_id?: string } | null>(null);
+
+  async function handleConvertToLead() {
+    if (converting || !escalation.id) return;
+    setConverting(true);
+    setConvertResult(null);
+    try {
+      const res = await fetch('/api/inbox/convert-to-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ escalation_id: escalation.id }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        setConvertResult({ 
+          ok: false, 
+          msg: result.error || 'המרה נכשלה' 
+        });
+        return;
+      }
+      setConvertResult({ 
+        ok: true, 
+        msg: result.already_exists ? '✅ הליד כבר קיים' : '🎉 הליד נוצר!',
+        lead_id: result.lead_id,
+      });
+    } catch {
+      setConvertResult({ ok: false, msg: 'שגיאת רשת' });
+    } finally {
+      setConverting(false);
+      setTimeout(() => setConvertResult(null), 5000);
+    }
+  }
+
   return (
     <div className="border-b border-gray-100 px-4 py-2 bg-white/80 backdrop-blur flex items-center gap-2 flex-wrap">
       {escalation.status === 'open' && (
@@ -534,6 +578,38 @@ function ActionBar({ escalation, busy, onAction }: {
           </button>
         </>
       )}
+
+      {/* כפתור חדש: הפוך לליד CRM */}
+      {escalation.source_phone && (
+        <>
+          {convertResult ? (
+            <div className={`text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 ${
+              convertResult.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {convertResult.msg}
+              {convertResult.ok && convertResult.lead_id && (
+                <Link 
+                  href={`/dashboard/hub/crm/leads/${convertResult.lead_id}`}
+                  className="underline font-semibold hover:no-underline"
+                >
+                  פתח →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleConvertToLead}
+              disabled={converting || busy}
+              className="text-xs px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-1.5 transition"
+              title="צור ליד חדש ב-CRM מהפנייה הזו"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              {converting ? 'יוצר...' : 'הפוך לליד'}
+            </button>
+          )}
+        </>
+      )}
+
       <div className="mr-auto text-[11px] text-gray-500">
         סטטוס: <strong>{statusLabel(escalation.status)}</strong>
       </div>
