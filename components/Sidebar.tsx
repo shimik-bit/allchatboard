@@ -340,8 +340,8 @@ export default function Sidebar({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Hub - מודולים</span>
-            <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">NEW</span>
+            <span>{t('hub.title')}</span>
+            <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">{t('hub.badge_new')}</span>
             <ChevronDown 
               className={`w-3.5 h-3.5 transition-transform ${showHubMenu ? 'rotate-180' : ''}`} 
             />
@@ -358,7 +358,7 @@ export default function Sidebar({
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
-                <span>סקירה כללית</span>
+                <span>{t('hub.nav_overview')}</span>
               </Link>
               
               <Link
@@ -370,7 +370,7 @@ export default function Sidebar({
                 }`}
               >
                 <Target className="w-3.5 h-3.5 text-purple-600" />
-                <span>CRM - לידים</span>
+                <span>{t('hub.nav_crm')}</span>
               </Link>
               
               <Link
@@ -382,7 +382,7 @@ export default function Sidebar({
                 }`}
               >
                 <span className="text-xs">↳</span>
-                <span>קנבן (גרירה)</span>
+                <span>{t('hub.nav_kanban')}</span>
               </Link>
               
               <Link
@@ -394,7 +394,7 @@ export default function Sidebar({
                 }`}
               >
                 <Briefcase className="w-3.5 h-3.5 text-amber-600" />
-                <span>BuildBot - בנייה</span>
+                <span>{t('hub.nav_buildbot')}</span>
               </Link>
               
               <Link
@@ -406,7 +406,7 @@ export default function Sidebar({
                 }`}
               >
                 <UtensilsCrossed className="w-3.5 h-3.5 text-red-600" />
-                <span>RestoBot - מסעדה</span>
+                <span>{t('hub.nav_restobot')}</span>
               </Link>
             </div>
           )}
