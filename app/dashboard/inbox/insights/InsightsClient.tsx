@@ -1,47 +1,42 @@
 // app/dashboard/inbox/insights/InsightsClient.tsx
 // אנליטיקה מלאה ל-Inbox + המרת לקוחות לקווים ב-CRM
+// תומך עברית/אנגלית
 'use client';
 
 import { useState } from 'react';
+import { useT } from '@/lib/i18n/useT';
 import Link from 'next/link';
 import { 
   Inbox, ArrowRight, TrendingUp, Clock, AlertTriangle, 
   CheckCircle, Users, UserPlus, Sparkles, BarChart3 
 } from 'lucide-react';
 
-const REASON_LABELS: Record<string, string> = {
-  customer_request: '🙋 בקשת לקוח',
-  ai_uncertain: '🤖 AI לא בטוח',
-  complaint: '😡 תלונה',
-  payment: '💰 תשלום',
-  technical: '🔧 טכני',
-  other: '📋 אחר',
-  human_handoff: '👤 העברה לאדם',
-  bot_failed: '⚠️ בוט נכשל',
-};
-
-function fmtDuration(seconds: number | null | undefined): string {
+function fmtDuration(seconds: number | null | undefined, locale: string): string {
   if (!seconds || seconds <= 0) return '-';
-  if (seconds < 60) return `${Math.round(seconds)}ש'`;
+  const minLabel = locale === 'he' ? 'דק׳' : 'min';
+  const secLabel = locale === 'he' ? 'ש׳' : 's';
+  const hourLabel = locale === 'he' ? 'שעות' : 'h';
+  const dayLabel = locale === 'he' ? 'ימים' : 'days';
+  if (seconds < 60) return `${Math.round(seconds)}${secLabel}`;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} דק'`;
+  if (minutes < 60) return `${minutes} ${minLabel}`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} שעות`;
+  if (hours < 24) return `${hours} ${hourLabel}`;
   const days = Math.round(hours / 24);
-  return `${days} ימים`;
+  return `${days} ${dayLabel}`;
 }
 
-function fmtDate(d: string): string {
-  return new Date(d).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+function fmtDate(d: string, locale: string): string {
+  return new Date(d).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { day: '2-digit', month: '2-digit' });
 }
 
-function timeAgo(d: string): string {
+function timeAgo(d: string, t: any): string {
   if (!d) return '';
   const diff = (Date.now() - new Date(d).getTime()) / 1000;
-  if (diff < 60) return 'עכשיו';
-  if (diff < 3600) return `לפני ${Math.floor(diff / 60)} ד'`;
-  if (diff < 86400) return `לפני ${Math.floor(diff / 3600)} שע'`;
-  return `לפני ${Math.floor(diff / 86400)} ימים`;
+  if (diff < 60) return t('time_units.just_now');
+  if (diff < 3600) return t('time_units.minutes_ago', { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t('time_units.hours_ago', { n: Math.floor(diff / 3600) });
+  return t('time_units.days_ago', { n: Math.floor(diff / 86400) });
 }
 
 export default function InsightsClient({
@@ -55,28 +50,24 @@ export default function InsightsClient({
   topCustomers: any[];
   dailyStats: any[];
 }) {
+  const { t, locale, dir } = useT();
   const [convertingPhone, setConvertingPhone] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
-  // Handler להמרת לקוח לליד CRM
-  // (משתמש ב-convert-to-lead שמקבל escalation_id)
-  // אנחנו צריכים escalation מסוים, אז שולפים את האחרון של אותו טלפון
   async function handleConvertToLead(phone: string) {
     if (convertingPhone) return;
     setConvertingPhone(phone);
     setToast(null);
 
     try {
-      // קודם שולפים escalation אחרון של הלקוח דרך API
       const escRes = await fetch(`/api/inbox/find-escalation?phone=${encodeURIComponent(phone)}`);
       const escResult = await escRes.json();
       
       if (!escRes.ok || !escResult.escalation_id) {
-        setToast({ msg: 'לא נמצא escalation להמרה', type: 'err' });
+        setToast({ msg: t('inbox_insights.not_found_escalation'), type: 'err' });
         return;
       }
 
-      // עכשיו ממירים
       const res = await fetch('/api/inbox/convert-to-lead', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,24 +78,23 @@ export default function InsightsClient({
 
       if (!res.ok || !result.success) {
         setToast({ 
-          msg: result.error || 'המרה נכשלה', 
+          msg: result.error || t('inbox_insights.convert_failed'), 
           type: 'err' 
         });
         return;
       }
 
       setToast({
-        msg: result.already_exists ? '✅ הליד כבר קיים ב-CRM' : '🎉 ליד נוצר בהצלחה!',
+        msg: result.already_exists ? '✅ ' + t('inbox_insights.lead_already_exists') : '🎉 ' + t('inbox_insights.lead_created'),
         type: 'ok',
       });
 
-      // הפניה לדף הליד אחרי שנייה
       setTimeout(() => {
         window.location.href = `/dashboard/hub/crm/leads/${result.lead_id}`;
       }, 1500);
 
     } catch (err) {
-      setToast({ msg: 'שגיאת רשת', type: 'err' });
+      setToast({ msg: t('inbox_insights.network_error'), type: 'err' });
     } finally {
       setTimeout(() => {
         setConvertingPhone(null);
@@ -113,18 +103,14 @@ export default function InsightsClient({
     }
   }
 
-  // חישוב גרף יומי
   const maxDaily = Math.max(...dailyStats.map((d: any) => Number(d.new_escalations) || 0), 1);
-  const dailyReversed = [...dailyStats].reverse().slice(-14); // 14 ימים אחרונים
-
-  // חישוב סה"כ מ-byReason לאחוזים
+  const dailyReversed = [...dailyStats].reverse().slice(-14);
   const totalByReason = byReason.reduce((s: number, r: any) => s + Number(r.count), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6" dir={dir}>
       <div className="max-w-7xl mx-auto">
         
-        {/* Toast */}
         {toast && (
           <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
             toast.type === 'ok' ? 'bg-green-500' : 'bg-red-500'
@@ -133,7 +119,6 @@ export default function InsightsClient({
           </div>
         )}
 
-        {/* Header */}
         <header className="mb-6 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div 
@@ -143,8 +128,8 @@ export default function InsightsClient({
               <BarChart3 className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">תובנות Inbox</h1>
-              <p className="text-sm text-gray-500">אנליטיקה מלאה והמרה ל-CRM</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('inbox_insights.title')}</h1>
+              <p className="text-sm text-gray-500">{t('inbox_insights.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -153,83 +138,78 @@ export default function InsightsClient({
               className="text-sm bg-white px-4 py-2 rounded-lg border hover:bg-gray-50 flex items-center gap-1.5"
             >
               <Inbox className="w-4 h-4" />
-              <span>חזרה ל-Inbox</span>
+              <span>{t('inbox_insights.back_to_inbox')}</span>
             </Link>
           </div>
         </header>
 
-        {/* KPI Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <KPICard 
             icon={<AlertTriangle className="w-5 h-5" />} 
             color="#EF4444" 
             value={kpis.urgent_active || 0} 
-            label="פניות דחופות פעילות" 
+            label={t('inbox_insights.kpi_urgent_active')} 
           />
           <KPICard 
             icon={<Inbox className="w-5 h-5" />} 
             color="#3B82F6" 
             value={kpis.open_count || 0} 
-            label="פניות פתוחות" 
+            label={t('inbox_insights.kpi_open')} 
           />
           <KPICard 
             icon={<Clock className="w-5 h-5" />} 
             color="#F59E0B" 
-            value={fmtDuration(kpis.avg_response_seconds)} 
-            label="זמן תגובה ממוצע" 
+            value={fmtDuration(kpis.avg_response_seconds, locale)} 
+            label={t('inbox_insights.kpi_avg_response')} 
           />
           <KPICard 
             icon={<CheckCircle className="w-5 h-5" />} 
             color="#10B981" 
             value={`${kpis.resolution_rate_percent || 0}%`} 
-            label="אחוז פתרון" 
-            sub={`${kpis.resolved_count || 0} נפתרו מתוך ${kpis.total_escalations || 0}`}
+            label={t('inbox_insights.kpi_resolution_rate')} 
+            sub={`${kpis.resolved_count || 0} ${t('inbox_insights.kpi_resolution_sub')} ${kpis.total_escalations || 0}`}
           />
         </div>
 
-        {/* Recent Activity Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-xl p-4 border shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">24 שעות אחרונות</div>
+            <div className="text-xs text-gray-500 mb-1">{t('inbox_insights.last_24h')}</div>
             <div className="text-2xl font-bold text-gray-900">{kpis.last_24h || 0}</div>
-            <div className="text-xs text-gray-400 mt-1">פניות חדשות</div>
+            <div className="text-xs text-gray-400 mt-1">{t('inbox_insights.new_escalations')}</div>
           </div>
           <div className="bg-white rounded-xl p-4 border shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">7 ימים אחרונים</div>
+            <div className="text-xs text-gray-500 mb-1">{t('inbox_insights.last_7d')}</div>
             <div className="text-2xl font-bold text-gray-900">{kpis.last_7d || 0}</div>
-            <div className="text-xs text-gray-400 mt-1">פניות חדשות</div>
+            <div className="text-xs text-gray-400 mt-1">{t('inbox_insights.new_escalations')}</div>
           </div>
           <div className="bg-white rounded-xl p-4 border shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">זמן פתרון ממוצע</div>
-            <div className="text-2xl font-bold text-gray-900">{fmtDuration(kpis.avg_resolution_seconds)}</div>
-            <div className="text-xs text-gray-400 mt-1">מפתיחה לסגירה</div>
+            <div className="text-xs text-gray-500 mb-1">{t('inbox_insights.avg_resolution')}</div>
+            <div className="text-2xl font-bold text-gray-900">{fmtDuration(kpis.avg_resolution_seconds, locale)}</div>
+            <div className="text-xs text-gray-400 mt-1">{t('inbox_insights.open_to_resolved')}</div>
           </div>
         </div>
 
-        {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           
-          {/* Daily Trend */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
-              מגמה - 14 ימים אחרונים
+              {t('inbox_insights.trend_title')}
             </h3>
             
             {dailyReversed.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">אין נתונים</div>
+              <div className="text-center text-gray-400 py-8">{t('inbox_insights.no_data')}</div>
             ) : (
               <div className="flex items-end gap-1 h-32" dir="ltr">
                 {dailyReversed.map((d: any, idx: number) => {
                   const count = Number(d.new_escalations) || 0;
                   const urgent = Number(d.urgent_count) || 0;
                   const height = (count / maxDaily) * 100;
-                  const urgentHeight = count > 0 ? (urgent / count) * height : 0;
                   return (
                     <div 
                       key={idx} 
                       className="flex-1 flex flex-col items-center gap-1 group relative"
-                      title={`${fmtDate(d.day)}: ${count} פניות${urgent > 0 ? `, ${urgent} דחופות` : ''}`}
+                      title={`${fmtDate(d.day, locale)}: ${count}${urgent > 0 ? ` (${urgent} urgent)` : ''}`}
                     >
                       <div className="w-full bg-blue-100 rounded-t flex flex-col-reverse" style={{ height: `${Math.max(height, 2)}%`, minHeight: '4px' }}>
                         {urgent > 0 && (
@@ -237,7 +217,7 @@ export default function InsightsClient({
                         )}
                         <div className="bg-blue-500 rounded-t flex-1" />
                       </div>
-                      <div className="text-[9px] text-gray-400">{fmtDate(d.day)}</div>
+                      <div className="text-[9px] text-gray-400">{fmtDate(d.day, locale)}</div>
                     </div>
                   );
                 })}
@@ -247,32 +227,35 @@ export default function InsightsClient({
             <div className="flex gap-3 mt-3 text-xs">
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-blue-500 rounded" />
-                <span className="text-gray-600">פניות רגילות</span>
+                <span className="text-gray-600">{t('inbox_insights.legend_normal')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-red-500 rounded" />
-                <span className="text-gray-600">דחופות</span>
+                <span className="text-gray-600">{t('inbox_insights.legend_urgent')}</span>
               </div>
             </div>
           </div>
 
-          {/* By Reason */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
-              פילוח לפי סיבה
+              {t('inbox_insights.by_reason_title')}
             </h3>
             
             {byReason.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">אין נתונים</div>
+              <div className="text-center text-gray-400 py-8">{t('inbox_insights.no_data')}</div>
             ) : (
               <div className="space-y-2">
                 {byReason.slice(0, 6).map((r: any) => {
                   const pct = totalByReason > 0 ? (Number(r.count) / totalByReason) * 100 : 0;
+                  // Try translated reason name
+                  const reasonKey = `inbox_reports.reason_${r.reason}`;
+                  const translatedReason = t(reasonKey);
+                  const reasonLabel = translatedReason === reasonKey ? r.reason : translatedReason;
                   return (
                     <div key={r.reason}>
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-gray-700">{REASON_LABELS[r.reason] || r.reason}</span>
+                        <span className="text-gray-700">{reasonLabel}</span>
                         <span className="font-bold text-gray-900">{r.count} ({pct.toFixed(0)}%)</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -293,15 +276,14 @@ export default function InsightsClient({
 
         </div>
 
-        {/* Top Customers */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border">
           <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5" />
-            לקוחות עם הכי הרבה פניות
+            {t('inbox_insights.top_customers_title')}
           </h3>
           
           {topCustomers.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">אין נתונים</div>
+            <div className="text-center text-gray-400 py-8">{t('inbox_insights.no_data')}</div>
           ) : (
             <div className="space-y-2">
               {topCustomers.map((c: any) => (
@@ -316,20 +298,19 @@ export default function InsightsClient({
                     <div className="font-medium text-gray-900 text-sm">
                       {c.source_phone}
                       {c.is_lead && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mr-2">
-                          ✓ ליד ב-CRM
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mx-2">
+                          ✓ {t('inbox_insights.is_lead_badge')}
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {c.escalations_count} פניות
-                      {c.urgent_count > 0 && <span className="text-red-600 mr-2">· {c.urgent_count} דחופות</span>}
-                      {c.active_count > 0 && <span className="text-amber-600 mr-2">· {c.active_count} פתוחות</span>}
-                      <span className="mr-2">· {timeAgo(c.last_escalation_at)}</span>
+                      {c.escalations_count} {t('inbox_insights.customer_escalations')}
+                      {c.urgent_count > 0 && <span className="text-red-600 mx-2">· {c.urgent_count} {t('inbox_insights.customer_urgent')}</span>}
+                      {c.active_count > 0 && <span className="text-amber-600 mx-2">· {c.active_count} {t('inbox_insights.customer_open')}</span>}
+                      <span className="mx-2">· {timeAgo(c.last_escalation_at, t)}</span>
                     </div>
                   </div>
                   
-                  {/* Convert to Lead button */}
                   {!c.is_lead ? (
                     <button
                       onClick={() => handleConvertToLead(c.source_phone)}
@@ -337,15 +318,15 @@ export default function InsightsClient({
                       className="text-xs px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 flex items-center gap-1 whitespace-nowrap"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
-                      {convertingPhone === c.source_phone ? 'מעביר...' : 'הפוך לליד'}
+                      {convertingPhone === c.source_phone ? t('inbox_insights.converting') : t('inbox_insights.convert_button')}
                     </button>
                   ) : (
                     <Link
                       href={`/dashboard/hub/crm/kanban`}
                       className="text-xs px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1 whitespace-nowrap"
                     >
-                      <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                      ל-CRM
+                      <ArrowRight className={`w-3.5 h-3.5 ${dir === 'rtl' ? 'rotate-180' : ''}`} />
+                      {t('inbox_insights.to_crm')}
                     </Link>
                   )}
                 </div>
