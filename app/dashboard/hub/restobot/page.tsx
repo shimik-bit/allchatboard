@@ -1,58 +1,49 @@
 // app/dashboard/hub/restobot/page.tsx
-// RestoBot Dashboard - מסעדה
-
 import Link from 'next/link';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { getT } from '@/lib/i18n/server';
+import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
-export const metadata = { title: 'RestoBot Dashboard | TaskFlow' };
 export const dynamic = 'force-dynamic';
 export const revalidate = 30;
 
-const CAT_LABELS: Record<string, string> = {
-  starter: '🥗 פתיחה', main: '🍝 עיקריות', side: '🥖 תוספות',
-  dessert: '🍰 קינוחים', drinks: '🥤 שתייה', alcohol: '🍷 אלכוהול',
-  kids: '👶 ילדים',
+const STATUS_COLORS: Record<string, string> = {
+  confirmed: '#10B981', pending: '#F59E0B', seated: '#3B82F6',
+  completed: '#22C55E', cancelled: '#EF4444',
 };
 
-const STATUS_BADGES: Record<string, { label: string; color: string }> = {
-  confirmed: { label: '✅ מאושר', color: '#10B981' },
-  pending: { label: '⏳ המתנה', color: '#F59E0B' },
-  seated: { label: '🪑 מסובים', color: '#3B82F6' },
-  completed: { label: '🎉 סיים', color: '#22C55E' },
-  cancelled: { label: '❌ בוטל', color: '#EF4444' },
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  chef: '👨‍🍳 שף', sous_chef: '🔪 סו-שף', cook: '🥘 טבח',
-  waiter: '🍽️ מלצר', bartender: '🍹 ברמן', host: '👋 מארח',
-  cleaner: '🧹 ניקיון', manager: '👔 מנהל',
-};
-
-function fmt(n: any): string {
-  if (!n) return '₪0';
+function fmt(n: any, locale: Locale): string {
+  const symbol = locale === 'he' ? '₪' : '$';
+  if (!n) return `${symbol}0`;
   const num = Number(n);
-  if (num >= 1_000_000) return '₪' + (num / 1_000_000).toFixed(1) + 'M';
-  if (num >= 1_000) return '₪' + Math.round(num / 1_000) + 'K';
-  return '₪' + num.toLocaleString('he-IL');
+  if (num >= 1_000_000) return symbol + (num / 1_000_000).toFixed(1) + 'M';
+  if (num >= 1_000) return symbol + Math.round(num / 1_000) + 'K';
+  return symbol + num.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US');
 }
 
-function fmtTime(ts: string): string {
+function fmtTime(ts: string, locale: Locale): string {
   if (!ts) return '';
-  return new Date(ts).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString(locale === 'he' ? 'he-IL' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function getActiveWorkspace(): Promise<{ wsId: string; locale: Locale }> {
+  const supabase = createClient();
+  const wsId = cookies().get('tf_active_workspace')?.value || '158a174e-38a4-46d5-be4e-e1bce98b49ae';
+  const { data: ws } = await supabase
+    .from('workspaces').select('locale').eq('id', wsId).maybeSingle();
+  const localeRaw = (ws as any)?.locale;
+  return { wsId, locale: isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE };
 }
 
 async function getRestoData(workspaceId: string) {
   const sb = createAdminClient();
-  
   const [{ data: kpis }, { data: dishes }, { data: alerts }, { data: today }] = await Promise.all([
     sb.from('v_restobot_kpis').select('*').eq('workspace_id', workspaceId).maybeSingle(),
     sb.from('v_restobot_top_dishes').select('*').eq('workspace_id', workspaceId).limit(8),
     sb.from('v_restobot_inventory_alerts').select('*').eq('workspace_id', workspaceId).in('status', ['low', 'out']),
     sb.from('v_restobot_today').select('*').eq('workspace_id', workspaceId),
   ]);
-
-  // Get today's shifts
   const today_str = new Date().toISOString().split('T')[0];
   const { data: shiftsTable } = await sb.from('tables').select('id').eq('workspace_id', workspaceId).like('slug', 'shifts%').maybeSingle();
   let shiftsToday: any[] = [];
@@ -60,27 +51,27 @@ async function getRestoData(workspaceId: string) {
     const { data: shifts } = await sb.from('records').select('id, data').eq('table_id', shiftsTable.id);
     shiftsToday = (shifts || []).filter((s: any) => (s.data?.shift_date || '').startsWith(today_str));
   }
-
   return { 
-    kpis: kpis || {}, 
-    dishes: dishes || [], 
-    alerts: alerts || [],
-    today: today || [],
-    shiftsToday,
+    kpis: kpis || {}, dishes: dishes || [], alerts: alerts || [], 
+    today: today || [], shiftsToday,
   };
 }
 
-export default async function RestoBotDashboard() {
-  const cookieStore = cookies();
-  // RestoBot ברירת מחדל = מסעדת דמו
-  const activeWs = cookieStore.get('tf_active_workspace')?.value || '158a174e-38a4-46d5-be4e-e1bce98b49ae';
+export async function generateMetadata() {
+  const { locale } = await getActiveWorkspace();
+  const { t } = getT(locale);
+  return { title: `${t('hub.restobot_title')} | TaskFlow` };
+}
 
-  const { kpis, dishes, alerts, today, shiftsToday } = await getRestoData(activeWs);
+export default async function RestoBotDashboard() {
+  const { wsId, locale } = await getActiveWorkspace();
+  const { t, dir } = getT(locale);
+  const { kpis, dishes, alerts, today, shiftsToday } = await getRestoData(wsId);
   const k: any = kpis;
   const totalRevenuePotential = today.reduce((s: number, r: any) => s + (Number(r.guests) || 0) * 150, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4 md:p-6" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4 md:p-6" dir={dir}>
       <div className="max-w-7xl mx-auto">
         
         <header className="mb-6 flex items-center justify-between flex-wrap gap-4">
@@ -90,33 +81,37 @@ export default async function RestoBotDashboard() {
               style={{ background: 'linear-gradient(135deg,#EF4444,#F59E0B)' }}
             >🍽️</div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">RestoBot Dashboard</h1>
-              <p className="text-sm text-gray-500">ניהול מסעדה - תפריט, מלאי, הזמנות</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('hub.restobot_title')}</h1>
+              <p className="text-sm text-gray-500">{t('hub.restobot_subtitle')}</p>
             </div>
           </div>
           <Link href="/dashboard/hub" className="text-sm text-red-600 hover:text-red-700 font-medium">
-            ← חזרה ל-Hub
+            {dir === 'rtl' ? '←' : '→'} {t('hub.back_to_hub')}
           </Link>
         </header>
 
-        {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <KPICard icon="📜" color="#EF4444" value={k.active_menu_items || 0} label="מנות פעילות" />
-          <KPICard icon="⚠️" color="#F59E0B" value={k.items_to_reorder || 0} label="להזמן" />
-          <KPICard icon="👨‍🍳" color="#7C3AED" value={k.shifts_today || 0} label="משמרות היום" />
-          <KPICard icon="📅" color="#10B981" value={k.reservations_today || 0} label="הזמנות היום" />
-          <KPICard icon="👥" color="#06B6D4" value={k.total_guests_today || 0} label="סועדים היום" sub={`צפי: ${fmt(totalRevenuePotential)}`} />
+          <KPICard icon="📜" color="#EF4444" value={k.active_menu_items || 0} label={t('hub.restobot_kpi_active_dishes')} />
+          <KPICard icon="⚠️" color="#F59E0B" value={k.items_to_reorder || 0} label={t('hub.restobot_kpi_to_reorder')} />
+          <KPICard icon="👨‍🍳" color="#7C3AED" value={k.shifts_today || 0} label={t('hub.restobot_kpi_shifts_today')} />
+          <KPICard icon="📅" color="#10B981" value={k.reservations_today || 0} label={t('hub.restobot_kpi_reservations_today')} />
+          <KPICard 
+            icon="👥" color="#06B6D4" 
+            value={k.total_guests_today || 0} 
+            label={t('hub.restobot_kpi_guests_today')} 
+            sub={`${t('hub.restobot_revenue_potential')}: ${fmt(totalRevenuePotential, locale)}`} 
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           
-          {/* Reservations Today */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-900 mb-4">📅 הזמנות לשולחן היום</h3>
+            <h3 className="font-bold text-gray-900 mb-4">📅 {t('hub.restobot_reservations_today')}</h3>
             <div className="space-y-3">
-              {today.length === 0 && <p className="text-gray-400 text-sm py-8 text-center">אין הזמנות להיום</p>}
+              {today.length === 0 && <p className="text-gray-400 text-sm py-8 text-center">{t('hub.restobot_no_reservations')}</p>}
               {today.map((r: any) => {
-                const status = STATUS_BADGES[r.status] || { label: r.status, color: '#6B7280' };
+                const statusColor = STATUS_COLORS[r.status] || '#6B7280';
+                const statusLabel = t(`hub.res_${r.status}`);
                 return (
                   <div key={r.id} className="p-4 bg-gradient-to-l from-green-50 to-white rounded-xl border border-green-100">
                     <div className="flex items-start justify-between mb-2">
@@ -126,15 +121,15 @@ export default async function RestoBotDashboard() {
                       </div>
                       <span 
                         className="text-xs px-2 py-1 rounded text-white font-medium"
-                        style={{ backgroundColor: status.color }}
+                        style={{ backgroundColor: statusColor }}
                       >
-                        {status.label}
+                        {statusLabel}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-600 mt-2">
-                      <span className="font-bold text-base text-green-700">⏰ {fmtTime(r.event_time)}</span>
-                      <span>👥 {r.guests} סועדים</span>
-                      {r.table_number && <span>🪑 שולחן {r.table_number}</span>}
+                      <span className="font-bold text-base text-green-700">⏰ {fmtTime(r.event_time, locale)}</span>
+                      <span>👥 {r.guests} {t('hub.restobot_guests')}</span>
+                      {r.table_number && <span>🪑 {t('hub.restobot_table')} {r.table_number}</span>}
                     </div>
                     {r.notes && (
                       <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mt-2 italic">
@@ -147,28 +142,30 @@ export default async function RestoBotDashboard() {
             </div>
           </div>
           
-          {/* Shifts + Alerts */}
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-4">👥 צוות היום</h3>
+              <h3 className="font-bold text-gray-900 mb-4">👥 {t('hub.restobot_staff_today')}</h3>
               <div className="space-y-2">
-                {shiftsToday.length === 0 && <p className="text-gray-400 text-sm py-4 text-center">אין משמרות היום</p>}
+                {shiftsToday.length === 0 && <p className="text-gray-400 text-sm py-4 text-center">{t('hub.restobot_no_shifts')}</p>}
                 {shiftsToday.map((s: any) => {
                   const d = s.data || {};
+                  const roleKey = `hub.role_${d.role}`;
+                  const translated = t(roleKey);
+                  const roleLabel = translated === roleKey ? d.role : translated;
                   return (
                     <div key={s.id} className="p-3 rounded-lg bg-gray-50 border border-gray-100">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-bold text-gray-900 text-sm">{ROLE_LABELS[d.role] || d.role}</h4>
+                          <h4 className="font-bold text-gray-900 text-sm">{roleLabel}</h4>
                           <p className="text-xs text-gray-600">{d.employee_name}</p>
                         </div>
-                        <div className="text-left">
-                          <div className="text-sm font-bold text-gray-900">{fmt(d.total_pay)}</div>
-                          <div className="text-xs text-gray-500">{d.hours_worked || 0}ש׳</div>
+                        <div className={dir === 'rtl' ? 'text-left' : 'text-right'}>
+                          <div className="text-sm font-bold text-gray-900">{fmt(d.total_pay, locale)}</div>
+                          <div className="text-xs text-gray-500">{d.hours_worked || 0}h</div>
                         </div>
                       </div>
                       {d.tips && (
-                        <div className="text-xs text-green-600 mt-1">💰 טיפים: {fmt(d.tips)}</div>
+                        <div className="text-xs text-green-600 mt-1">💰 {t('hub.restobot_tips')}: {fmt(d.tips, locale)}</div>
                       )}
                     </div>
                   );
@@ -177,9 +174,9 @@ export default async function RestoBotDashboard() {
             </div>
             
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-4">⚠️ התראות מלאי</h3>
+              <h3 className="font-bold text-gray-900 mb-4">⚠️ {t('hub.restobot_inventory_alerts')}</h3>
               <div className="space-y-2">
-                {alerts.length === 0 && <p className="text-gray-400 text-sm py-4 text-center">✅ המלאי תקין</p>}
+                {alerts.length === 0 && <p className="text-gray-400 text-sm py-4 text-center">✅ {t('hub.restobot_no_alerts')}</p>}
                 {alerts.map((a: any) => {
                   const isOut = a.status === 'out';
                   return (
@@ -189,9 +186,9 @@ export default async function RestoBotDashboard() {
                           <h4 className="font-medium text-gray-900 text-sm">
                             {isOut ? '❌' : '⚠️'} {a.item_name}
                           </h4>
-                          <p className="text-xs text-gray-500">ספק: {a.supplier || 'לא ידוע'}</p>
+                          <p className="text-xs text-gray-500">{t('hub.restobot_supplier')}: {a.supplier || t('hub.restobot_unknown')}</p>
                         </div>
-                        <div className="text-left">
+                        <div className={dir === 'rtl' ? 'text-left' : 'text-right'}>
                           <div className={`text-sm font-bold ${isOut ? 'text-red-700' : 'text-amber-700'}`}>
                             {a.current_stock} / {a.min_stock}
                           </div>
@@ -206,24 +203,26 @@ export default async function RestoBotDashboard() {
           </div>
         </div>
         
-        {/* Top Dishes */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <h3 className="font-bold text-gray-900 mb-4">🔥 המנות הפופולריות</h3>
+          <h3 className="font-bold text-gray-900 mb-4">🔥 {t('hub.restobot_top_dishes')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {dishes.map((d: any) => {
               const pct = Number(d.popularity) || 0;
               const fcp = Number(d.food_cost_percent) || 0;
               const profitColor = fcp < 30 ? '#10B981' : fcp < 35 ? '#F59E0B' : '#EF4444';
+              const catKey = `hub.cat_${d.category}`;
+              const catTranslated = t(catKey);
+              const catLabel = catTranslated === catKey ? d.category : catTranslated;
               return (
                 <div key={d.id} className="p-3 bg-gradient-to-l from-orange-50 to-white rounded-xl border border-orange-100">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 text-sm">{d.dish_name}</h4>
-                      <p className="text-xs text-gray-500">{CAT_LABELS[d.category] || d.category}</p>
+                      <p className="text-xs text-gray-500">{catLabel}</p>
                     </div>
-                    <div className="text-left">
-                      <div className="text-lg font-bold text-gray-900">{fmt(d.price)}</div>
-                      <div className="text-xs" style={{ color: profitColor }}>Cost: {fcp}%</div>
+                    <div className={dir === 'rtl' ? 'text-left' : 'text-right'}>
+                      <div className="text-lg font-bold text-gray-900">{fmt(d.price, locale)}</div>
+                      <div className="text-xs" style={{ color: profitColor }}>{t('hub.restobot_cost_label')}: {fcp}%</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
