@@ -22,7 +22,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowRight, Phone, MessageSquare, Sparkles } from 'lucide-react';
+import { ArrowRight, Phone, MessageSquare, Sparkles, Plus } from 'lucide-react';
+import AddLeadModal from '../AddLeadModal';
 
 // ============ Types ============
 interface Lead {
@@ -57,13 +58,13 @@ function fmt(n: any): string {
 }
 
 // ============ Card Component ============
-function LeadCard({ lead, isDragging }: { lead: Lead; isDragging?: boolean }) {
+function LeadCard({ lead, isDragging, asLink }: { lead: Lead; isDragging?: boolean; asLink?: boolean }) {
   const data = lead.data || {};
   const aiScore = parseInt(data.ai_score || 0);
   const scoreColor = aiScore >= 80 ? '#EF4444' : aiScore >= 60 ? '#F59E0B' : '#94A3B8';
 
-  return (
-    <div className={`bg-white rounded-lg p-3 shadow-sm border border-gray-200 ${isDragging ? 'shadow-xl rotate-2' : 'hover:shadow-md'} transition-all cursor-grab active:cursor-grabbing`}>
+  const cardContent = (
+    <>
       <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">
         {data.title || 'ללא כותרת'}
       </h4>
@@ -96,6 +97,14 @@ function LeadCard({ lead, isDragging }: { lead: Lead; isDragging?: boolean }) {
           )}
         </div>
       )}
+    </>
+  );
+
+  const baseClass = `bg-white rounded-lg p-3 shadow-sm border border-gray-200 ${isDragging ? 'shadow-xl rotate-2' : 'hover:shadow-md'} transition-all`;
+
+  return (
+    <div className={`${baseClass} ${isDragging ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}`}>
+      {cardContent}
     </div>
   );
 }
@@ -113,8 +122,20 @@ function SortableLeadCard({ lead }: { lead: Lead }) {
     opacity: isDragging ? 0.4 : 1,
   };
 
+  // לחיצה כפולה לפתיחת דף פרטים (כדי שלא יסבך עם גרירה)
+  function handleDoubleClick() {
+    window.location.href = `/dashboard/hub/crm/leads/${lead.id}`;
+  }
+
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      onDoubleClick={handleDoubleClick}
+      title="לחיצה כפולה לפתיחה"
+    >
       <LeadCard lead={lead} />
     </div>
   );
@@ -187,6 +208,8 @@ export default function KanbanBoard({
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [defaultStage, setDefaultStage] = useState('new');
 
   // Sensors - תמיכה בעכבר, מגע, ומקלדת
   const sensors = useSensors(
@@ -314,6 +337,13 @@ export default function KanbanBoard({
           </div>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => { setDefaultStage('new'); setShowAddModal(true); }}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>הוסף ליד</span>
+          </button>
           <Link 
             href="/dashboard/hub/crm" 
             className="text-sm bg-white px-4 py-2 rounded-lg border hover:bg-gray-50 flex items-center gap-1"
@@ -384,9 +414,22 @@ export default function KanbanBoard({
       )}
 
       {/* Mobile hint */}
-      <div className="md:hidden mt-4 text-xs text-gray-500 text-center">
-        💡 החזק לחיצה על כרטיס למשך שניה לפני גרירה
+      <div className="md:hidden mt-4 text-xs text-gray-500 text-center space-y-1">
+        <div>💡 החזק לחיצה על כרטיס למשך שניה לפני גרירה</div>
+        <div>👆 לחיצה כפולה על כרטיס פותחת פרטים מלאים</div>
       </div>
+
+      {/* Add Lead Modal */}
+      <AddLeadModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={(newLead) => {
+          // הוספת הליד החדש לרשימה - מופיע מיד בקנבן
+          setLeads([newLead, ...leads]);
+          setShowAddModal(false);
+        }}
+        defaultStage={defaultStage}
+      />
 
     </div>
   );
