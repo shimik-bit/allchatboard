@@ -57,6 +57,7 @@ export const en: LocaleDictionary = {
     confirm_delete: 'Are you sure you want to delete this?',
     cannot_undo: 'This action cannot be undone',
     coming_soon: 'Coming soon',
+    done: 'Done',
   },
 
   /* ────────────── Navigation ────────────── */
@@ -1163,6 +1164,57 @@ export const en: LocaleDictionary = {
     cat_drinks: 'Drinks',
     cat_alcohol: 'Alcohol',
     cat_kids: 'Kids',
+    buildbot_plans: 'Construction Plans',
+  },
+
+  /* ────────────── BuildBot - BOQ Generator ────────────── */
+  buildbot: {
+    plans_page_title: 'Construction Plans',
+    plans_page_subtitle: 'Upload plans and auto-generate Bills of Quantities',
+    plans_count: '{n} plans',
+    plans_empty_title: 'No plans yet',
+    plans_empty_subtitle: 'Upload plans (PDF, JPG, PNG, DWG) so AI can generate a BOQ',
+    untitled_project: 'Untitled project',
+
+    plan_upload_button: 'Upload Plans',
+    plan_upload_title: 'Upload Construction Plans',
+    plan_upload_drag: 'Drop files here or click to select',
+    plan_upload_supported: 'PDF, JPG, PNG, DWG · Up to 50MB per file · Up to 10 files',
+    plan_upload_pick_project: 'Assign to project',
+    plan_upload_no_project: 'No project',
+    plan_upload_preview_title: 'Review before upload',
+    plan_upload_preview_summary: '{n} files · {size} total',
+    plan_upload_start: 'Start upload',
+    plan_upload_in_progress: 'Uploading plans...',
+    plan_upload_done: 'Upload complete',
+    plan_upload_failed: 'Upload failed',
+
+    plan_upload_too_large: 'File too large (max 50MB)',
+    plan_upload_invalid_type: 'Unsupported file type',
+    plan_upload_max_files: 'Maximum {n} files at a time',
+
+    plan_extracted_floors: 'Floors detected',
+    plan_extracted_rooms: 'Rooms detected',
+    plan_extracted_area: 'Total area',
+    plan_confidence: 'Confidence',
+
+    plan_status_uploaded: 'Uploaded',
+    plan_status_analyzing: 'Analyzing',
+    plan_status_analyzed: 'Analyzed',
+    plan_status_failed: 'Failed',
+
+    plan_upload_analyzing: 'AI is analyzing the plan...',
+    plan_analysis_eta: 'Usually takes 10–60 seconds',
+    plan_analysis_done: 'Analysis complete',
+    plan_analysis_timeout: 'Analysis is taking too long, try refreshing',
+    plan_reanalyze: 'Re-analyze',
+    plan_type_label: 'Plan type',
+    plan_type_floor_plan: 'Floor plan',
+    plan_type_elevation: 'Elevation',
+    plan_type_section: 'Section',
+    plan_type_site_plan: 'Site plan',
+    plan_type_detail: 'Detail',
+    plan_type_other: 'Other',
   },
 
   /* ────────────── Inbox Insights ────────────── */
