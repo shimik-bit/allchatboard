@@ -24,7 +24,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
-  const { t } = useT();
+  const { t, dir } = useT();
   const [showWsSwitcher, setShowWsSwitcher] = useState(false);
 
   async function handleWorkspaceSwitch(workspaceId: string) {
@@ -396,7 +396,19 @@ export default function Sidebar({
                 <Briefcase className="w-3.5 h-3.5 text-amber-600" />
                 <span>{t('hub.nav_buildbot')}</span>
               </Link>
-              
+
+              <Link
+                href="/dashboard/hub/buildbot/plans"
+                className={`flex items-center gap-2 ${dir === 'rtl' ? 'pr-7' : 'pl-7'} py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  pathname === '/dashboard/hub/buildbot/plans'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-amber-500" />
+                <span>{t('hub.buildbot_plans')}</span>
+              </Link>
+
               <Link
                 href="/dashboard/hub/restobot"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${

@@ -57,6 +57,7 @@ export const he = {
     confirm_delete: 'האם אתה בטוח שברצונך למחוק?',
     cannot_undo: 'לא ניתן לבטל פעולה זו',
     coming_soon: 'בקרוב',
+    done: 'סיום',
   },
 
   /* ────────────── Navigation ────────────── */
@@ -1164,6 +1165,44 @@ export const he = {
     cat_drinks: 'שתייה',
     cat_alcohol: 'אלכוהול',
     cat_kids: 'ילדים',
+    buildbot_plans: 'תוכניות בנייה',
+  },
+
+  /* ────────────── BuildBot - BOQ Generator ────────────── */
+  buildbot: {
+    plans_page_title: 'תוכניות בנייה',
+    plans_page_subtitle: 'העלאת תוכניות והפקת כתבי כמויות אוטומטית',
+    plans_count: '{n} תוכניות',
+    plans_empty_title: 'אין עדיין תוכניות',
+    plans_empty_subtitle: 'העלה תוכניות (PDF, JPG, PNG, DWG) כדי שה-AI יפיק כתב כמויות',
+    untitled_project: 'פרויקט ללא שם',
+
+    plan_upload_button: 'העלה תוכניות',
+    plan_upload_title: 'העלאת תוכניות בנייה',
+    plan_upload_drag: 'גרור קבצים לכאן או לחץ לבחירה',
+    plan_upload_supported: 'PDF, JPG, PNG, DWG · עד 50MB לקובץ · עד 10 קבצים',
+    plan_upload_pick_project: 'שייך לפרויקט',
+    plan_upload_no_project: 'ללא שיוך לפרויקט',
+    plan_upload_preview_title: 'סקירה לפני העלאה',
+    plan_upload_preview_summary: '{n} קבצים · {size} סך הכל',
+    plan_upload_start: 'התחל העלאה',
+    plan_upload_in_progress: 'מעלה תוכניות...',
+    plan_upload_done: 'ההעלאה הושלמה',
+    plan_upload_failed: 'ההעלאה נכשלה',
+
+    plan_upload_too_large: 'הקובץ גדול מדי (מקסימום 50MB)',
+    plan_upload_invalid_type: 'סוג קובץ לא נתמך',
+    plan_upload_max_files: 'מקסימום {n} קבצים בפעם אחת',
+
+    plan_extracted_floors: 'קומות שזוהו',
+    plan_extracted_rooms: 'חדרים שזוהו',
+    plan_extracted_area: 'שטח כולל',
+    plan_confidence: 'רמת ביטחון',
+
+    plan_status_uploaded: 'הועלה',
+    plan_status_analyzing: 'מנתח',
+    plan_status_analyzed: 'נותח',
+    plan_status_failed: 'נכשל',
   },
 
   /* ────────────── Inbox Insights ────────────── */
