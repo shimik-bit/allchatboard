@@ -79,6 +79,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     total_area_sqm: plan.detected_total_area_sqm,
     summary: plan.ai_summary,
     extracted: plan.ai_extracted_data,
+    rooms_inserted: (plan.ai_extracted_data as { _rooms_inserted?: number } | null)?._rooms_inserted ?? 0,
+    rooms_table_id: (plan.ai_extracted_data as { _rooms_table_id?: string } | null)?._rooms_table_id ?? null,
     started_at: plan.processing_started_at,
     completed_at: plan.processing_completed_at,
   });

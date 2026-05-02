@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useT } from '@/lib/i18n/useT';
 import {
   Loader2,
@@ -11,6 +12,8 @@ import {
   DoorOpen,
   Maximize,
   Layers,
+  Table2,
+  ExternalLink,
 } from 'lucide-react';
 
 /**
@@ -25,6 +28,13 @@ import {
  * want to hammer the endpoint forever.
  */
 
+type ExtractedRoom = {
+  name: string;
+  type: string | null;
+  area_sqm: number | null;
+  floor: number | null;
+};
+
 type StatusResponse = {
   plan_id: string;
   status: 'uploaded' | 'analyzing' | 'analyzed' | 'failed' | string;
@@ -38,6 +48,9 @@ type StatusResponse = {
   rooms_count: number | null;
   total_area_sqm: number | null;
   summary: string | null;
+  extracted: { rooms?: ExtractedRoom[] } | null;
+  rooms_inserted: number;
+  rooms_table_id: string | null;
 };
 
 type PlanAnalysisStatusProps = {
@@ -219,6 +232,9 @@ export default function PlanAnalysisStatus({
     const confColor =
       conf >= 80 ? 'text-green-700 bg-green-100' : conf >= 50 ? 'text-amber-700 bg-amber-100' : 'text-red-700 bg-red-100';
 
+    const rooms = data.extracted?.rooms ?? [];
+    const totalArea = rooms.reduce((sum: number, r: ExtractedRoom) => sum + (r.area_sqm || 0), 0);
+
     return (
       <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -248,11 +264,11 @@ export default function PlanAnalysisStatus({
               value={String(data.rooms_count)}
             />
           )}
-          {data.total_area_sqm !== null && (
+          {(data.total_area_sqm !== null || totalArea > 0) && (
             <Stat
               icon={<Maximize className="w-4 h-4 text-amber-600" />}
               label={t('buildbot.plan_extracted_area')}
-              value={`${data.total_area_sqm} ${t('hub.buildbot_sqm')}`}
+              value={`${data.total_area_sqm ?? totalArea.toFixed(1)} ${t('hub.buildbot_sqm')}`}
             />
           )}
           {data.plan_type && (
@@ -270,7 +286,63 @@ export default function PlanAnalysisStatus({
           </div>
         )}
 
-        <div className="flex justify-end">
+        {/* Rooms breakdown — every detected room with confidence */}
+        {rooms.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-xs font-semibold text-gray-700">
+                {t('buildbot.plan_rooms_breakdown')}
+              </h4>
+              {data.rooms_inserted > 0 && (
+                <span className="text-xs text-green-700">
+                  ✓ {t('buildbot.plan_rooms_saved', { n: data.rooms_inserted })}
+                </span>
+              )}
+            </div>
+            <div className="space-y-1">
+              {rooms.map((room: ExtractedRoom, idx: number) => {
+                const filled = [room.name, room.type, room.area_sqm, room.floor].filter(
+                  (v) => v !== null && v !== undefined && v !== ''
+                ).length;
+                const roomConf = Math.round((filled / 4) * 100);
+                const roomConfColor =
+                  roomConf >= 75 ? 'bg-green-100 text-green-700' :
+                  roomConf >= 50 ? 'bg-amber-100 text-amber-700' :
+                  'bg-red-100 text-red-700';
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-lg text-xs">
+                    <DoorOpen className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                    <span className="font-medium text-gray-900 flex-1 truncate">{room.name}</span>
+                    {room.area_sqm !== null && (
+                      <span className="text-gray-500">{room.area_sqm} {t('hub.buildbot_sqm')}</span>
+                    )}
+                    {room.floor !== null && (
+                      <span className="text-gray-400">{t('buildbot.floor_short')} {room.floor}</span>
+                    )}
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${roomConfColor}`}>
+                      {roomConf}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Action row: link to table for editing */}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100 flex-wrap">
+          {data.rooms_table_id ? (
+            <Link
+              href={`/dashboard/${data.rooms_table_id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+            >
+              <Table2 className="w-3.5 h-3.5" />
+              {t('buildbot.plan_open_in_table')}
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+          ) : (
+            <span className="text-xs text-gray-400">{t('buildbot.plan_no_table_yet')}</span>
+          )}
           <button
             type="button"
             onClick={() => void triggerAnalysis()}
