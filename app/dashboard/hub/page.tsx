@@ -1,53 +1,70 @@
 // app/dashboard/hub/page.tsx
 // TaskFlow Hub - מרכז שליטה לכל ה-Packs
-// משתמש ב-Layout הקיים של dashboard (Sidebar + auth)
+// תומך בעברית/אנגלית
 
 import Link from 'next/link';
-import { createAdminClient } from '@/lib/supabase/server';
-
-export const metadata = {
-  title: 'Hub - מרכז שליטה | TaskFlow',
-};
+import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { getT } from '@/lib/i18n/server';
+import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 30;
 
+async function getWorkspaceLocale(): Promise<Locale> {
+  const supabase = createClient();
+  const wsId = cookies().get('tf_active_workspace')?.value;
+  if (!wsId) return DEFAULT_LOCALE;
+  
+  const { data: ws } = await supabase
+    .from('workspaces')
+    .select('locale')
+    .eq('id', wsId)
+    .maybeSingle();
+  
+  const localeRaw = (ws as any)?.locale;
+  return isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE;
+}
+
 async function getHubData() {
   const sb = createAdminClient();
-  
   const [{ data: workspaces }, { data: packs }, { data: allPacks }] = await Promise.all([
     sb.from('v_workspace_overview').select('*').order('total_records', { ascending: false }),
     sb.from('v_workspace_packs').select('*'),
     sb.from('table_packages').select('*').eq('is_published', true).order('position'),
   ]);
-
   return { workspaces: workspaces || [], packs: packs || [], allPacks: allPacks || [] };
 }
 
+export async function generateMetadata() {
+  const locale = await getWorkspaceLocale();
+  const { t } = getT(locale);
+  return { title: `${t('hub.title')} | TaskFlow` };
+}
+
 export default async function HubPage() {
+  const locale = await getWorkspaceLocale();
+  const { t, dir } = getT(locale);
   const { workspaces, packs, allPacks } = await getHubData();
 
-  // Group packs by workspace
   const packsByWs: Record<string, any[]> = {};
   packs.forEach((p: any) => {
     if (!packsByWs[p.workspace_id]) packsByWs[p.workspace_id] = [];
     packsByWs[p.workspace_id].push(p);
   });
 
-  // Stats
   const totalWorkspaces = workspaces.filter((w: any) => Number(w.total_records) > 0).length;
   const totalPacks = allPacks.length;
   const totalRecords = workspaces.reduce((s: number, w: any) => s + (Number(w.total_records) || 0), 0);
   const totalInstalls = packs.length;
 
-  // Pack usage
   const packUsage: Record<string, number> = {};
   packs.forEach((p: any) => {
     packUsage[p.pack_slug] = (packUsage[p.pack_slug] || 0) + 1;
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-4 md:p-6" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-4 md:p-6" dir={dir}>
       <div className="max-w-7xl mx-auto">
         
         <header className="mb-8 text-center">
@@ -56,25 +73,25 @@ export default async function HubPage() {
               className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-3xl"
               style={{ background: 'linear-gradient(135deg,#7C3AED,#A855F7,#EC4899)' }}
             >⚡</div>
-            <div className="text-right">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900">TaskFlow Hub</h1>
-              <p className="text-sm text-gray-500">מרכז שליטה - כל המודולים וה-Workspaces</p>
+            <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{t('hub.title')}</h1>
+              <p className="text-sm text-gray-500">{t('hub.subtitle')}</p>
             </div>
           </div>
         </header>
 
         {/* Top Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard value={totalWorkspaces} label="Workspaces פעילים" color="text-purple-600" />
-          <StatCard value={totalPacks} label="מודולים זמינים" color="text-blue-600" />
-          <StatCard value={totalInstalls} label="התקנות" color="text-green-600" />
-          <StatCard value={totalRecords} label="רשומות" color="text-orange-600" />
+          <StatCard value={totalWorkspaces} label={t('hub.stats_workspaces')} color="text-purple-600" />
+          <StatCard value={totalPacks} label={t('hub.stats_packs_available')} color="text-blue-600" />
+          <StatCard value={totalInstalls} label={t('hub.stats_installs')} color="text-green-600" />
+          <StatCard value={totalRecords} label={t('hub.stats_records')} color="text-orange-600" />
         </div>
 
         {/* Live Dashboards */}
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            📊 דשבורדים חיים
+            📊 {t('hub.section_dashboards')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link 
@@ -82,26 +99,24 @@ export default async function HubPage() {
               className="block bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl p-6 hover:shadow-xl transition-all"
             >
               <div className="text-4xl mb-3">🎯</div>
-              <h3 className="text-xl font-bold mb-2">CRM Dashboard</h3>
-              <p className="text-sm opacity-90">לידים, פייפליין, ציוני AI</p>
+              <h3 className="text-xl font-bold mb-2">{t('hub.crm_title')}</h3>
+              <p className="text-sm opacity-90">{t('hub.crm_subtitle')}</p>
             </Link>
-            
             <Link
               href="/dashboard/hub/buildbot"
               className="block bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl p-6 hover:shadow-xl transition-all"
             >
               <div className="text-4xl mb-3">🏗️</div>
-              <h3 className="text-xl font-bold mb-2">BuildBot</h3>
-              <p className="text-sm opacity-90">פרויקטים, BOQ, ספקים</p>
+              <h3 className="text-xl font-bold mb-2">{t('hub.buildbot_title')}</h3>
+              <p className="text-sm opacity-90">{t('hub.buildbot_subtitle')}</p>
             </Link>
-            
             <Link
               href="/dashboard/hub/restobot"
               className="block bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl p-6 hover:shadow-xl transition-all"
             >
               <div className="text-4xl mb-3">🍽️</div>
-              <h3 className="text-xl font-bold mb-2">RestoBot</h3>
-              <p className="text-sm opacity-90">תפריט, מלאי, הזמנות</p>
+              <h3 className="text-xl font-bold mb-2">{t('hub.restobot_title')}</h3>
+              <p className="text-sm opacity-90">{t('hub.restobot_subtitle')}</p>
             </Link>
           </div>
         </section>
@@ -109,7 +124,7 @@ export default async function HubPage() {
         {/* Workspaces */}
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            🏢 כל ה-Workspaces
+            🏢 {t('hub.section_workspaces')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {workspaces.filter((w: any) => Number(w.total_records) > 0).map((w: any) => {
@@ -123,13 +138,11 @@ export default async function HubPage() {
                       <p className="text-xs text-gray-500 capitalize">{w.plan}</p>
                     </div>
                   </div>
-                  
                   <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-                    <MiniStat value={w.packs_installed} label="Packs" color="purple" />
-                    <MiniStat value={w.total_tables} label="טבלאות" color="blue" />
-                    <MiniStat value={w.total_records} label="רשומות" color="green" />
+                    <MiniStat value={w.packs_installed} label={t('hub.workspace_packs_count')} color="purple" />
+                    <MiniStat value={w.total_tables} label={t('hub.workspace_tables_count')} color="blue" />
+                    <MiniStat value={w.total_records} label={t('hub.workspace_records_count')} color="green" />
                   </div>
-
                   {wsPacks.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {wsPacks.map((p: any) => (
@@ -152,13 +165,13 @@ export default async function HubPage() {
         {/* Available Packs */}
         <section>
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            📦 מודולים זמינים
+            📦 {t('hub.section_packs')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {allPacks.map((p: any) => {
               const usage = packUsage[p.slug] || 0;
               const tables = p.structure?.tables?.length || 0;
-              const fields = (p.structure?.tables || []).reduce((s: number, t: any) => s + (t.fields?.length || 0), 0);
+              const fields = (p.structure?.tables || []).reduce((s: number, tbl: any) => s + (tbl.fields?.length || 0), 0);
               return (
                 <div key={p.slug} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                   <div className="flex items-start gap-3 mb-3">
@@ -173,11 +186,10 @@ export default async function HubPage() {
                       <p className="text-xs text-gray-500 mt-1">{p.description || ''}</p>
                     </div>
                   </div>
-                  
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <PackStat value={tables} label="טבלאות" color={p.color} />
-                    <PackStat value={fields} label="שדות" color={p.color} />
-                    <PackStat value={usage} label="התקנות" color={p.color} />
+                    <PackStat value={tables} label={t('hub.pack_tables')} color={p.color} />
+                    <PackStat value={fields} label={t('hub.pack_fields')} color={p.color} />
+                    <PackStat value={usage} label={t('hub.pack_installs')} color={p.color} />
                   </div>
                 </div>
               );
