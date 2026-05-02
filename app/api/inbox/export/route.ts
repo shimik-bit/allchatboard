@@ -144,7 +144,7 @@ export async function GET() {
     const BOM = '\uFEFF';
     const csv = BOM + [
       headers.map(csvEscape).join(','),
-      ...rows.map(row => row.map(csvEscape).join(',')),
+      ...rows.map((row: any[]) => row.map(csvEscape).join(',')),
     ].join('\r\n');
 
     return new NextResponse(csv, {
