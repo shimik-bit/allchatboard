@@ -225,6 +225,14 @@ export default function InboxClient({
               <BarChart3 className="w-3.5 h-3.5" />
               <span>תובנות</span>
             </Link>
+            <Link 
+              href="/dashboard/inbox/reports"
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 transition"
+              title="דוחות מתקדמים - SLA, percentiles, heatmap"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>דוחות</span>
+            </Link>
             <span className="text-xs text-gray-500">{counts.open} פתוח{counts.open === 1 ? '' : 'ים'}</span>
           </div>
         </div>
