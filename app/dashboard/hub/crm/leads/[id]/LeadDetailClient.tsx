@@ -14,6 +14,7 @@ import {
   ArrowRight, Phone, Mail, MessageSquare, Sparkles, Calendar,
   User, Plus, Pin, Trash2, AlertTriangle, Activity,
   StickyNote, Link2, TrendingUp,
+  CheckCircle2, Loader2, X, UserPlus, ChevronLeft,
 } from 'lucide-react';
 
 // ============ Types ============
@@ -69,6 +70,17 @@ interface Lead360 {
     value: number;
     expected_close_date: string | null;
     lost_reason: string | null;
+    is_converted?: boolean;
+    converted_contact?: {
+      id: string;
+      table_id: string;
+      table_name: string;
+      table_slug: string;
+      table_icon: string;
+      data: Record<string, any>;
+      created_at: string;
+      converted_at: string | null;
+    } | null;
   };
   ai_insights: {
     score: number;
@@ -429,6 +441,14 @@ export default function LeadDetailClient({
   const [noteCategory, setNoteCategory] = useState<string>('general');
   const [noteSubmitting, setNoteSubmitting] = useState(false);
 
+  // Convert-to-customer modal state. Opens when the user clicks the
+  // "המר ללקוח" button (visible when stage=won and not yet converted).
+  // The modal lets the user review/edit the auto-mapped values before
+  // committing. We keep this UI inline to avoid an extra component file
+  // for a flow that's strongly coupled to the lead's data.
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [converting, setConverting] = useState(false);
+
   const lead = data.lead;
   const leadData = lead.data || {};
   const contact = data.contact;
@@ -584,6 +604,65 @@ export default function LeadDetailClient({
     }
   }
 
+  /**
+   * Convert this lead into a customer record. Hits POST /api/leads/[id]/convert-to-customer
+   * which:
+   *   - Creates a new customer record with mapped fields
+   *   - Sets bidirectional conversion_links on both records
+   *   - Writes activity log entries on both
+   *
+   * On success, we update local state to reflect the new converted_contact
+   * (so the green "✓ Converted" banner replaces the call-to-action banner
+   * without needing a page reload).
+   */
+  async function handleConvert(overrides: Record<string, any>) {
+    setConverting(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/convert-to-customer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        showError(result.error || 'שגיאה בהמרה');
+        setConverting(false);
+        return;
+      }
+
+      // Locally project what the next get_lead_360 will return so the UI
+      // updates instantly. The shape mirrors the RPC's converted_contact.
+      setData((d) => ({
+        ...d,
+        pipeline: {
+          ...d.pipeline,
+          is_converted: true,
+          converted_contact: {
+            id: result.customer.id,
+            table_id: result.customer.table_id,
+            table_name: 'לקוחות',
+            table_slug: 'customers',
+            table_icon: '👤',
+            data: result.customer.data || {},
+            created_at: result.customer.created_at,
+            converted_at: new Date().toISOString(),
+          },
+        },
+      }));
+      setShowConvertModal(false);
+    } catch (e: any) {
+      showError(e?.message || 'שגיאת רשת');
+    } finally {
+      setConverting(false);
+    }
+  }
+
+  // Banner visibility: show the call-to-action only on stage=won and only
+  // if not already converted. Lost / new / contacted leads don't get this
+  // banner — converting a non-won lead is unusual and would clutter the UI.
+  const showConvertCTA = currentStage === 'won' && !pipeline.is_converted;
+  const convertedContact = pipeline.converted_contact;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-4 md:p-6" dir="rtl">
       <div className="max-w-5xl mx-auto">
@@ -644,6 +723,54 @@ export default function LeadDetailClient({
             <StageSelector current={currentStage} updating={updating} onChange={handleStageChange} />
           </div>
         </div>
+
+        {/* === CONVERT TO CUSTOMER BANNER ===
+            Two states:
+            1. Lead is won + not converted yet → green call-to-action button
+            2. Lead is already converted → soft confirmation card with link to customer
+            We show neither for stages other than 'won' to avoid clutter. */}
+        {showConvertCTA && (
+          <div className="bg-gradient-to-l from-emerald-500 to-green-600 text-white rounded-2xl p-4 shadow-sm mb-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <div className="font-bold text-base">הליד נסגר בהצלחה! 🎉</div>
+                  <div className="text-sm text-emerald-50 mt-0.5">
+                    שמור את {contact.name || 'הלקוח'} במאגר הלקוחות כדי לעקוב אחריו לאורך זמן.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConvertModal(true)}
+                className="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex items-center gap-2 shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                המר ללקוח
+              </button>
+            </div>
+          </div>
+        )}
+
+        {convertedContact && (
+          <Link
+            href={`/dashboard/${convertedContact.table_id}/records/${convertedContact.id}`}
+            className="block bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400 rounded-2xl p-3 mb-3 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-emerald-700 font-semibold">הומר ללקוח</div>
+                <div className="text-sm text-emerald-900 font-bold truncate">
+                  {convertedContact.data?.full_name || convertedContact.data?.name || 'לקוח'} {convertedContact.table_icon}
+                </div>
+              </div>
+              <ChevronLeft className="w-5 h-5 text-emerald-600 shrink-0" />
+            </div>
+          </Link>
+        )}
 
         {/* === QUICK ACTIONS === */}
         <div className="bg-white rounded-2xl p-3 shadow-sm border mb-3">
@@ -784,6 +911,183 @@ export default function LeadDetailClient({
           ליד נוצר {fmtDate(lead.created_at)} · עודכן {fmtDate(lead.updated_at)}
         </div>
 
+      </div>
+
+      {/* === Convert-to-customer modal ===
+          Rendered as a child of the page so it sits in the same flex stack;
+          the modal portals visually via fixed positioning. We only mount it
+          when open to keep the form state fresh between conversions. */}
+      {showConvertModal && (
+        <ConvertToCustomerModal
+          contact={contact}
+          pipelineValue={pipeline.value}
+          submitting={converting}
+          onSubmit={handleConvert}
+          onClose={() => setShowConvertModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * ConvertToCustomerModal — preview & confirm screen for the conversion.
+ *
+ * The default values come from the lead (full_name, phone, email, value).
+ * The user can tweak any field before clicking "צור לקוח". On submit, we
+ * pass the (possibly edited) data as `overrides` to the API, which writes
+ * it directly to the new customer record.
+ */
+function ConvertToCustomerModal({
+  contact,
+  pipelineValue,
+  submitting,
+  onSubmit,
+  onClose,
+}: {
+  contact: { name: string | null; phone: string; email: string | null; source: string | null };
+  pipelineValue: number;
+  submitting: boolean;
+  onSubmit: (overrides: Record<string, any>) => void;
+  onClose: () => void;
+}) {
+  const [fullName, setFullName] = useState(contact.name || '');
+  const [phone, setPhone] = useState(contact.phone || '');
+  const [email, setEmail] = useState(contact.email || '');
+  const [lifetimeValue, setLifetimeValue] = useState<string>(
+    pipelineValue ? String(pipelineValue) : ''
+  );
+
+  function handleSubmit() {
+    if (!fullName.trim()) return;
+    const overrides: Record<string, any> = {
+      full_name: fullName.trim(),
+    };
+    if (phone.trim()) overrides.phone = phone.trim();
+    if (email.trim()) overrides.email = email.trim();
+    const lv = parseFloat(lifetimeValue);
+    if (!isNaN(lv) && lv > 0) overrides.lifetime_value = lv;
+    onSubmit(overrides);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[92vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
+              <UserPlus className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">המר ליד ללקוח</h2>
+              <p className="text-xs text-gray-500">בדוק את הפרטים לפני יצירת רשומת הלקוח</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="סגור">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              שם מלא <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+              placeholder="שם הלקוח"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">טלפון</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              dir="ltr"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+              placeholder="0501234567"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">אימייל</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              dir="ltr"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+              placeholder="example@domain.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              ערך לקוח התחלתי (₪)
+              <span className="text-gray-400 font-normal mr-1">— לפי ערך ההזדמנות מהליד</span>
+            </label>
+            <input
+              type="number"
+              value={lifetimeValue}
+              onChange={(e) => setLifetimeValue(e.target.value)}
+              dir="ltr"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+              placeholder="0"
+            />
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 mt-2">
+            <div className="font-semibold mb-1">מה יקרה?</div>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>ייווצר רשומה חדשה בטבלת הלקוחות</li>
+              <li>הליד הזה יישאר בשלב "נסגר בהצלחה" עם קישור ללקוח</li>
+              <li>שיחות, הודעות, והערות יישארו זמינים בשני המקומות</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 p-4 border-t shrink-0 bg-white">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            ביטול
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !fullName.trim()}
+            className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                ממיר...
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4" />
+                צור לקוח
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
