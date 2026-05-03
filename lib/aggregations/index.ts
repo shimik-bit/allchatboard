@@ -40,6 +40,7 @@ export const AGGREGATIONS_BY_TYPE: Record<FieldType, {
 }> = {
   number:      { default: 'sum',          available: ['sum', 'avg', 'min', 'max', 'count_filled', 'none'] },
   currency:    { default: 'sum',          available: ['sum', 'avg', 'min', 'max', 'count_filled', 'none'] },
+  formula:     { default: 'sum',          available: ['sum', 'avg', 'min', 'max', 'count_filled', 'none'] },
   rating:      { default: 'avg',          available: ['avg', 'sum', 'min', 'max', 'count_filled', 'none'] },
   date:        { default: 'range',        available: ['range', 'min', 'max', 'count_filled', 'none'] },
   datetime:    { default: 'range',        available: ['range', 'min', 'max', 'count_filled', 'none'] },
@@ -139,7 +140,18 @@ export function computeAggregation(
   const agg = aggregation || getEffectiveAggregation(field);
   if (agg === 'none') return null;
 
-  const values = records.map(r => r.data?.[field.slug]);
+  // For formula fields, the displayed (and aggregable) value is computed
+  // from other cells in the row. Late-import to keep this file dep-free
+  // for tests/server use.
+  let values: unknown[];
+  if ((field.type as string) === 'formula') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { evalFormula } = require('@/lib/grid/formula') as typeof import('@/lib/grid/formula');
+    const expr = (field.config as { formula?: string } | undefined)?.formula || '';
+    values = records.map((r) => evalFormula(expr, r.data || {}).value);
+  } else {
+    values = records.map(r => r.data?.[field.slug]);
+  }
   const total = values.length;
 
   switch (agg) {

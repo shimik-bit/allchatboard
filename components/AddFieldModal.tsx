@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare, MapPin, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare, MapPin, Palette, ChevronDown, ChevronUp, Sigma } from 'lucide-react';
 import { ColorRulesPanel } from './ColorRulesEditor';
 import type { ColorRule } from '@/lib/grid/color-rules';
+import { evalFormula, extractReferences, FORMULA_TEMPLATES } from '@/lib/grid/formula';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'טקסט קצר', icon: Type },
   { value: 'longtext', label: 'טקסט ארוך', icon: AlignLeft },
   { value: 'number', label: 'מספר', icon: Hash },
   { value: 'currency', label: 'מטבע', icon: Hash },
+  { value: 'formula', label: 'ƒ שדה מחושב', icon: Sigma },
   { value: 'date', label: 'תאריך', icon: Calendar },
   { value: 'datetime', label: 'תאריך ושעה', icon: Calendar },
   { value: 'select', label: 'בחירה', icon: ToggleLeft },
@@ -63,6 +65,19 @@ export default function AddFieldModal({
   const [colorRules, setColorRules] = useState<ColorRule[]>([]);
   const [showColorRules, setShowColorRules] = useState<boolean>(false);
 
+  // Formula field state — only used when type === 'formula'
+  const [formula, setFormula] = useState<string>('');
+  const [tableFields, setTableFields] = useState<Field[]>([]);
+
+  // Load all fields in this table so the formula editor can show available
+  // [field_slug] references.
+  useEffect(() => {
+    fetch(`/api/tables/${tableId}/fields`)
+      .then((r) => r.json())
+      .then((d) => setTableFields(d.fields || []))
+      .catch(() => {});
+  }, [tableId]);
+
   // Reset rules when field type changes — different operators apply
   useEffect(() => { setColorRules([]); }, [type]);
 
@@ -72,6 +87,7 @@ export default function AddFieldModal({
     'text', 'longtext', 'number', 'currency', 'rating',
     'select', 'multiselect', 'status', 'checkbox',
     'date', 'datetime', 'phone', 'email', 'url',
+    'formula', // computed values are very common targets for color rules
   ]);
   const supportsColorRules = COLOR_RULE_TYPES.has(type);
 
@@ -138,6 +154,22 @@ export default function AddFieldModal({
         config.display_columns = displayColumns;
         // Backward compat
         config.display_field = displayColumns[0];
+      }
+      if (type === 'formula') {
+        const trimmed = formula.trim();
+        if (!trimmed) {
+          setError('יש להזין נוסחה');
+          setSaving(false);
+          return;
+        }
+        // Quick parse-time validation — give the user the error before save
+        const test = evalFormula(trimmed, {});
+        if (test.error && test.error !== 'division_by_zero') {
+          setError(`שגיאה בנוסחה: ${test.error}`);
+          setSaving(false);
+          return;
+        }
+        config.formula = trimmed;
       }
       // Persist any color rules the user defined while creating the field.
       if (supportsColorRules && colorRules.length > 0) {
@@ -378,6 +410,15 @@ export default function AddFieldModal({
             </>
           )}
 
+          {/* Formula field editor */}
+          {type === 'formula' && (
+            <FormulaEditor
+              value={formula}
+              onChange={setFormula}
+              tableFields={tableFields}
+            />
+          )}
+
           {/* Conditional formatting (color rules) — collapsible */}
           {supportsColorRules && (
             <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -452,6 +493,170 @@ export default function AddFieldModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// FormulaEditor — inline editor used inside AddFieldModal when type=formula
+// =============================================================================
+
+function FormulaEditor({
+  value, onChange, tableFields,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  tableFields: Field[];
+}) {
+  const [showHelp, setShowHelp] = useState<boolean>(false);
+
+  // Live evaluate against a synthetic row built from each available field's
+  // slug → "1" so the user sees the formula compile (or its error) immediately.
+  // This catches typos before they save.
+  const sampleRow: Record<string, unknown> = {};
+  for (const f of tableFields) sampleRow[f.slug] = f.type === 'number' || f.type === 'currency' ? 10 : 'X';
+  const result = evalFormula(value, sampleRow);
+  const refs = extractReferences(value);
+  const unknownRefs = refs.filter((r) => !tableFields.some((f) => f.slug === r));
+
+  function insertRef(slug: string): void {
+    onChange(value + (value && !value.endsWith(' ') ? ' ' : '') + `[${slug}]`);
+  }
+
+  function applyTemplate(formula: string): void {
+    // Replace placeholder slugs with the first available field of the right type
+    let f = formula;
+    const numericField = tableFields.find((tf) => tf.type === 'number' || tf.type === 'currency');
+    const textField = tableFields.find((tf) => tf.type === 'text' || tf.type === 'longtext');
+    const dateField = tableFields.find((tf) => tf.type === 'date' || tf.type === 'datetime');
+    if (numericField) {
+      f = f.replace(/\[field_a\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[field_b\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[quantity\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[unit_price\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[part\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[total\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[amount\]/g, `[${numericField.slug}]`);
+      f = f.replace(/\[area_sqm\]/g, `[${numericField.slug}]`);
+    }
+    if (textField) {
+      f = f.replace(/\[first_name\]/g, `[${textField.slug}]`);
+      f = f.replace(/\[last_name\]/g, `[${textField.slug}]`);
+    }
+    if (dateField) {
+      f = f.replace(/\[created_at\]/g, `[${dateField.slug}]`);
+    }
+    onChange(f);
+  }
+
+  return (
+    <div className="border border-purple-200 rounded-xl p-4 bg-purple-50/30 space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-medium">
+          <Sigma className="w-4 h-4 inline-block ml-1 text-purple-600" />
+          נוסחה
+        </label>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); setShowHelp((v) => !v); }}
+          className="text-xs text-purple-700 hover:underline"
+        >
+          {showHelp ? 'הסתר עזרה' : 'מה אפשר לעשות?'}
+        </button>
+      </div>
+
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder='לדוגמה: ROUND([area_sqm] * [price_per_sqm], 2)'
+        rows={3}
+        className="input-field text-sm font-mono"
+        dir="ltr"
+        style={{ direction: 'ltr', textAlign: 'left' }}
+      />
+
+      {/* Live preview / error */}
+      <div className="flex items-center gap-2 text-xs">
+        {result.error ? (
+          <span className="text-red-600">⚠ {result.error}</span>
+        ) : value ? (
+          <>
+            <span className="text-gray-500">תוצאה לדוגמה:</span>
+            <span className="font-mono font-semibold text-purple-700">
+              {result.value === null || result.value === undefined ? '—' :
+               typeof result.value === 'boolean' ? (result.value ? 'TRUE' : 'FALSE') :
+               String(result.value)}
+            </span>
+          </>
+        ) : (
+          <span className="text-gray-400">הזן נוסחה כדי לראות תוצאה</span>
+        )}
+      </div>
+
+      {unknownRefs.length > 0 && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+          ⚠ שדות לא מזוהים: {unknownRefs.map((r) => `[${r}]`).join(', ')}
+        </div>
+      )}
+
+      {/* Available fields to insert */}
+      {tableFields.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1.5">שדות זמינים (לחץ להוספה):</div>
+          <div className="flex flex-wrap gap-1.5">
+            {tableFields
+              .filter((f) => f.type !== 'attachment' && (f.type as string) !== 'formula')
+              .map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); insertRef(f.slug); }}
+                  className="px-2 py-1 text-xs bg-white border border-gray-200 hover:border-purple-400 hover:bg-purple-50 rounded font-mono"
+                  dir="ltr"
+                >
+                  [{f.slug}]
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {showHelp && (
+        <div className="text-xs space-y-2 bg-white border border-gray-200 rounded-lg p-3">
+          <div>
+            <div className="font-semibold text-gray-700 mb-1">תבניות מהירות:</div>
+            <div className="space-y-1">
+              {FORMULA_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.label}
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); applyTemplate(tpl.formula); }}
+                  className="w-full text-right p-2 hover:bg-purple-50 rounded text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-purple-700">{tpl.label}</span>
+                    <span className="text-gray-400 text-[10px]">{tpl.description}</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-gray-500 mt-0.5" dir="ltr">{tpl.formula}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-gray-100 pt-2">
+            <div className="font-semibold text-gray-700 mb-1">פונקציות זמינות:</div>
+            <div className="text-[11px] text-gray-600 leading-relaxed">
+              <code>IF</code>, <code>CONCAT</code>, <code>DATEDIFF</code>, <code>ROUND</code>,
+              {' '}<code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>,
+              {' '}<code>LEN</code>, <code>UPPER</code>, <code>LOWER</code>,
+              {' '}<code>ABS</code>, <code>FLOOR</code>, <code>CEIL</code>,
+              {' '}<code>NOW</code>, <code>TODAY</code>, <code>AND</code>, <code>OR</code>, <code>NOT</code>
+            </div>
+            <div className="text-[11px] text-gray-500 mt-1">
+              אופרטורים: <code>+ - * /</code>, השוואות: <code>{'>'} {'<'} {'>='} {'<='} = !=</code>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

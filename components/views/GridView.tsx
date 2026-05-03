@@ -12,6 +12,7 @@ import { useT } from '@/lib/i18n/useT';
 import type { SortState } from '@/lib/grid/sort';
 import { useColumnWidths } from '@/lib/hooks/useColumnWidths';
 import { evalColorRules, type ColorRule } from '@/lib/grid/color-rules';
+import { evalFormula } from '@/lib/grid/formula';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
@@ -287,12 +288,18 @@ function RecordRowComponent({
         // When no custom width, fall back to Tailwind's max-w utilities.
         const customWidth = columnWidths?.[f.slug];
 
+        // Formula fields compute their value from other cells in the same row.
+        // We do this before color-rule eval so the rules see the computed value.
+        const fieldFormula = (f.config as { formula?: string } | undefined)?.formula;
+        const cellValue = (f.type as string) === 'formula' && fieldFormula
+          ? evalFormula(fieldFormula, record.data || {}).value
+          : record.data?.[f.slug];
+
         // Conditional formatting — read rules from the field config and
         // pick the first one that matches the cell value. Active cell still
         // wins visually (we only set background when the cell isn't active),
         // text color is always applied so highlighted-but-active cells still
         // read correctly.
-        const cellValue = record.data?.[f.slug];
         const colorRules = (f.config as { color_rules?: ColorRule[] } | undefined)?.color_rules;
         const colorStyle = evalColorRules(colorRules, cellValue);
         const tdStyle: React.CSSProperties = customWidth
@@ -322,8 +329,11 @@ function RecordRowComponent({
             <EditableCell
               field={f}
               record={record}
-              value={record.data?.[f.slug]}
+              value={cellValue}
               onChange={(newVal, opts) => {
+                // Formula fields are read-only; the AI/user shouldn't be able
+                // to overwrite their computed value.
+                if ((f.type as string) === 'formula') return Promise.resolve();
                 if (!onUpdate) return Promise.resolve();
                 return onUpdate(record.id, { data: { [f.slug]: newVal } }, opts);
               }}
@@ -539,6 +549,29 @@ function EditableCell({
         value={value || null}
         onChange={async (newId) => { await onChange(newId); }}
       />
+    );
+  }
+
+  // Formula fields are read-only — show the computed value with a subtle ƒ
+  // badge so the user knows it's derived. Click opens the row modal in case
+  // they want context.
+  if ((field.type as string) === 'formula') {
+    const display = value === null || value === undefined || value === ''
+      ? '—'
+      : typeof value === 'number'
+        ? new Intl.NumberFormat('he-IL').format(value)
+        : typeof value === 'boolean'
+          ? (value ? '✓' : '✗')
+          : String(value);
+    return (
+      <div
+        onClick={onRowClick}
+        className="cursor-pointer flex items-center gap-1.5 text-sm"
+        title="שדה מחושב"
+      >
+        <span className="text-[10px] font-bold text-purple-500 italic">ƒ</span>
+        <span>{display}</span>
+      </div>
     );
   }
 
