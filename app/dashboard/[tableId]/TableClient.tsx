@@ -24,10 +24,12 @@ import { useGridCopyPaste } from '@/lib/hooks/useGridCopyPaste';
 import {
   Plus, LayoutList, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon,
   Search, Download, Upload, UserCircle, Settings2, Shield, Database, Trash2,
-  Activity, Receipt, MoreHorizontal,
+  Activity, Receipt, MoreHorizontal, AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DevModeOnly } from '@/components/DevMode';
+import DuplicatesModal from '@/components/DuplicatesModal';
+import { findDuplicateGroups, countAffectedRecords } from '@/lib/duplicates/detect';
 
 type PhoneOption = {
   id: string;
@@ -130,6 +132,21 @@ export default function TableClient({
 
   const canEdit = userRole === 'owner' || userRole === 'admin' || userRole === 'editor';
   const canManageTable = userRole === 'owner' || userRole === 'admin';
+
+  // Duplicate detection — runs whenever records or fields change.
+  // Memoized so the O(n × dedupFields) scan only happens on actual change,
+  // not on every render. We only show the banner if the table has phone/email
+  // fields AND there are duplicate groups; otherwise the cost is just one
+  // empty array allocation.
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+  const duplicateGroups = useMemo(
+    () => findDuplicateGroups(records, fields),
+    [records, fields]
+  );
+  const duplicateAffectedCount = useMemo(
+    () => countAffectedRecords(duplicateGroups),
+    [duplicateGroups]
+  );
 
   // Primary field, group-by field for kanban, date field for calendar
   const primaryField = useMemo(
@@ -739,6 +756,33 @@ export default function TableClient({
         />
       </div>
 
+      {/* Duplicate-records banner — only shown if there are 2+ records that
+          share a phone or email value. Click opens the merge modal.
+          Hidden for read-only users since they can't act on it. */}
+      {canEdit && duplicateGroups.length > 0 && (
+        <div className="px-4 md:px-6 mt-2">
+          <button
+            onClick={() => setShowDuplicatesModal(true)}
+            className="w-full text-right bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 rounded-lg px-3 py-2.5 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="text-sm text-amber-900 min-w-0">
+                <span className="font-semibold">
+                  זוהו {duplicateGroups.length === 1 ? 'רשומות כפולות' : `${duplicateGroups.length} קבוצות כפולות`}
+                </span>
+                <span className="text-amber-700 mr-1">
+                  ({duplicateAffectedCount} רשומות שחולקות אותו טלפון או אימייל)
+                </span>
+              </div>
+            </div>
+            <span className="text-xs text-amber-700 font-semibold shrink-0">
+              סקירה ומיזוג ←
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* View content */}
       <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
         {activeView === 'grid' && (
@@ -813,6 +857,40 @@ export default function TableClient({
           onSave={handleSave}
           onDelete={editingRecord ? handleDelete : undefined}
           onMove={canEdit ? openMoveModal : undefined}
+        />
+      )}
+
+      {/* Duplicates review & merge modal */}
+      {showDuplicatesModal && (
+        <DuplicatesModal
+          groups={duplicateGroups}
+          fields={fields}
+          onClose={() => setShowDuplicatesModal(false)}
+          onMerged={({ keptId, deletedIds, mergedRecord }) => {
+            // Re-enrich the merged record with display names so it stays
+            // consistent with the rest of the table (the API joins these
+            // already, but TypeScript doesn't know that).
+            const enriched: any = {
+              ...mergedRecord,
+              _phone_name: (mergedRecord as any).authorized_phones?.display_name || null,
+              _assignee_name: (mergedRecord as any).assignee?.display_name
+                ? ((mergedRecord as any).assignee.job_title
+                    ? `${(mergedRecord as any).assignee.display_name} (${(mergedRecord as any).assignee.job_title})`
+                    : (mergedRecord as any).assignee.display_name)
+                : null,
+            };
+            setRecords((prev) =>
+              prev
+                .filter((r) => !deletedIds.includes(r.id))
+                .map((r) => (r.id === keptId ? enriched : r))
+            );
+            // Drop merged-away records from the selection set if any were checked
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              deletedIds.forEach((id) => next.delete(id));
+              return next;
+            });
+          }}
         />
       )}
 
