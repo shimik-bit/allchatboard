@@ -343,16 +343,36 @@ export default function Sidebar({
           }`}>AI</span>
         </Link>
 
-        {/* ============ My Apps — link to the marketplace ============ */}
+        {/* ============ My Apps — link to the marketplace ============
+            Triple-redundant click handling because users have hit dead-clicks
+            on this link in the wild:
+              1. The standard Next <Link href> for normal navigation.
+              2. An onClick that calls router.push as a fallback, in case
+                 something in a parent intercepts the default click.
+              3. An onTouchEnd that does the same on iOS, where touch events
+                 sometimes don't synthesize into a click on the first tap. */}
         <Link
           href="/dashboard/apps"
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors ${
+          prefetch={false}
+          onClick={(e) => {
+            // If something else is going to swallow this, force the navigation
+            // anyway. router.push is idempotent with the Link itself.
+            setMobileOpen(false);
+            // Don't preventDefault — let the Link work too if it can.
+            try { router.push('/dashboard/apps'); } catch {}
+          }}
+          onTouchEnd={() => {
+            // iOS Safari fallback for missed clicks on edge taps
+            setMobileOpen(false);
+            try { router.push('/dashboard/apps'); } catch {}
+          }}
+          className={`relative z-10 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors cursor-pointer ${
             pathname === '/dashboard/apps'
               ? 'bg-purple-50 text-purple-700 border border-purple-100'
-              : 'text-gray-700 hover:bg-gray-50'
+              : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
           }`}
         >
-          <Store className="w-4 h-4" />
+          <Store className="w-4 h-4 flex-shrink-0" />
           <span>אפליקציות</span>
           {!hasAnyHubApp && (
             <span className="mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
