@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Plus, Trash2, Palette, GripVertical, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, Palette, ChevronDown } from 'lucide-react';
 import {
   type ColorRule,
   type ColorRuleOperator,
@@ -38,6 +38,112 @@ interface FieldShape {
   config: { color_rules?: ColorRule[]; options?: { value: string; label: string }[] } & Record<string, unknown>;
 }
 
+// =============================================================================
+// ColorRulesPanel — body without modal chrome. Used in two places:
+//   1. ColorRulesEditor (existing field, persists via PATCH on save)
+//   2. AddFieldModal (new field, parent collects rules and sends in POST)
+// Parent owns the rules state.
+// =============================================================================
+
+export function ColorRulesPanel({
+  rules,
+  fieldType,
+  fieldOptions,
+  onChange,
+}: {
+  rules: ColorRule[];
+  fieldType: string;
+  fieldOptions?: { value: string; label: string }[];
+  onChange: (rules: ColorRule[]) => void;
+}) {
+  const operators = operatorsForFieldType(fieldType);
+
+  function addRule(): void {
+    const swatch = COLOR_SWATCHES[rules.length % COLOR_SWATCHES.length];
+    const op: ColorRuleOperator = operators[0] || 'eq';
+    onChange([
+      ...rules,
+      {
+        operator: op,
+        value: operatorNeedsNoValue(op) ? null : '',
+        bg: swatch.bg,
+        text: swatch.text,
+      },
+    ]);
+  }
+
+  function updateRule(idx: number, patch: Partial<ColorRule>): void {
+    onChange(rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
+  function removeRule(idx: number): void {
+    onChange(rules.filter((_, i) => i !== idx));
+  }
+
+  function moveRule(idx: number, dir: -1 | 1): void {
+    const next = [...rules];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-3">
+      {rules.length === 0 ? (
+        <div className="text-center py-6 text-sm text-gray-500">
+          אין כללי צבע. לחץ &quot;הוסף כלל&quot; כדי להתחיל.
+          <div className="text-xs text-gray-400 mt-1">
+            הכלל הראשון שמתאים לערך התא קובע את הצבע.
+          </div>
+        </div>
+      ) : (
+        rules.map((rule: ColorRule, idx: number) => (
+          <RuleRow
+            key={idx}
+            rule={rule}
+            idx={idx}
+            fieldType={fieldType}
+            operators={operators}
+            fieldOptions={fieldOptions}
+            isFirst={idx === 0}
+            isLast={idx === rules.length - 1}
+            onChange={(patch: Partial<ColorRule>) => updateRule(idx, patch)}
+            onRemove={() => removeRule(idx)}
+            onMoveUp={() => moveRule(idx, -1)}
+            onMoveDown={() => moveRule(idx, 1)}
+          />
+        ))
+      )}
+
+      {/*
+        Defensive: explicit type=button + preventDefault stop. AddFieldModal
+        wraps inputs in plain divs (not <form>) but mobile Safari has been
+        known to misroute touch events through ancestor backdrop click
+        handlers; both prevents close that case.
+      */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          addRule();
+        }}
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 border border-dashed border-amber-300 rounded-xl"
+      >
+        <Plus className="w-4 h-4" />
+        הוסף כלל
+      </button>
+
+      {rules.length > 0 && <PreviewSection rules={rules} fieldType={fieldType} />}
+    </div>
+  );
+}
+
+// =============================================================================
+// ColorRulesEditor — modal wrapper around the panel. Saves via PATCH.
+// =============================================================================
+
 export default function ColorRulesEditor({
   field,
   tableId,
@@ -52,40 +158,6 @@ export default function ColorRulesEditor({
   const [rules, setRules] = useState<ColorRule[]>(() => field.config?.color_rules || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const operators = operatorsForFieldType(field.type);
-
-  function addRule(): void {
-    const swatch = COLOR_SWATCHES[rules.length % COLOR_SWATCHES.length];
-    const op: ColorRuleOperator = operators[0] || 'eq';
-    setRules((prev: ColorRule[]) => [
-      ...prev,
-      {
-        operator: op,
-        value: operatorNeedsNoValue(op) ? null : '',
-        bg: swatch.bg,
-        text: swatch.text,
-      },
-    ]);
-  }
-
-  function updateRule(idx: number, patch: Partial<ColorRule>): void {
-    setRules((prev: ColorRule[]) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  }
-
-  function removeRule(idx: number): void {
-    setRules((prev: ColorRule[]) => prev.filter((_, i) => i !== idx));
-  }
-
-  function moveRule(idx: number, dir: -1 | 1): void {
-    setRules((prev: ColorRule[]) => {
-      const next = [...prev];
-      const target = idx + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
-    });
-  }
 
   async function handleSave(): Promise<void> {
     setSaving(true);
@@ -114,9 +186,20 @@ export default function ColorRulesEditor({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full sm:max-w-2xl bg-white sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col" dir="rtl">
-        {/* Header */}
+    <div
+      // z-[60] sits above the FieldsManagerModal (z-50) it's launched from.
+      className="fixed inset-0 bg-black/40 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={(e) => {
+        // Backdrop click closes — only when target IS the backdrop, not bubbled
+        // from a child (which would close on every internal button press).
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="w-full sm:max-w-2xl bg-white sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col"
+        dir="rtl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Palette className="w-5 h-5 text-amber-600" />
@@ -135,54 +218,21 @@ export default function ColorRulesEditor({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {rules.length === 0 ? (
-            <div className="text-center py-8 text-sm text-gray-500">
-              אין כללי צבע. לחץ "הוסף כלל" כדי להתחיל.
-              <div className="text-xs text-gray-400 mt-1">
-                הכלל הראשון שמתאים לערך התא קובע את הצבע.
-              </div>
-            </div>
-          ) : (
-            rules.map((rule: ColorRule, idx: number) => (
-              <RuleRow
-                key={idx}
-                rule={rule}
-                idx={idx}
-                fieldType={field.type}
-                operators={operators}
-                fieldOptions={field.config?.options}
-                isFirst={idx === 0}
-                isLast={idx === rules.length - 1}
-                onChange={(patch: Partial<ColorRule>) => updateRule(idx, patch)}
-                onRemove={() => removeRule(idx)}
-                onMoveUp={() => moveRule(idx, -1)}
-                onMoveDown={() => moveRule(idx, 1)}
-              />
-            ))
-          )}
-
-          <button
-            type="button"
-            onClick={addRule}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-dashed border-amber-300 rounded-xl"
-          >
-            <Plus className="w-4 h-4" />
-            הוסף כלל
-          </button>
-
-          {/* Live preview */}
-          {rules.length > 0 && <PreviewSection rules={rules} fieldType={field.type} />}
+        <div className="flex-1 overflow-y-auto p-4">
+          <ColorRulesPanel
+            rules={rules}
+            fieldType={field.type}
+            fieldOptions={field.config?.options}
+            onChange={setRules}
+          />
 
           {error && (
-            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
               {error}
             </div>
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between gap-3 p-4 border-t border-gray-100 bg-gray-50/50">
           <div className="text-xs text-gray-500">
             הכללים נבדקים מלמעלה למטה — הראשון שמתאים מנצח.
@@ -210,7 +260,9 @@ export default function ColorRulesEditor({
   );
 }
 
-// ---- Single rule row ----------------------------------------------------
+// =============================================================================
+// RuleRow — one editable rule
+// =============================================================================
 
 function RuleRow({
   rule, idx, fieldType, operators, fieldOptions, isFirst, isLast,
@@ -230,8 +282,6 @@ function RuleRow({
 }) {
   const showVal = !operatorNeedsNoValue(rule.operator);
   const showVal2 = operatorNeedsSecondValue(rule.operator);
-
-  // For select/status fields, value input becomes a dropdown of the field options
   const isOptionField = fieldType === 'select' || fieldType === 'status' || fieldType === 'multiselect';
 
   return (
@@ -259,7 +309,11 @@ function RuleRow({
 
         <button
           type="button"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove();
+          }}
           className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
           aria-label="מחק"
         >
@@ -305,7 +359,6 @@ function RuleRow({
         </div>
       )}
 
-      {/* Color picker row */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-500">צבע:</span>
         {COLOR_SWATCHES.map((swatch) => {
@@ -314,7 +367,11 @@ function RuleRow({
             <button
               key={swatch.name}
               type="button"
-              onClick={() => onChange({ bg: swatch.bg, text: swatch.text })}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange({ bg: swatch.bg, text: swatch.text });
+              }}
               className={`w-7 h-7 rounded-md border-2 transition-all ${
                 selected ? 'border-gray-900 scale-110' : 'border-transparent hover:border-gray-300'
               }`}
@@ -325,11 +382,10 @@ function RuleRow({
           );
         })}
 
-        {/* Reorder controls */}
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
-            onClick={onMoveUp}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(); }}
             disabled={isFirst}
             className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="העלה"
@@ -338,7 +394,7 @@ function RuleRow({
           </button>
           <button
             type="button"
-            onClick={onMoveDown}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(); }}
             disabled={isLast}
             className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="הורד"
@@ -351,10 +407,7 @@ function RuleRow({
   );
 }
 
-// ---- Live preview --------------------------------------------------------
-
 function PreviewSection({ rules, fieldType }: { rules: ColorRule[]; fieldType: string }) {
-  // Generate a few sample values that exercise the rules
   const samples: (string | number | null | boolean)[] = (() => {
     if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'rating') {
       return [0, 10, 25, 50, 100, null];
