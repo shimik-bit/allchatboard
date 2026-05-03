@@ -24,6 +24,7 @@ const VALID_FIELD_TYPES = [
   'text', 'longtext', 'number', 'currency', 'date', 'datetime',
   'select', 'multiselect', 'checkbox', 'phone', 'email', 'url',
   'user', 'attachment', 'rating', 'status', 'relation', 'city',
+  'formula',
 ];
 
 function slugify(s: string): string {

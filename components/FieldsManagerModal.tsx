@@ -24,6 +24,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   longtext: 'טקסט ארוך',
   number: 'מספר',
   currency: 'מטבע',
+  formula: 'ƒ מחושב',
   date: 'תאריך',
   datetime: 'תאריך ושעה',
   select: 'בחירה',
