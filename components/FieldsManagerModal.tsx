@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Pencil, Check, AlertTriangle, GripVertical, Database } from 'lucide-react';
+import { X, Plus, Trash2, Pencil, Check, AlertTriangle, GripVertical, Database, Palette } from 'lucide-react';
 import { useDevMode } from '@/lib/hooks/useDevMode';
 import AddFieldModal from './AddFieldModal';
+import ColorRulesEditor from './ColorRulesEditor';
+import type { ColorRule } from '@/lib/grid/color-rules';
 
 type Field = {
   id: string;
@@ -14,6 +16,7 @@ type Field = {
   is_primary: boolean;
   position: number;
   ai_extraction_hint: string | null;
+  config?: { color_rules?: ColorRule[]; options?: { value: string; label: string }[] } & Record<string, unknown>;
 };
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -58,6 +61,7 @@ export default function FieldsManagerModal({
   const [editingName, setEditingName] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [colorEditorField, setColorEditorField] = useState<Field | null>(null);
 
   function loadFields() {
     setLoading(true);
@@ -242,6 +246,34 @@ export default function FieldsManagerModal({
 
                       {!isEditing && (
                         <div className="flex items-center gap-1">
+                          {(() => {
+                            // Color rules are useful for any field where a value
+                            // can be evaluated. Hide for relation / user / attachment
+                            // where the cell shows a chip/avatar already.
+                            const COLOR_TYPES = new Set([
+                              'text', 'longtext', 'number', 'currency', 'rating',
+                              'select', 'multiselect', 'status', 'checkbox',
+                              'date', 'datetime', 'phone', 'email', 'url',
+                            ]);
+                            if (!COLOR_TYPES.has(field.type)) return null;
+                            const ruleCount = field.config?.color_rules?.length ?? 0;
+                            return (
+                              <button
+                                onClick={() => setColorEditorField(field)}
+                                className={`relative p-1.5 rounded hover:bg-amber-50 ${
+                                  ruleCount > 0 ? 'text-amber-600' : 'text-gray-400'
+                                }`}
+                                title={ruleCount > 0 ? `${ruleCount} כללי צבע` : 'הגדר צבע מותנה'}
+                              >
+                                <Palette className="w-3.5 h-3.5" />
+                                {ruleCount > 0 && (
+                                  <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                                    {ruleCount}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })()}
                           <button
                             onClick={() => {
                               setEditingId(field.id);
@@ -293,6 +325,24 @@ export default function FieldsManagerModal({
           onClose={() => setShowAdd(false)}
           onAdded={() => {
             setShowAdd(false);
+            loadFields();
+            onChange?.();
+          }}
+        />
+      )}
+
+      {colorEditorField && (
+        <ColorRulesEditor
+          field={{
+            id: colorEditorField.id,
+            name: colorEditorField.name,
+            slug: colorEditorField.slug,
+            type: colorEditorField.type,
+            config: colorEditorField.config || {},
+          }}
+          tableId={tableId}
+          onClose={() => setColorEditorField(null)}
+          onSaved={() => {
             loadFields();
             onChange?.();
           }}

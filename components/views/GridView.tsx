@@ -11,6 +11,7 @@ import SummaryRow from '@/components/SummaryRow';
 import { useT } from '@/lib/i18n/useT';
 import type { SortState } from '@/lib/grid/sort';
 import { useColumnWidths } from '@/lib/hooks/useColumnWidths';
+import { evalColorRules, type ColorRule } from '@/lib/grid/color-rules';
 
 export default function GridView({
   fields, records, phones, onRecordClick, onRecordUpdate,
@@ -285,6 +286,21 @@ function RecordRowComponent({
         // Apply the same custom width as the header so columns line up.
         // When no custom width, fall back to Tailwind's max-w utilities.
         const customWidth = columnWidths?.[f.slug];
+
+        // Conditional formatting — read rules from the field config and
+        // pick the first one that matches the cell value. Active cell still
+        // wins visually (we only set background when the cell isn't active),
+        // text color is always applied so highlighted-but-active cells still
+        // read correctly.
+        const cellValue = record.data?.[f.slug];
+        const colorRules = (f.config as { color_rules?: ColorRule[] } | undefined)?.color_rules;
+        const colorStyle = evalColorRules(colorRules, cellValue);
+        const tdStyle: React.CSSProperties = customWidth
+          ? { width: customWidth, minWidth: customWidth, maxWidth: customWidth }
+          : {};
+        if (!isActive && colorStyle.backgroundColor) tdStyle.backgroundColor = colorStyle.backgroundColor;
+        if (colorStyle.color) tdStyle.color = colorStyle.color;
+
         return (
           <td
             key={f.id}
@@ -293,11 +309,7 @@ function RecordRowComponent({
             } ${isActive ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/40' : ''}`}
             data-cell-row={rowIndex}
             data-cell-col={colIndex}
-            style={
-              customWidth
-                ? { width: customWidth, minWidth: customWidth, maxWidth: customWidth }
-                : undefined
-            }
+            style={tdStyle}
             onClick={(e) => {
               // Single click → set as active. Double click is what actually
               // edits, handled by EditableCell (existing behavior).
