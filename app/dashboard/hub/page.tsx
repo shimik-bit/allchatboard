@@ -3,7 +3,7 @@
 // תומך בעברית/אנגלית
 
 import Link from 'next/link';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { getT } from '@/lib/i18n/server';
 import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';

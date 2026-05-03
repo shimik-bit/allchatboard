@@ -343,23 +343,17 @@ export default function Sidebar({
           }`}>AI</span>
         </Link>
 
-        {/* ============ My Apps — link to the marketplace ============
-            Renders as <a> for accessibility/SEO but navigation goes through
-            router.push to avoid the Link's RSC prefetch racing with our
-            handler. We saw a bug where the URL would update but the page
-            content wouldn't — caused by both fighting for the same render. */}
+        {/* My Apps — link to the marketplace.
+            Plain <Link> identical in shape to /dashboard/inbox and other
+            sidebar links above. Anything fancier (preventDefault, router.push,
+            onTouchEnd) interferes with Next's app-router navigation and was
+            the cause of the 'URL updates but page does not' bug. */}
         <Link
           href="/dashboard/apps"
-          prefetch={false}
-          onClick={(e) => {
-            e.preventDefault();
-            setMobileOpen(false);
-            router.push('/dashboard/apps');
-          }}
-          className={`relative z-10 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors cursor-pointer ${
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors ${
             pathname === '/dashboard/apps'
               ? 'bg-purple-50 text-purple-700 border border-purple-100'
-              : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+              : 'text-gray-700 hover:bg-gray-50'
           }`}
         >
           <Store className="w-4 h-4 flex-shrink-0" />
@@ -377,7 +371,7 @@ export default function Sidebar({
             <button
               onClick={() => setShowHubMenu(!showHubMenu)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                pathname.startsWith('/dashboard/hub')
+                pathname?.startsWith('/dashboard/hub')
                   ? 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border border-purple-100'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
