@@ -344,27 +344,17 @@ export default function Sidebar({
         </Link>
 
         {/* ============ My Apps — link to the marketplace ============
-            Triple-redundant click handling because users have hit dead-clicks
-            on this link in the wild:
-              1. The standard Next <Link href> for normal navigation.
-              2. An onClick that calls router.push as a fallback, in case
-                 something in a parent intercepts the default click.
-              3. An onTouchEnd that does the same on iOS, where touch events
-                 sometimes don't synthesize into a click on the first tap. */}
+            Renders as <a> for accessibility/SEO but navigation goes through
+            router.push to avoid the Link's RSC prefetch racing with our
+            handler. We saw a bug where the URL would update but the page
+            content wouldn't — caused by both fighting for the same render. */}
         <Link
           href="/dashboard/apps"
           prefetch={false}
           onClick={(e) => {
-            // If something else is going to swallow this, force the navigation
-            // anyway. router.push is idempotent with the Link itself.
+            e.preventDefault();
             setMobileOpen(false);
-            // Don't preventDefault — let the Link work too if it can.
-            try { router.push('/dashboard/apps'); } catch {}
-          }}
-          onTouchEnd={() => {
-            // iOS Safari fallback for missed clicks on edge taps
-            setMobileOpen(false);
-            try { router.push('/dashboard/apps'); } catch {}
+            router.push('/dashboard/apps');
           }}
           className={`relative z-10 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors cursor-pointer ${
             pathname === '/dashboard/apps'
