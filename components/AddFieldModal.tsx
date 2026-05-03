@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare, MapPin } from 'lucide-react';
+import { X, Plus, Trash2, Database, Type, Hash, Calendar, ToggleLeft, Phone, Mail, Link, Star, Paperclip, AlignLeft, CheckSquare, MapPin, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { ColorRulesPanel } from './ColorRulesEditor';
+import type { ColorRule } from '@/lib/grid/color-rules';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'טקסט קצר', icon: Type },
@@ -56,6 +58,22 @@ export default function AddFieldModal({
   const [relationTableId, setRelationTableId] = useState<string>('');
   const [relationFields, setRelationFields] = useState<Field[]>([]);
   const [displayColumns, setDisplayColumns] = useState<string[]>([]);
+
+  // Conditional formatting (color rules) — collapsed by default
+  const [colorRules, setColorRules] = useState<ColorRule[]>([]);
+  const [showColorRules, setShowColorRules] = useState<boolean>(false);
+
+  // Reset rules when field type changes — different operators apply
+  useEffect(() => { setColorRules([]); }, [type]);
+
+  // Field types where color rules don't make sense (chips/avatars/file links
+  // already render their own visuals)
+  const COLOR_RULE_TYPES = new Set([
+    'text', 'longtext', 'number', 'currency', 'rating',
+    'select', 'multiselect', 'status', 'checkbox',
+    'date', 'datetime', 'phone', 'email', 'url',
+  ]);
+  const supportsColorRules = COLOR_RULE_TYPES.has(type);
 
   // Load workspace tables for relation dropdown
   useEffect(() => {
@@ -121,6 +139,10 @@ export default function AddFieldModal({
         // Backward compat
         config.display_field = displayColumns[0];
       }
+      // Persist any color rules the user defined while creating the field.
+      if (supportsColorRules && colorRules.length > 0) {
+        config.color_rules = colorRules;
+      }
 
       const res = await fetch(`/api/tables/${tableId}/fields`, {
         method: 'POST',
@@ -152,7 +174,12 @@ export default function AddFieldModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4 bg-black/50 animate-fade-in"
-      onClick={onClose}
+      onClick={(e) => {
+        // Only close if the click landed on the backdrop itself, not bubbled
+        // from a child. iOS Safari has been observed to bubble synthetic
+        // clicks past stopPropagation for nested modal panels.
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] md:max-h-[90vh] overflow-hidden flex flex-col"
@@ -349,6 +376,51 @@ export default function AddFieldModal({
                 </div>
               )}
             </>
+          )}
+
+          {/* Conditional formatting (color rules) — collapsible */}
+          {supportsColorRules && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowColorRules((v) => !v);
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-amber-50/50 hover:bg-amber-50 text-right"
+              >
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-gray-900">
+                    צבע מותנה
+                  </span>
+                  {colorRules.length > 0 && (
+                    <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      {colorRules.length}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-500">(אופציונלי)</span>
+                </div>
+                {showColorRules
+                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              </button>
+              {showColorRules && (
+                <div className="p-4 border-t border-gray-100 bg-white">
+                  <ColorRulesPanel
+                    rules={colorRules}
+                    fieldType={type}
+                    fieldOptions={
+                      ['select', 'multiselect', 'status'].includes(type)
+                        ? options.filter((o) => o.label.trim())
+                        : undefined
+                    }
+                    onChange={setColorRules}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {/* AI extraction hint */}
