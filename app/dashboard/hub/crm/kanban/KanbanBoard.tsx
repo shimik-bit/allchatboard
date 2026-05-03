@@ -97,6 +97,19 @@ function LeadCard({ lead, isDragging, asLink }: { lead: Lead; isDragging?: boole
           )}
         </div>
       )}
+
+      {/* Open customer file — visible affordance, isolated from drag */}
+      <Link
+        href={`/dashboard/hub/crm/leads/${lead.id}`}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        className="mt-2 -mb-1 -mx-1 px-2 py-1 text-[11px] font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded text-center block"
+        title="פתח תיק לקוח"
+      >
+        פתח תיק לקוח →
+      </Link>
     </>
   );
 
@@ -344,6 +357,12 @@ export default function KanbanBoard({
             <Plus className="w-4 h-4" />
             <span>הוסף ליד</span>
           </button>
+          <Link
+            href="/dashboard/hub/crm/leads"
+            className="text-sm bg-white px-4 py-2 rounded-lg border hover:bg-gray-50 flex items-center gap-1"
+          >
+            📋 רשימה
+          </Link>
           <Link 
             href="/dashboard/hub/crm" 
             className="text-sm bg-white px-4 py-2 rounded-lg border hover:bg-gray-50 flex items-center gap-1"

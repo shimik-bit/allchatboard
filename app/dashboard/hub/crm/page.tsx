@@ -92,12 +92,18 @@ export default async function CRMDashboard() {
         </header>
 
         {/* View Switcher */}
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex gap-2 flex-wrap">
           <Link
             href="/dashboard/hub/crm"
             className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium"
           >
             📊 {t('hub.crm_view_dashboard')}
+          </Link>
+          <Link
+            href="/dashboard/hub/crm/leads"
+            className="px-4 py-2 rounded-lg bg-white text-purple-700 border border-purple-200 hover:bg-purple-50 text-sm font-medium"
+          >
+            📋 {t('hub.crm_view_leads')}
           </Link>
           <Link
             href="/dashboard/hub/crm/kanban"
@@ -150,7 +156,16 @@ export default async function CRMDashboard() {
 
         {/* Lead 360 list */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
-          <h3 className="font-bold text-gray-900 mb-4">🔥 {t('hub.crm_top_interactions')}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900">🔥 {t('hub.crm_top_interactions')}</h3>
+            <Link
+              href="/dashboard/hub/crm/leads"
+              className="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1"
+            >
+              {t('hub.crm_see_all_leads')}
+              <span>{dir === 'rtl' ? '←' : '→'}</span>
+            </Link>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {lead360.length === 0 && (
               <p className="text-gray-400 text-sm text-center py-8 col-span-2">{t('hub.crm_no_leads')}</p>
@@ -161,10 +176,14 @@ export default async function CRMDashboard() {
               const score = Number(l.ai_score) || 0;
               const scoreColor = score >= 80 ? 'text-red-600' : score >= 60 ? 'text-orange-600' : 'text-gray-500';
               return (
-                <div key={l.lead_id} className="p-4 bg-gradient-to-l from-purple-50 to-white rounded-xl border border-purple-100">
+                <Link
+                  key={l.lead_id}
+                  href={`/dashboard/hub/crm/leads/${l.lead_id}`}
+                  className="block p-4 bg-gradient-to-l from-purple-50 to-white rounded-xl border border-purple-100 hover:border-purple-300 hover:shadow-sm transition"
+                >
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900">{l.lead_title}</h4>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-900 truncate">{l.lead_title}</h4>
                       <p className="text-xs text-gray-500">{l.contact_name} · {l.phone}</p>
                     </div>
                     <span 
@@ -179,7 +198,7 @@ export default async function CRMDashboard() {
                     <span className={`font-bold ${scoreColor}`}>{score}/100</span>
                     <span className={`text-purple-700 font-bold ${dir === 'rtl' ? 'mr-auto' : 'ml-auto'}`}>{fmtCurrency(l.value, locale)}</span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
