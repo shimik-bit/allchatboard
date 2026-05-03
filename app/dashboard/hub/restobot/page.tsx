@@ -1,9 +1,9 @@
 // app/dashboard/hub/restobot/page.tsx
 import Link from 'next/link';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { resolveActiveWorkspaceForUser } from '@/lib/permissions/active-workspace';
 import { getT } from '@/lib/i18n/server';
-import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 30;
@@ -27,17 +27,10 @@ function fmtTime(ts: string, locale: Locale): string {
   return new Date(ts).toLocaleTimeString(locale === 'he' ? 'he-IL' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-async function getActiveWorkspace(): Promise<{ wsId: string; locale: Locale }> {
-  const supabase = createClient();
-  const wsId = cookies().get('tf_active_workspace')?.value || '158a174e-38a4-46d5-be4e-e1bce98b49ae';
-  const { data: ws } = await supabase
-    .from('workspaces').select('locale').eq('id', wsId).maybeSingle();
-  const localeRaw = (ws as any)?.locale;
-  return { wsId, locale: isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE };
-}
-
 async function getRestoData(workspaceId: string) {
-  const sb = createAdminClient();
+  // SECURITY: user-scoped client. Views are security_invoker so RLS scopes
+  // them; we still pass workspace_id explicitly as defence in depth.
+  const sb = createClient();
   const [{ data: kpis }, { data: dishes }, { data: alerts }, { data: today }] = await Promise.all([
     sb.from('v_restobot_kpis').select('*').eq('workspace_id', workspaceId).maybeSingle(),
     sb.from('v_restobot_top_dishes').select('*').eq('workspace_id', workspaceId).limit(8),
@@ -51,20 +44,35 @@ async function getRestoData(workspaceId: string) {
     const { data: shifts } = await sb.from('records').select('id, data').eq('table_id', shiftsTable.id);
     shiftsToday = (shifts || []).filter((s: any) => (s.data?.shift_date || '').startsWith(today_str));
   }
-  return { 
-    kpis: kpis || {}, dishes: dishes || [], alerts: alerts || [], 
+  return {
+    kpis: kpis || {}, dishes: dishes || [], alerts: alerts || [],
     today: today || [], shiftsToday,
   };
 }
 
 export async function generateMetadata() {
-  const { locale } = await getActiveWorkspace();
-  const { t } = getT(locale);
+  const ws = await resolveActiveWorkspaceForUser();
+  const { t } = getT(ws?.locale ?? DEFAULT_LOCALE);
   return { title: `${t('hub.restobot_title')} | TaskFlow` };
 }
 
 export default async function RestoBotDashboard() {
-  const { wsId, locale } = await getActiveWorkspace();
+  const ws = await resolveActiveWorkspaceForUser();
+  if (!ws) {
+    const { t, dir } = getT(DEFAULT_LOCALE);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 p-4 md:p-6 grid place-items-center" dir={dir}>
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-3">🔒</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('hub.restobot_title')}</h1>
+          <p className="text-sm text-gray-500">
+            יש לבחור workspace תקף ולהיכנס כחבר בו כדי לראות את ה-RestoBot.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const { wsId, locale } = ws;
   const { t, dir } = getT(locale);
   const { kpis, dishes, alerts, today, shiftsToday } = await getRestoData(wsId);
   const k: any = kpis;

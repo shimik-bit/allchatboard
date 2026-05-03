@@ -1,9 +1,9 @@
 // app/dashboard/hub/crm/page.tsx
 import Link from 'next/link';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { resolveActiveWorkspaceForUser } from '@/lib/permissions/active-workspace';
 import { getT } from '@/lib/i18n/server';
-import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 30;
@@ -23,41 +23,47 @@ function fmtCurrency(n: any, locale: Locale): string {
   return symbol + num.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US');
 }
 
-async function getActiveWorkspace(): Promise<{ wsId: string; locale: Locale }> {
-  const supabase = createClient();
-  const wsId = cookies().get('tf_active_workspace')?.value || '7f8c4af0-f8db-4eef-bb0d-4c41c6728573';
-  const { data: ws } = await supabase
-    .from('workspaces')
-    .select('locale')
-    .eq('id', wsId)
-    .maybeSingle();
-  const localeRaw = (ws as any)?.locale;
-  const locale: Locale = isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE;
-  return { wsId, locale };
-}
-
 async function getCRMData(workspaceId: string) {
-  const sb = createAdminClient();
+  // SECURITY: user-scoped client. The views are now security_invoker so
+  // RLS scopes them to the caller. We also pass workspace_id explicitly.
+  const sb = createClient();
   const [{ data: kpis }, { data: pipeline }, { data: lead360 }, { data: sources }] = await Promise.all([
     sb.from('v_crm_kpis').select('*').eq('workspace_id', workspaceId).maybeSingle(),
     sb.from('v_crm_pipeline_by_stage').select('*').eq('workspace_id', workspaceId),
     sb.from('v_lead_360').select('*').eq('workspace_id', workspaceId).order('calls_count', { ascending: false }).limit(10),
     sb.from('v_crm_lead_sources').select('*').eq('workspace_id', workspaceId),
   ]);
-  return { 
-    kpis: kpis || {}, pipeline: pipeline || [], 
+  return {
+    kpis: kpis || {}, pipeline: pipeline || [],
     lead360: lead360 || [], sources: sources || [],
   };
 }
 
 export async function generateMetadata() {
-  const { locale } = await getActiveWorkspace();
-  const { t } = getT(locale);
+  const ws = await resolveActiveWorkspaceForUser();
+  const { t } = getT(ws?.locale ?? DEFAULT_LOCALE);
   return { title: `${t('hub.crm_title')} | TaskFlow` };
 }
 
 export default async function CRMDashboard() {
-  const { wsId, locale } = await getActiveWorkspace();
+  const ws = await resolveActiveWorkspaceForUser();
+  if (!ws) {
+    // Not signed in or no workspaces: render an empty state instead of
+    // leaking another user's CRM.
+    const { t, dir } = getT(DEFAULT_LOCALE);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-4 md:p-6 grid place-items-center" dir={dir}>
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-3">🔒</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('hub.crm_title')}</h1>
+          <p className="text-sm text-gray-500">
+            יש לבחור workspace תקף ולהיכנס כחבר בו כדי לראות את ה-CRM.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const { wsId, locale } = ws;
   const { t, dir } = getT(locale);
   const { kpis, pipeline, lead360, sources } = await getCRMData(wsId);
   

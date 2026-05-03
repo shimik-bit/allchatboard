@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
+import { resolveActiveWorkspaceForUser } from '@/lib/permissions/active-workspace';
 import { getT } from '@/lib/i18n/server';
-import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import PlansClient from './PlansClient';
 
 export const dynamic = 'force-dynamic';
@@ -25,26 +25,15 @@ type PlanRow = {
   created_at: string;
 };
 
-async function getActiveWorkspace(): Promise<{ wsId: string; locale: Locale }> {
-  const supabase = createClient();
-  const wsId = cookies().get('tf_active_workspace')?.value || '7f8c4af0-f8db-4eef-bb0d-4c41c6728573';
-  const { data: ws } = await supabase
-    .from('workspaces')
-    .select('locale')
-    .eq('id', wsId)
-    .maybeSingle();
-  const localeRaw = (ws as { locale?: string } | null)?.locale;
-  return { wsId, locale: isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE };
-}
-
 async function loadData(workspaceId: string): Promise<{
   plans: PlanRow[];
   projects: ProjectRecord[];
 }> {
-  const admin = createAdminClient();
+  // SECURITY: user-scoped client. Caller has already verified membership.
+  const sb = createClient();
 
   // Find the projects table (slug='projects' in BuildBot pack)
-  const { data: tableRow } = await admin
+  const { data: tableRow } = await sb
     .from('tables')
     .select('id')
     .eq('workspace_id', workspaceId)
@@ -53,7 +42,7 @@ async function loadData(workspaceId: string): Promise<{
 
   let projects: ProjectRecord[] = [];
   if (tableRow) {
-    const { data: records } = await admin
+    const { data: records } = await sb
       .from('records')
       .select('id, data')
       .eq('workspace_id', workspaceId)
@@ -62,7 +51,7 @@ async function loadData(workspaceId: string): Promise<{
     projects = (records || []) as ProjectRecord[];
   }
 
-  const { data: plans } = await admin
+  const { data: plans } = await sb
     .from('construction_plans')
     .select('id, file_name, file_type, file_size_bytes, status, project_id, ai_confidence_score, detected_total_area_sqm, created_at')
     .eq('workspace_id', workspaceId)
@@ -76,13 +65,28 @@ async function loadData(workspaceId: string): Promise<{
 }
 
 export async function generateMetadata() {
-  const { locale } = await getActiveWorkspace();
-  const { t } = getT(locale);
+  const ws = await resolveActiveWorkspaceForUser();
+  const { t } = getT(ws?.locale ?? DEFAULT_LOCALE);
   return { title: `${t('buildbot.plans_page_title')} | TaskFlow` };
 }
 
 export default async function PlansPage() {
-  const { wsId, locale } = await getActiveWorkspace();
+  const ws = await resolveActiveWorkspaceForUser();
+  if (!ws) {
+    const { t, dir } = getT(DEFAULT_LOCALE);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-4 md:p-6 grid place-items-center" dir={dir}>
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-3">🔒</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('buildbot.plans_page_title')}</h1>
+          <p className="text-sm text-gray-500">
+            יש לבחור workspace תקף ולהיכנס כחבר בו כדי לגשת לתוכניות.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const { wsId, locale } = ws;
   const { t, dir } = getT(locale);
   const { plans, projects } = await loadData(wsId);
 
