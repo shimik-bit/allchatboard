@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Table, Field, RecordRow } from '@/lib/types/database';
-import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { X, Trash2, MessageSquare, Link2, ChevronDown, ChevronLeft, FileText, Download, Paperclip, ArrowRightLeft, CheckCircle2, XCircle, Clock, FolderOpen } from 'lucide-react';
 import RelationCell from '@/components/RelationCell';
 import CityAutocomplete from '@/components/CityAutocomplete';
+import Link from 'next/link';
 import { useT } from '@/lib/i18n/useT';
 
 export default function RecordModal({
@@ -210,6 +211,28 @@ export default function RecordModal({
 
         {/* Fields */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-5 space-y-4">
+          {/* Open the full record file (תיק לקוח) — generic 360 view with
+              channels, related records, notes, conversion history. Only shown
+              for existing records. The compact RecordModal stays as a quick
+              edit experience; users who want the rich view click here. */}
+          {!isNew && record && (
+            <Link
+              href={`/dashboard/${table.id}/records/${record.id}`}
+              className="flex items-center justify-between gap-2 bg-gradient-to-l from-violet-50 to-purple-50 border border-violet-200 hover:border-violet-400 rounded-lg px-3 py-2.5 transition-colors group"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-violet-100 grid place-items-center">
+                  <FolderOpen className="w-4 h-4 text-violet-700" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-violet-900">פתח תיק מלא</div>
+                  <div className="text-xs text-violet-700">שיחות, הודעות, הערות, רשומות מקושרות והיסטוריה מלאה</div>
+                </div>
+              </div>
+              <ChevronLeft className="w-4 h-4 text-violet-600 group-hover:-translate-x-1 transition-transform" />
+            </Link>
+          )}
+
           {/* Attachment preview — shown when the record was created from a
               WhatsApp image/document. Gives the user instant visual context
               and a link to the original file. */}
