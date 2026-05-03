@@ -27,12 +27,53 @@ async function getWorkspaceLocale(): Promise<Locale> {
 }
 
 async function getHubData() {
-  const sb = createAdminClient();
+  // SECURITY: must use the user-scoped client, not the admin client. The
+  // admin client bypasses RLS and would leak every workspace in the system
+  // to every signed-in user. We also explicitly scope by membership for
+  // belt-and-braces — even if RLS were misconfigured we'd still be safe.
+  const sb = createClient();
+
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) {
+    return { workspaces: [], packs: [], allPacks: [] };
+  }
+
+  // Get the workspace IDs this user is a member of. workspace_members has
+  // RLS that already restricts to the caller's own rows, but we filter
+  // explicitly by user_id too as a defence-in-depth measure.
+  const { data: memberships } = await sb
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
+    .not('accepted_at', 'is', null);
+
+  const memberWorkspaceIds = (memberships || []).map(
+    (m: { workspace_id: string }) => m.workspace_id
+  );
+
+  if (memberWorkspaceIds.length === 0) {
+    // User has no workspaces yet — show only the pack catalog.
+    const { data: allPacks } = await sb
+      .from('table_packages')
+      .select('*')
+      .eq('is_published', true)
+      .order('position');
+    return { workspaces: [], packs: [], allPacks: allPacks || [] };
+  }
+
   const [{ data: workspaces }, { data: packs }, { data: allPacks }] = await Promise.all([
-    sb.from('v_workspace_overview').select('*').order('total_records', { ascending: false }),
-    sb.from('v_workspace_packs').select('*'),
+    sb
+      .from('v_workspace_overview')
+      .select('*')
+      .in('workspace_id', memberWorkspaceIds)
+      .order('total_records', { ascending: false }),
+    sb
+      .from('v_workspace_packs')
+      .select('*')
+      .in('workspace_id', memberWorkspaceIds),
     sb.from('table_packages').select('*').eq('is_published', true).order('position'),
   ]);
+
   return { workspaces: workspaces || [], packs: packs || [], allPacks: allPacks || [] };
 }
 

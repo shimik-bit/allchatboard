@@ -1,9 +1,9 @@
 // app/dashboard/hub/buildbot/page.tsx
 import Link from 'next/link';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { resolveActiveWorkspaceForUser } from '@/lib/permissions/active-workspace';
 import { getT } from '@/lib/i18n/server';
-import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 30;
@@ -22,17 +22,9 @@ function fmt(n: any, locale: Locale): string {
   return symbol + num.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US');
 }
 
-async function getActiveWorkspace(): Promise<{ wsId: string; locale: Locale }> {
-  const supabase = createClient();
-  const wsId = cookies().get('tf_active_workspace')?.value || '7f8c4af0-f8db-4eef-bb0d-4c41c6728573';
-  const { data: ws } = await supabase
-    .from('workspaces').select('locale').eq('id', wsId).maybeSingle();
-  const localeRaw = (ws as any)?.locale;
-  return { wsId, locale: isValidLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE };
-}
-
 async function getBuildBotData(workspaceId: string) {
-  const sb = createAdminClient();
+  // SECURITY: user-scoped client; views must be security_invoker.
+  const sb = createClient();
   const [{ data: kpis }, { data: boq }, { data: vendors }, { data: projects }] = await Promise.all([
     sb.from('v_buildbot_kpis').select('*').eq('workspace_id', workspaceId).maybeSingle(),
     sb.from('v_buildbot_boq_by_chapter').select('*').eq('workspace_id', workspaceId),
@@ -43,13 +35,28 @@ async function getBuildBotData(workspaceId: string) {
 }
 
 export async function generateMetadata() {
-  const { locale } = await getActiveWorkspace();
-  const { t } = getT(locale);
+  const ws = await resolveActiveWorkspaceForUser();
+  const { t } = getT(ws?.locale ?? DEFAULT_LOCALE);
   return { title: `${t('hub.buildbot_title')} | TaskFlow` };
 }
 
 export default async function BuildBotDashboard() {
-  const { wsId, locale } = await getActiveWorkspace();
+  const ws = await resolveActiveWorkspaceForUser();
+  if (!ws) {
+    const { t, dir } = getT(DEFAULT_LOCALE);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-amber-50 p-4 md:p-6 grid place-items-center" dir={dir}>
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-3">🔒</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('hub.buildbot_title')}</h1>
+          <p className="text-sm text-gray-500">
+            יש לבחור workspace תקף ולהיכנס כחבר בו כדי לראות את ה-BuildBot.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const { wsId, locale } = ws;
   const { t, dir } = getT(locale);
   const { kpis, boq, vendors, projects } = await getBuildBotData(wsId);
   const k: any = kpis;
