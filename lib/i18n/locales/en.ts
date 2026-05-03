@@ -1006,6 +1006,8 @@ export const en: LocaleDictionary = {
     crm_subtitle: 'Leads, pipeline, AI scores',
     crm_view_dashboard: 'Dashboard',
     crm_view_kanban: 'Kanban (drag)',
+    crm_view_leads: 'All Leads',
+    crm_see_all_leads: 'See all',
     crm_kpi_active_leads: 'Active Leads',
     crm_kpi_pipeline_value: 'Pipeline Value',
     crm_kpi_conversion_rate: 'Win Rate',

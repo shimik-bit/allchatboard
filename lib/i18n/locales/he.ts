@@ -1007,6 +1007,8 @@ export const he = {
     crm_subtitle: 'לידים, פייפליין, ציוני AI',
     crm_view_dashboard: 'דשבורד',
     crm_view_kanban: 'קנבן (גרירה)',
+    crm_view_leads: 'כל הלידים',
+    crm_see_all_leads: 'ראה הכל',
     crm_kpi_active_leads: 'לידים פעילים',
     crm_kpi_pipeline_value: 'ערך פייפליין',
     crm_kpi_conversion_rate: 'אחוז סגירה',
