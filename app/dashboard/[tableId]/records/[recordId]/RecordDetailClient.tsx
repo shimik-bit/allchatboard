@@ -6,7 +6,8 @@ import {
   ArrowRight, Phone, Mail, MessageCircle, Mic, FileText, Calendar,
   TrendingUp, Activity as ActivityIcon, Users, Plus, Pin, Trash2,
   ExternalLink, ArrowDownLeft, ArrowUpRight, AlertCircle, Sparkles,
-  Loader2, Check, X,
+  Loader2, Check, X, FolderOpen, Upload, Download, Image as ImageIcon,
+  File as FileIcon, FileType,
 } from 'lucide-react';
 import type { Field } from '@/lib/types/database';
 
@@ -79,6 +80,7 @@ type Record360 = {
     whatsapp: number;
     voicemails: number;
     notes: number;
+    files: number;
     first_contact_at: string | null;
     last_contact_at: string | null;
     days_since_last_contact: number | null;
@@ -99,6 +101,17 @@ type Record360 = {
     author_name: string | null;
     created_at: string;
     updated_at: string;
+  }>;
+  files: Array<{
+    id: string;
+    storage_path: string;
+    file_name: string;
+    file_size: number;
+    mime_type: string | null;
+    description: string | null;
+    uploaded_by: string | null;
+    uploaded_by_name: string | null;
+    uploaded_at: string;
   }>;
   activity: TimelineItem[];
   related_records: Array<{
@@ -140,7 +153,7 @@ const NOTE_CATEGORIES = {
   decision: { label: 'החלטה', color: 'bg-green-100 text-green-700' },
 } as const;
 
-type TabKey = 'timeline' | 'notes' | 'related' | 'fields';
+type TabKey = 'timeline' | 'notes' | 'files' | 'related' | 'fields';
 
 /* ============================================================================
  * Main client component
@@ -322,6 +335,12 @@ export default function RecordDetailClient({
             count={data.counts.notes}
           />
           <TabButton
+            active={activeTab === 'files'}
+            onClick={() => setActiveTab('files')}
+            label="מסמכים"
+            count={data.counts.files}
+          />
+          <TabButton
             active={activeTab === 'related'}
             onClick={() => setActiveTab('related')}
             label="רשומות מקושרות"
@@ -390,6 +409,27 @@ export default function RecordDetailClient({
           )}
           {activeTab === 'related' && (
             <RelatedTab records={data.related_records} />
+          )}
+          {activeTab === 'files' && (
+            <FilesTab
+              recordId={recordId}
+              files={data.files}
+              currentUserId={currentUserId}
+              onUploaded={(file) => {
+                setData((prev) => ({
+                  ...prev,
+                  files: [file, ...prev.files],
+                  counts: { ...prev.counts, files: prev.counts.files + 1 },
+                }));
+              }}
+              onDeleted={(fileId) => {
+                setData((prev) => ({
+                  ...prev,
+                  files: prev.files.filter((f) => f.id !== fileId),
+                  counts: { ...prev.counts, files: Math.max(0, prev.counts.files - 1) },
+                }));
+              }}
+            />
           )}
           {activeTab === 'fields' && (
             <FieldsTab data={data.record.data} fields={fields} />
@@ -977,4 +1017,253 @@ function formatFieldValue(value: any, field: Field): string {
     }
   }
   return String(value);
+}
+
+/* ============================================================================
+ * FilesTab — documents folder for the record
+ * ----------------------------------------------------------------------------
+ * Upload via click-to-pick (supports multiple files, sequential upload).
+ * Each file shows: icon by mime-type, name, size, uploader, date, optional
+ * description, plus download/preview/delete actions. Images get a thumbnail
+ * via the same signed URL flow as download.
+ * ============================================================================ */
+function FilesTab({
+  recordId,
+  files,
+  currentUserId,
+  onUploaded,
+  onDeleted,
+}: {
+  recordId: string;
+  files: Record360['files'];
+  currentUserId: string;
+  onUploaded: (file: Record360['files'][number]) => void;
+  onDeleted: (fileId: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+
+  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files;
+    if (!picked || picked.length === 0) return;
+
+    setError(null);
+    setUploading(true);
+    setProgress({ current: 0, total: picked.length });
+
+    // Sequential upload — most users pick 1-3 files at a time, and serial
+    // uploads give clearer progress + don't hammer the API rate limit.
+    for (let i = 0; i < picked.length; i++) {
+      setProgress({ current: i + 1, total: picked.length });
+      const file = picked[i];
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`/api/records/${recordId}/files`, {
+          method: 'POST',
+          body: form,
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          setError(`${file.name}: ${json.error || 'שגיאה'}`);
+          break;
+        }
+        // Add uploader name from the current user's perspective (the API
+        // includes it in the row but only after a re-fetch; for the live
+        // optimistic add we mark it as "אתה").
+        onUploaded({
+          ...json.file,
+          uploaded_by_name: 'אתה',
+        });
+      } catch (err: any) {
+        setError(`${file.name}: ${err?.message || 'שגיאת רשת'}`);
+        break;
+      }
+    }
+
+    setUploading(false);
+    setProgress(null);
+    // Reset the input so picking the same file again still triggers onChange
+    e.target.value = '';
+  }
+
+  async function handleDownload(fileId: string, preview = false) {
+    try {
+      const res = await fetch(
+        `/api/records/${recordId}/files/${fileId}${preview ? '?preview=1' : ''}`
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || 'שגיאה');
+        return;
+      }
+      // Open in a new tab — the signed URL streams the file directly from
+      // storage. For downloads, the API set Content-Disposition: attachment
+      // so the browser saves it. For previews, browsers render natively.
+      window.open(json.url, '_blank');
+    } catch (err: any) {
+      alert(err?.message || 'שגיאת רשת');
+    }
+  }
+
+  async function handleDelete(fileId: string, fileName: string) {
+    if (!confirm(`למחוק את "${fileName}"? פעולה זו אינה הפיכה.`)) return;
+    try {
+      const res = await fetch(`/api/records/${recordId}/files/${fileId}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || 'שגיאה');
+        return;
+      }
+      onDeleted(fileId);
+    } catch (err: any) {
+      alert(err?.message || 'שגיאת רשת');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Upload button — full-width on mobile, inline on desktop */}
+      <label
+        className={`flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors ${
+          uploading
+            ? 'bg-gray-50 border-gray-300 text-gray-500 cursor-wait'
+            : 'border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-700'
+        }`}
+      >
+        {uploading ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="font-semibold">
+              מעלה {progress ? `(${progress.current}/${progress.total})` : '...'}
+            </span>
+          </>
+        ) : (
+          <>
+            <Upload className="w-5 h-5" />
+            <span className="font-semibold">העלה מסמכים</span>
+            <span className="text-xs text-violet-600">עד 25MB לקובץ</span>
+          </>
+        )}
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handlePick}
+          disabled={uploading}
+        />
+      </label>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {files.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">
+          <FolderOpen className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+          <div className="text-sm">אין עדיין מסמכים</div>
+          <div className="text-xs text-gray-400 mt-1">
+            תעודת זהות, חוזה, תמונות — כל מסמך שקשור ללקוח
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {files.map((f) => (
+            <FileRow
+              key={f.id}
+              file={f}
+              canDelete={f.uploaded_by === currentUserId}
+              onDownload={() => handleDownload(f.id, false)}
+              onPreview={() => handleDownload(f.id, true)}
+              onDelete={() => handleDelete(f.id, f.file_name)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FileRow({
+  file,
+  canDelete,
+  onDownload,
+  onPreview,
+  onDelete,
+}: {
+  file: Record360['files'][number];
+  canDelete: boolean;
+  onDownload: () => void;
+  onPreview: () => void;
+  onDelete: () => void;
+}) {
+  const isImage = file.mime_type?.startsWith('image/');
+  const isPdf = file.mime_type === 'application/pdf';
+  const previewable = isImage || isPdf;
+
+  // Pick an icon by mime category. Images and PDFs are common enough to call
+  // out specifically; everything else gets the generic file icon.
+  const Icon = isImage ? ImageIcon : isPdf ? FileType : FileIcon;
+  const colorClass = isImage
+    ? 'bg-pink-100 text-pink-700'
+    : isPdf
+      ? 'bg-red-100 text-red-700'
+      : 'bg-gray-100 text-gray-700';
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-3 flex items-start gap-3 hover:border-gray-300 transition-colors">
+      <div className={`w-10 h-10 rounded-lg grid place-items-center shrink-0 ${colorClass}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm text-gray-900 truncate">{file.file_name}</div>
+        <div className="text-xs text-gray-500 flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+          <span>{formatBytes(file.file_size)}</span>
+          <span>•</span>
+          <span>{file.uploaded_by_name || 'משתמש'}</span>
+          <span>•</span>
+          <span>{formatRelative(file.uploaded_at)}</span>
+        </div>
+        {file.description && (
+          <div className="text-xs text-gray-600 mt-1 italic">{file.description}</div>
+        )}
+        <div className="flex flex-wrap gap-1 mt-2">
+          {previewable && (
+            <button
+              onClick={onPreview}
+              className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 flex items-center gap-1"
+            >
+              <ExternalLink className="w-3 h-3" /> תצוגה מקדימה
+            </button>
+          )}
+          <button
+            onClick={onDownload}
+            className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 flex items-center gap-1"
+          >
+            <Download className="w-3 h-3" /> הורד
+          </button>
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              className="text-xs px-2 py-1 rounded border border-red-200 text-red-700 hover:bg-red-50 flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> מחק
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
