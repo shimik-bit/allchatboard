@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Field } from '@/lib/types/database';
-import { Link2, X, Search } from 'lucide-react';
+import { Link2, X, Search, Plus, Loader2 } from 'lucide-react';
 
 interface RelationOption {
   id: string;
@@ -29,19 +29,27 @@ export default function RelationCell({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentRecord, setCurrentRecord] = useState<RelationOption | null>(null);
   const [targetFields, setTargetFields] = useState<Field[]>([]);
+  // Inline-create state — when there are no search results, the user can
+  // create a new record in the target table on the spot. We track creation
+  // in-progress + any error so the UI can render appropriately.
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const relationTableId = field.config?.relation_table_id;
   const displayColumns: string[] =
     (field.config?.display_columns as string[]) ||
     (field.config?.display_field ? [field.config.display_field] : []);
 
-  // Load fields of target table for proper formatting
+  // Load fields of target table for proper formatting AND so we can detect
+  // the primary field — needed for "create new" inline (we set data[primary_slug]
+  // = searchQuery on the new record).
   useEffect(() => {
     if (!relationTableId) return;
     supabase
       .from('fields')
-      .select('id, name, slug, type, config')
+      .select('id, name, slug, type, is_primary, is_required, position, config')
       .eq('table_id', relationTableId)
+      .order('position')
       .then(({ data }) => setTargetFields((data as any) || []));
   }, [relationTableId, supabase]);
 
@@ -92,6 +100,90 @@ export default function RelationCell({
       if (opt) setCurrentRecord(opt);
     } else {
       setCurrentRecord(null);
+    }
+  }
+
+  /**
+   * Inline-create a new record in the target table, using the search query
+   * as the value of the target table's primary field. After successful
+   * creation, the relation cell auto-selects the new record.
+   *
+   * Failure cases the user might hit:
+   *   - No editor permission on the target table → RLS blocks the insert
+   *   - Target table has additional required fields that we can't infer → DB rejects
+   * Both surface inline as a clear error message rather than throwing.
+   */
+  async function handleCreateNew() {
+    const name = searchQuery.trim();
+    if (!name || !relationTableId) return;
+
+    // Find the target table's primary field. is_primary defaults to the
+    // first field if none is explicitly marked, mirroring TableClient's logic.
+    const primaryField =
+      targetFields.find((f) => f.is_primary) || targetFields[0];
+    if (!primaryField) {
+      setCreateError('לא נמצא שדה ראשי בטבלת היעד');
+      return;
+    }
+
+    // We need the target table's workspace_id for the insert payload.
+    // Fetched lazily here (instead of on mount) since most users never
+    // hit the "create" path — saves one DB roundtrip per cell render.
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const { data: targetTable } = await supabase
+        .from('tables')
+        .select('workspace_id, default_assignee_phone_id')
+        .eq('id', relationTableId)
+        .single();
+
+      if (!targetTable) {
+        setCreateError('טבלת היעד לא נמצאה');
+        setCreating(false);
+        return;
+      }
+
+      const { data: created, error } = await supabase
+        .from('records')
+        .insert({
+          table_id: relationTableId,
+          workspace_id: targetTable.workspace_id,
+          data: { [primaryField.slug]: name },
+          source: 'manual',
+          assignee_phone_id: targetTable.default_assignee_phone_id || null,
+        })
+        .select('id, data')
+        .single();
+
+      if (error) {
+        // 42501 = RLS denied; 23502 = NOT NULL violation on a required field
+        if (error.code === '42501') {
+          setCreateError('אין לך הרשאה ליצור רשומות בטבלת היעד');
+        } else if (error.code === '23502') {
+          setCreateError(
+            'בטבלת היעד יש שדות חובה נוספים — צור את הרשומה ישירות מהטבלה'
+          );
+        } else {
+          setCreateError(error.message);
+        }
+        setCreating(false);
+        return;
+      }
+
+      // Add to local options so it appears immediately if the user reopens,
+      // then auto-select it.
+      const newOption: RelationOption = {
+        id: created.id,
+        display_name: name,
+        data: created.data || {},
+      };
+      setOptions((prev) => [newOption, ...prev]);
+      setCreating(false);
+      await handleSelect(created.id);
+    } catch (e: any) {
+      setCreateError(e?.message || 'שגיאה ביצירת רשומה');
+      setCreating(false);
     }
   }
 
@@ -155,7 +247,11 @@ export default function RelationCell({
                 type="text"
                 autoFocus
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  // Clear any stale "create" error from a previous attempt
+                  if (createError) setCreateError(null);
+                }}
                 placeholder="חיפוש..."
                 className="input-field text-sm pr-9"
               />
@@ -166,8 +262,37 @@ export default function RelationCell({
             {loading ? (
               <div className="text-center py-8 text-gray-500 text-sm">טוען...</div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                {searchQuery ? 'לא נמצאו תוצאות' : 'אין רשומות בטבלה'}
+              <div className="py-6 text-center">
+                <div className="text-gray-400 text-sm mb-3">
+                  {searchQuery ? 'לא נמצאו תוצאות' : 'אין רשומות בטבלה'}
+                </div>
+                {/* Inline-create: only when the user has typed something to use
+                    as the new record's name. Without text we don't have a value
+                    for the primary field, so the create wouldn't make sense. */}
+                {searchQuery.trim() && (
+                  <button
+                    onClick={handleCreateNew}
+                    disabled={creating}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        יוצר...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        צור "{searchQuery.trim()}" חדש
+                      </>
+                    )}
+                  </button>
+                )}
+                {createError && (
+                  <div className="mt-3 mx-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 text-right">
+                    {createError}
+                  </div>
+                )}
               </div>
             ) : (
               <>
