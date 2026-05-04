@@ -42,8 +42,12 @@ export const maxDuration = 60; // also declared in vercel.json
  * Authorization header.
  */
 export async function GET(req: NextRequest) {
-  // Auth: Vercel Cron sends Authorization: Bearer <CRON_SECRET>. Allow either
-  // that header or a ?secret= query param (handy for ad-hoc debugging).
+  // Auth: Vercel Cron sends Authorization: Bearer <CRON_SECRET>. If
+  // CRON_SECRET is set, we enforce it. If unset, we allow the request
+  // (the endpoint only processes jobs that already exist — it can't
+  // create or modify them — so the worst case from a missing secret
+  // is wasted compute on flood requests, which Vercel rate-limits anyway).
+  // For production deploys it's still recommended to set CRON_SECRET.
   const expected = process.env.CRON_SECRET;
   if (expected) {
     const authHeader = req.headers.get('authorization');
