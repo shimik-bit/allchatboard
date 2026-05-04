@@ -165,11 +165,26 @@ export default function GroupGuardClient({
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="border-b border-gray-200 flex overflow-x-auto">
+            {/* Primary actions — what most admins come here to do */}
             <TabButton
               active={tab === 'dashboard'}
               onClick={() => setTab('dashboard')}
               icon={<BarChart3 className="w-4 h-4" />}
               label={t('groupguard.tabs.dashboard')}
+            />
+            {canEdit && (
+              <TabButton
+                active={tab === 'broadcast'}
+                onClick={() => setTab('broadcast')}
+                icon={<Send className="w-4 h-4" />}
+                label={t('groupguard.tabs.broadcast')}
+              />
+            )}
+            <TabButton
+              active={tab === 'groups'}
+              onClick={() => setTab('groups')}
+              icon={<Users className="w-4 h-4" />}
+              label={t('groupguard.tabs.groups')}
             />
             <TabButton
               active={tab === 'members'}
@@ -177,23 +192,11 @@ export default function GroupGuardClient({
               icon={<User className="w-4 h-4" />}
               label={t('groupguard.tabs.members')}
             />
-            <TabButton
-              active={tab === 'groups'}
-              onClick={() => setTab('groups')}
-              icon={<Users className="w-4 h-4" />}
-              label={t('groupguard.tabs.groups')}
-            />
-            {/* Broadcast/delete tab — only for admins+. Hidden for editors and
-                viewers because they can't act on the API anyway. We use the
-                same gating that the API enforces so the UI stays honest. */}
-            {canEdit && (
-              <TabButton
-                active={tab === 'broadcast'}
-                onClick={() => setTab('broadcast')}
-                icon={<Send className="w-4 h-4" />}
-                label="פרסום"
-              />
-            )}
+            {/* Spam-protection-related settings — visually grouped with a
+                subtle separator + Shield icon next to the label of the first
+                one in the group. The whole "GroupGuard" original feature
+                lives across these three tabs. */}
+            <div className="w-px bg-gray-200 my-1.5 mx-0.5 shrink-0" aria-hidden />
             <TabButton
               active={tab === 'prefixes'}
               onClick={() => setTab('prefixes')}

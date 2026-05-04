@@ -54,7 +54,7 @@ const LIMIT_LABEL: Record<LimitKey, string> = {
 };
 
 const FEATURE_LABEL: Record<FeatureKey, string> = {
-  feature_groupguard: 'GroupGuard',
+  feature_groupguard: 'ניהול קבוצות',
   feature_focus_mode: 'Focus Mode',
   feature_reports: 'דוחות אוטומטיים',
   feature_sequences: 'רצפי הודעות',
