@@ -24,9 +24,16 @@ import {
   User,
   Bell,
   Search,
+  Send,
+  Calendar,
+  Loader2,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
+import BroadcastTab from './BroadcastTab';
 import { useT } from '@/lib/i18n/useT';
 
 // ============================================================================
@@ -98,7 +105,7 @@ type Summary = {
   by_source: Record<string, number>;
 };
 
-type Tab = 'dashboard' | 'members' | 'groups' | 'prefixes' | 'whitelist' | 'log';
+type Tab = 'dashboard' | 'members' | 'groups' | 'broadcast' | 'prefixes' | 'whitelist' | 'log';
 
 
 // ============================================================================
@@ -176,6 +183,17 @@ export default function GroupGuardClient({
               icon={<Users className="w-4 h-4" />}
               label={t('groupguard.tabs.groups')}
             />
+            {/* Broadcast/delete tab — only for admins+. Hidden for editors and
+                viewers because they can't act on the API anyway. We use the
+                same gating that the API enforces so the UI stays honest. */}
+            {canEdit && (
+              <TabButton
+                active={tab === 'broadcast'}
+                onClick={() => setTab('broadcast')}
+                icon={<Send className="w-4 h-4" />}
+                label="פרסום"
+              />
+            )}
             <TabButton
               active={tab === 'prefixes'}
               onClick={() => setTab('prefixes')}
@@ -205,6 +223,9 @@ export default function GroupGuardClient({
             )}
             {tab === 'groups' && (
               <GroupsTab workspaceId={workspaceId} canEdit={canEdit} />
+            )}
+            {tab === 'broadcast' && canEdit && (
+              <BroadcastTab workspaceId={workspaceId} />
             )}
             {tab === 'prefixes' && (
               <PrefixesTab workspaceId={workspaceId} canEdit={canEdit} />
