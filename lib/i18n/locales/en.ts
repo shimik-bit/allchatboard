@@ -718,15 +718,17 @@ export const en: LocaleDictionary = {
     step5_tip: 'Have a question? Email support@allchatboard.com or click "Help" in the menu.',
   },
 
-  /* ────────────── GroupGuard ────────────── */
+  /* ────────────── Group Management (formerly GroupGuard) ────────────── */
   groupguard: {
-    title: 'GroupGuard',
-    subtitle: 'Automatic spam monitoring for WhatsApp groups',
+    title: 'Group Management',
+    subtitle: 'Broadcast, delete, monitor spam and manage WhatsApp group members',
     no_edit_permission: 'You don\'t have edit permission. Only owner/admin can change settings.',
     tabs: {
-      dashboard: 'Dashboard',
+      dashboard: 'Overview',
       members: 'Group members',
       groups: 'Groups',
+      broadcast: 'Broadcast & Delete',
+      spam_protection: 'Spam Protection',
       prefixes: 'Blocked prefixes',
       whitelist: 'Whitelist',
       log: 'Action log',
@@ -749,7 +751,7 @@ export const en: LocaleDictionary = {
       title: 'Groups',
       no_groups: 'No WhatsApp groups registered yet',
       no_groups_hint: 'Groups are added automatically when the bot receives the first message from them',
-      enable_hint: 'Enable GroupGuard for any group you want to monitor. The bot must be an admin to take action.',
+      enable_hint: 'Enable spam protection on any group you want to monitor. The bot must be an admin to take action.',
       kicks_this_week: 'kicks this week',
       deletes: 'deletes',
       scan_members: 'Scan members',
@@ -952,7 +954,7 @@ export const en: LocaleDictionary = {
       members_kicked: 'Members kicked',
       messages_deleted: 'Messages deleted',
       no_data_range: 'No data for this range',
-      no_data_hint: 'Actions will appear here when GroupGuard detects spammers in groups',
+      no_data_hint: 'Actions will appear here when the system detects spammers in groups',
       severity_high: 'High',
       severity_medium: 'Medium',
       severity_low: 'Low',

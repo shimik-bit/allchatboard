@@ -719,18 +719,26 @@ export const he = {
     step5_tip: 'יש שאלה? פנייה ל-support@allchatboard.com או לחץ על "עזרה" בתפריט.',
   },
 
-  /* ────────────── GroupGuard ────────────── */
+  /* ────────────── Group Management (formerly GroupGuard) ──────────────
+     Renamed in 2026 from "GroupGuard" (a spam-protection-only product) to
+     "ניהול קבוצות" — a broader module that includes spam protection,
+     mass broadcasting, mass deletion, and member management. The keys
+     under `groupguard` are kept (rather than renamed to e.g. `groups_module`)
+     to avoid a sweeping rename across hundreds of references; only the
+     visible labels change. */
   groupguard: {
-    title: 'GroupGuard',
-    subtitle: 'ניטור אוטומטי של ספאם בקבוצות וואטסאפ',
+    title: 'ניהול קבוצות',
+    subtitle: 'פרסום, מחיקה, ניטור ספאם וניהול חברי קבוצות וואטסאפ',
     no_edit_permission: 'אין לך הרשאה לעריכה. רק owner/admin יכולים לשנות הגדרות.',
     tabs: {
-      dashboard: 'דשבורד',
+      dashboard: 'סקירה',
       members: 'חברי קבוצות',
       groups: 'קבוצות',
+      broadcast: 'פרסום ומחיקה',
+      spam_protection: 'הגנה מספאם',
       prefixes: 'קידומות חסומות',
       whitelist: 'רשימה לבנה',
-      log: 'לוג פעולות',
+      log: 'יומן פעולות',
     },
     common: {
       enabled: 'פעיל',
@@ -750,7 +758,7 @@ export const he = {
       title: 'קבוצות',
       no_groups: 'אין קבוצות וואטסאפ רשומות עדיין',
       no_groups_hint: 'קבוצות מתווספות אוטומטית כשהבוט מקבל הודעה ראשונה מהן',
-      enable_hint: 'הפעל את GroupGuard בכל קבוצה שאתה רוצה לנטר. הבוט חייב להיות אדמין כדי לבצע פעולות.',
+      enable_hint: 'הפעל את ההגנה מספאם בכל קבוצה שאתה רוצה לנטר. הבוט חייב להיות אדמין כדי לבצע פעולות.',
       kicks_this_week: 'הוצאות השבוע',
       deletes: 'מחיקות',
       scan_members: 'סרוק חברים',
@@ -953,7 +961,7 @@ export const he = {
       members_kicked: 'חברים שהוסרו',
       messages_deleted: 'הודעות שנמחקו',
       no_data_range: 'אין נתונים לטווח הזה',
-      no_data_hint: 'פעולות יופיעו כאן כש-GroupGuard יזהה ספאמרים בקבוצות',
+      no_data_hint: 'פעולות יופיעו כאן כשהמערכת תזהה ספאמרים בקבוצות',
       severity_high: 'גבוהה',
       severity_medium: 'בינונית',
       severity_low: 'נמוכה',

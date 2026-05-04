@@ -8,7 +8,7 @@ import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp, Inbox,
-  Layers, Store,
+  Layers, Store, Users,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -468,8 +468,8 @@ export default function Sidebar({
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <Shield className="w-4 h-4" />
-            הגנה מספאם
+            <Users className="w-4 h-4" />
+            ניהול קבוצות
           </Link>
         )}
 
