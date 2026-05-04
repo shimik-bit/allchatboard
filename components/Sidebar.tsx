@@ -469,7 +469,7 @@ export default function Sidebar({
             }`}
           >
             <Shield className="w-4 h-4" />
-            הגנה מספאם
+            קבוצות וואטסאפ
           </Link>
         )}
 
