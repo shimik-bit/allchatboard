@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Send, Calendar, Clock, Users, Loader2, X, Search,
   CheckCircle2, XCircle, Trash2, AlertCircle, RefreshCcw, Plus,
+  Sparkles, Wand2,
 } from 'lucide-react';
 
 /**
@@ -116,6 +117,11 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // AI compose modal state. Opens when the user clicks "✨ כתוב עם AI"
+  // above the message textarea. Picking a draft from the modal copies it
+  // into the textarea and closes the modal.
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Load groups for the picker. Active only — sending to inactive groups
   // is almost always a mistake.
@@ -231,10 +237,21 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
     <div className="space-y-4">
       {/* Message text */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">
-          הודעה <span className="text-red-500">*</span>
-          <span className="text-xs text-gray-400 font-normal mr-2">{message.length}/4096</span>
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-semibold text-gray-700">
+            הודעה <span className="text-red-500">*</span>
+            <span className="text-xs text-gray-400 font-normal mr-2">{message.length}/4096</span>
+          </label>
+          {/* AI assist — opens a modal that takes a topic and returns 3 drafts */}
+          <button
+            type="button"
+            onClick={() => setAiOpen(true)}
+            className="text-xs text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-purple-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{message.trim() ? 'שפר עם AI' : 'כתוב עם AI'}</span>
+          </button>
+        </div>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -244,6 +261,19 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
           placeholder="כתוב את ההודעה כאן... תומך באמוג׳ים ובעברית 😊"
         />
       </div>
+
+      {/* AI compose modal */}
+      {aiOpen && (
+        <AIComposeModal
+          workspaceId={workspaceId}
+          initialTopic={message.trim()} // pre-fill from the textarea if there's already text
+          onClose={() => setAiOpen(false)}
+          onPick={(text) => {
+            setMessage(text);
+            setAiOpen(false);
+          }}
+        />
+      )}
 
       {/* Group picker */}
       <div>
@@ -713,6 +743,228 @@ function DeleteJobCard({ job, onCancel }: { job: DeleteJob; onCancel: () => void
       {job.last_error && (
         <div className="mt-2 text-xs text-red-700 bg-red-50 px-2 py-1 rounded">{job.last_error}</div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Compose modal — give it a topic, get 3 drafts back
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Draft = { label: string; body: string; length_chars: number };
+type ToneChoice = 'auto' | 'formal' | 'friendly' | 'energetic';
+type LengthChoice = 'short' | 'medium' | 'long';
+
+const TONE_LABELS: Record<ToneChoice, string> = {
+  auto: 'אוטומטי (3 נימות)',
+  formal: 'רשמי',
+  friendly: 'ידידותי',
+  energetic: 'אנרגטי',
+};
+
+const LENGTH_LABELS: Record<LengthChoice, string> = {
+  short: 'קצר',
+  medium: 'בינוני',
+  long: 'ארוך',
+};
+
+function AIComposeModal({
+  workspaceId,
+  initialTopic,
+  onClose,
+  onPick,
+}: {
+  workspaceId: string;
+  initialTopic: string;
+  onClose: () => void;
+  onPick: (text: string) => void;
+}) {
+  // If there's existing text in the message, treat it as the starting topic
+  // and label the action "improve". Otherwise the user is starting fresh.
+  const [topic, setTopic] = useState(initialTopic);
+  const [tone, setTone] = useState<ToneChoice>('auto');
+  const [length, setLength] = useState<LengthChoice>('medium');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+
+  async function handleGenerate() {
+    if (!topic.trim()) {
+      setError('כתוב נושא או רעיון קצר');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    setDrafts([]);
+    try {
+      const res = await fetch('/api/whatsapp/compose-with-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          topic: topic.trim(),
+          tone,
+          length,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || 'AI שגיאה');
+        return;
+      }
+      setDrafts(json.drafts || []);
+    } catch (e: any) {
+      setError(e?.message || 'שגיאת רשת');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center">
+              <Wand2 className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">כתיבה עם AI</h2>
+              <p className="text-xs text-gray-500">תן לי כותרת — אני כותב את ההודעה</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="סגור">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              נושא ההודעה <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              maxLength={500}
+              rows={3}
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+              placeholder="לדוגמה: הנחת חורף 20% על כל המוצרים עד יום שישי"
+            />
+            <div className="text-xs text-gray-400 mt-0.5">{topic.length}/500</div>
+          </div>
+
+          {/* Tone + Length pickers */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">נימה</label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value as ToneChoice)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white"
+              >
+                {(['auto', 'formal', 'friendly', 'energetic'] as ToneChoice[]).map((t) => (
+                  <option key={t} value={t}>{TONE_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">אורך</label>
+              <select
+                value={length}
+                onChange={(e) => setLength(e.target.value as LengthChoice)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white"
+              >
+                {(['short', 'medium', 'long'] as LengthChoice[]).map((l) => (
+                  <option key={l} value={l}>{LENGTH_LABELS[l]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Generate button */}
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading || !topic.trim()}
+            className="w-full px-4 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                כותב...
+              </>
+            ) : drafts.length > 0 ? (
+              <>
+                <RefreshCcw className="w-4 h-4" />
+                צור שוב
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                צור ניסוחים
+              </>
+            )}
+          </button>
+
+          {/* Error */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+
+          {/* Drafts list */}
+          {drafts.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-gray-700">בחר גרסה:</div>
+              {drafts.map((d, i) => (
+                <button
+                  key={i}
+                  onClick={() => onPick(d.body)}
+                  className="w-full text-right border border-gray-200 hover:border-purple-400 hover:bg-purple-50 rounded-lg p-3 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-purple-700">
+                      {d.label}
+                    </span>
+                    <span className="text-xs text-gray-400">{d.length_chars} תווים</span>
+                  </div>
+                  <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                    {d.body}
+                  </div>
+                </button>
+              ))}
+              <div className="text-xs text-gray-500 text-center pt-1">
+                לחץ על גרסה כדי להעתיק אותה לטקסט הראשי
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer — only shows when no drafts loaded yet (compact close) */}
+        {drafts.length === 0 && (
+          <div className="p-3 border-t shrink-0 bg-white">
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 text-sm"
+            >
+              סגור
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
