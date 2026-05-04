@@ -19,9 +19,6 @@
     },
     "app/api/health/check/route.ts": {
       "maxDuration": 60
-    },
-    "app/api/whatsapp/dispatcher/route.ts": {
-      "maxDuration": 60
     }
   },
   "crons": [
@@ -32,10 +29,6 @@
     {
       "path": "/api/workflows/scheduled-cron",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/whatsapp/dispatcher",
-      "schedule": "0 4 * * *"
     }
   ]
 }
