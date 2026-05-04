@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/whatsapp/dispatcher",
-      "schedule": "* * * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
