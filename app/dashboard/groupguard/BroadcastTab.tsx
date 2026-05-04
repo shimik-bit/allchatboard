@@ -827,11 +827,11 @@ function AIComposeModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] flex flex-col shadow-2xl"
+        className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg h-[90vh] sm:h-auto sm:max-h-[90vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b shrink-0">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center">
               <Wand2 className="w-5 h-5 text-purple-600" />
@@ -847,7 +847,7 @@ function AIComposeModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
               נושא ההודעה <span className="text-red-500">*</span>
@@ -865,7 +865,7 @@ function AIComposeModal({
           </div>
 
           {/* Tone + Length pickers */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">נימה</label>
               <select
@@ -897,7 +897,7 @@ function AIComposeModal({
             type="button"
             onClick={handleGenerate}
             disabled={loading || !topic.trim()}
-            className="w-full px-4 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg font-bold text-base hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 hover:shadow-xl hover:shadow-purple-600/40 transition-all"
           >
             {loading ? (
               <>
@@ -952,18 +952,6 @@ function AIComposeModal({
             </div>
           )}
         </div>
-
-        {/* Footer — only shows when no drafts loaded yet (compact close) */}
-        {drafts.length === 0 && (
-          <div className="p-3 border-t shrink-0 bg-white">
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 text-sm"
-            >
-              סגור
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
