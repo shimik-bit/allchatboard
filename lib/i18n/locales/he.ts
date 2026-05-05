@@ -753,11 +753,17 @@ export const he = {
     profiles_title_part2: 'שכותב לכם בקבוצות',
     profiles_subtitle: 'TaskFlow AI סורק כל הודעה ובונה אוטומטית פרופיל מקצועי לכל חבר — בלי שאלונים, בלי טפסים, בלי שאף אחד צריך למלא משהו.',
 
-    // 6 capability cards around the profile mockup
+    // 9 capability cards around the profile mockup (3x3 grid on md+)
     profiles_cap_auto_title: 'בנייה אוטומטית',
     profiles_cap_auto_desc: 'הפרופיל נבנה מעצמו תוך כמה הודעות — שום עבודה ידנית, שום הזנת נתונים.',
     profiles_cap_fields_title: '13 שדות מחולצים',
     profiles_cap_fields_desc: 'שם, מקצוע, התמחות, עסק, אתר, עיר, כישורים, שפות, תחומי עניין ועוד — מ-AI שמבין הקשר.',
+    profiles_cap_country_title: 'זיהוי מדינה אוטומטי',
+    profiles_cap_country_desc: 'המערכת מזהה את המדינה של כל חבר אוטומטית מקידומת הטלפון — בלי שאלות, בלי הזנה.',
+    profiles_cap_links_title: 'איסוף לינקים מקצועיים',
+    profiles_cap_links_desc: 'LinkedIn, אתר עסקי, מיזם, פורטפוליו — כל הלינקים שמופיעים בהודעות נאספים אוטומטית.',
+    profiles_cap_summary_title: 'תקציר חכם של כל חבר',
+    profiles_cap_summary_desc: 'AI מסכם בכמה משפטים מי האדם, במה הוא עוסק, ומה ייחודי בו — מבוסס על כל ההודעות שלו.',
     profiles_cap_completion_title: 'מד שלמות',
     profiles_cap_completion_desc: 'אחוז שלמות לכל פרופיל. תזהו במבט אחד מי כבר ידוע לכם ועל מי כדאי לדעת יותר.',
     profiles_cap_search_title: 'חיפוש חכם',
@@ -771,17 +777,31 @@ export const he = {
     profiles_mockup_eyebrow: 'דוגמה אמיתית',
     profiles_mockup_name: 'שירה אבני',
     profiles_mockup_role: 'מתווכת נדל״ן בכירה',
+    // Country detection — emoji flag + country name. Derived from the
+    // sender's WhatsApp phone prefix (e.g. +972 → 🇮🇱) automatically.
+    profiles_mockup_country_flag: '🇮🇱',
+    profiles_mockup_country_name: 'ישראל',
+    profiles_mockup_country_label: 'זוהה מ-+972',
     profiles_mockup_completion: 'פרופיל שלם 87%',
+
+    // Body fields shown in the card
     profiles_mockup_field_business: 'שם עסק',
     profiles_mockup_value_business: 'אבני נדל״ן בוטיק',
-    profiles_mockup_field_specialization: 'התמחות',
-    profiles_mockup_value_specialization: 'דירות יוקרה, פנטהאוזים',
-    profiles_mockup_field_city: 'עיר',
-    profiles_mockup_value_city: 'תל אביב',
-    profiles_mockup_field_website: 'אתר',
-    profiles_mockup_value_website: 'avni-realestate.co.il',
+    profiles_mockup_field_specialization: 'התמחות והכשרה',
+    profiles_mockup_value_specialization: 'דירות יוקרה, פנטהאוזים | בוגרת ברוקרז ארה״ב',
     profiles_mockup_field_languages: 'שפות',
     profiles_mockup_value_languages: 'עברית, אנגלית, רוסית',
+
+    // Links section — 3 distinct link types (LinkedIn, project, other)
+    profiles_mockup_links_label: 'לינקים מקצועיים',
+    profiles_mockup_link_linkedin: 'linkedin.com/in/shira-avni',
+    profiles_mockup_link_project: 'avni-realestate.co.il',
+    profiles_mockup_link_other: 'instagram.com/shira_realestate',
+
+    // AI Summary block — short paragraph generated from messages
+    profiles_mockup_summary_label: 'תקציר AI',
+    profiles_mockup_summary_text: 'מתווכת נדל״ן עם 12+ שנות ניסיון, מתמחה בנכסי יוקרה בצפון תל אביב. פעילה בקבוצות שיווק, חולקת ניתוחי שוק ופעמים רבות מציעה ייעוץ למשקיעים זרים. בעלת רישיון ברוקרז מארה״ב.',
+
     profiles_mockup_field_topics: 'נושאים נפוצים',
     profiles_mockup_topic1: 'משכנתאות',
     profiles_mockup_topic2: 'השקעות',
