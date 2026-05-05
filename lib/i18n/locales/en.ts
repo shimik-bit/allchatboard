@@ -768,10 +768,25 @@ export const en: LocaleDictionary = {
     pricing_subtitle: 'Pick the plan that fits. All plans include a 14-day free trial, no credit card required.',
     pricing_currency: '$',
     pricing_per_month: '/ month',
+    pricing_per_day: '/ day',
     pricing_billed_monthly: 'Billed monthly, cancel anytime',
     pricing_most_popular: 'Most popular',
     pricing_cta: 'Start trial',
     pricing_cta_contact: 'Contact us',
+    pricing_tab_personal: 'Personal',
+    pricing_tab_business: 'Business',
+
+    // Personal — single low-touch plan
+    plan_personal_name: 'Personal',
+    plan_personal_tagline: 'For individuals and solo entrepreneurs',
+    plan_personal_price: '0.30',
+    plan_personal_billing: '≈ $9/month • Cancel anytime',
+    plan_personal_feat1: 'Use your existing WhatsApp number',
+    plan_personal_feat2: 'No need for an extra phone number',
+    plan_personal_feat3: '1 WhatsApp connection',
+    plan_personal_feat4: 'Up to 1,000 messages/month',
+    plan_personal_feat5: 'One-click cancellation, anytime',
+    plan_personal_feat6: 'Email support',
 
     // Tier 1: Starter
     plan_starter_name: 'Starter',

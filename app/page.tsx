@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n/server';
+import { PricingSection } from '@/components/landing/PricingSection';
 
 /**
  * Landing page (taskflow-ai.com).
@@ -354,94 +355,91 @@ export default function HomePage() {
       </section>
 
       {/* ───────── PRICING ─────────
-       * 3-tier card grid. Middle (Pro) is highlighted as "most popular":
-       * gradient background, scaled slightly larger on desktop, ribbon badge.
-       *
-       * Note: prices are placeholders right now — real plan data will land
-       * in a follow-up commit once the team finalizes them. The structure
-       * supports easy editing through the i18n keys (plan_*_price etc).
-       *
-       * Background: subtle radial gradient for depth without a hard divider. */}
-      <section
-        id="pricing"
-        className="relative px-6 py-20 overflow-hidden bg-gradient-to-b from-white via-purple-50/30 to-white"
-      >
-        {/* Decorative blob — sits behind the cards for visual interest */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-200/20 rounded-full blur-3xl animate-blob" />
-        </div>
-
-        <div className="max-w-6xl mx-auto relative">
-          <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 text-purple-700 text-sm font-medium mb-4">
-              <Crown className="w-4 h-4" />
-              {t('home.pricing_eyebrow')}
-            </div>
-            <h2 className="font-display font-bold text-4xl md:text-5xl mb-3">
-              {t('home.pricing_title')}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {t('home.pricing_subtitle')}
-            </p>
-          </div>
-
-          {/* On mobile: stack vertically. On md+: 3-col with Pro slightly elevated. */}
-          <div className="grid md:grid-cols-3 gap-6 md:gap-4 lg:gap-6 items-stretch">
-            <PricingCard
-              name={t('home.plan_starter_name')}
-              tagline={t('home.plan_starter_tagline')}
-              price={t('home.plan_starter_price')}
-              currency={t('home.pricing_currency')}
-              period={t('home.pricing_per_month')}
-              billing={t('home.pricing_billed_monthly')}
-              cta={t('home.pricing_cta')}
-              features={[
-                t('home.plan_starter_feat1'),
-                t('home.plan_starter_feat2'),
-                t('home.plan_starter_feat3'),
-                t('home.plan_starter_feat4'),
-                t('home.plan_starter_feat5'),
-              ]}
-            />
-            <PricingCard
-              name={t('home.plan_pro_name')}
-              tagline={t('home.plan_pro_tagline')}
-              price={t('home.plan_pro_price')}
-              currency={t('home.pricing_currency')}
-              period={t('home.pricing_per_month')}
-              billing={t('home.pricing_billed_monthly')}
-              cta={t('home.pricing_cta')}
-              popularLabel={t('home.pricing_most_popular')}
-              highlight
-              features={[
-                t('home.plan_pro_feat1'),
-                t('home.plan_pro_feat2'),
-                t('home.plan_pro_feat3'),
-                t('home.plan_pro_feat4'),
-                t('home.plan_pro_feat5'),
-                t('home.plan_pro_feat6'),
-              ]}
-            />
-            <PricingCard
-              name={t('home.plan_biz_name')}
-              tagline={t('home.plan_biz_tagline')}
-              price={t('home.plan_biz_price')}
-              currency={t('home.pricing_currency')}
-              period={t('home.pricing_per_month')}
-              billing={t('home.pricing_billed_monthly')}
-              cta={t('home.pricing_cta_contact')}
-              features={[
-                t('home.plan_biz_feat1'),
-                t('home.plan_biz_feat2'),
-                t('home.plan_biz_feat3'),
-                t('home.plan_biz_feat4'),
-                t('home.plan_biz_feat5'),
-                t('home.plan_biz_feat6'),
-              ]}
-            />
-          </div>
-        </div>
-      </section>
+       * Two tabs: Personal (single ₪1/day plan) / Business (3 tiers).
+       * The toggle lives in <PricingSection> (client component) so the
+       * rest of this page can stay server-rendered. All copy is resolved
+       * via t() here on the server and passed in as props. */}
+      <PricingSection
+        eyebrow={t('home.pricing_eyebrow')}
+        title={t('home.pricing_title')}
+        subtitle={t('home.pricing_subtitle')}
+        tabPersonalLabel={t('home.pricing_tab_personal')}
+        tabBusinessLabel={t('home.pricing_tab_business')}
+        personalPlans={[
+          {
+            name: t('home.plan_personal_name'),
+            tagline: t('home.plan_personal_tagline'),
+            currency: t('home.pricing_currency'),
+            price: t('home.plan_personal_price'),
+            period: t('home.pricing_per_day'),
+            billing: t('home.plan_personal_billing'),
+            cta: t('home.pricing_cta'),
+            highlight: true,
+            features: [
+              t('home.plan_personal_feat1'),
+              t('home.plan_personal_feat2'),
+              t('home.plan_personal_feat3'),
+              t('home.plan_personal_feat4'),
+              t('home.plan_personal_feat5'),
+              t('home.plan_personal_feat6'),
+            ],
+          },
+        ]}
+        businessPlans={[
+          {
+            name: t('home.plan_starter_name'),
+            tagline: t('home.plan_starter_tagline'),
+            currency: t('home.pricing_currency'),
+            price: t('home.plan_starter_price'),
+            period: t('home.pricing_per_month'),
+            billing: t('home.pricing_billed_monthly'),
+            cta: t('home.pricing_cta'),
+            features: [
+              t('home.plan_starter_feat1'),
+              t('home.plan_starter_feat2'),
+              t('home.plan_starter_feat3'),
+              t('home.plan_starter_feat4'),
+              t('home.plan_starter_feat5'),
+            ],
+          },
+          {
+            name: t('home.plan_pro_name'),
+            tagline: t('home.plan_pro_tagline'),
+            currency: t('home.pricing_currency'),
+            price: t('home.plan_pro_price'),
+            period: t('home.pricing_per_month'),
+            billing: t('home.pricing_billed_monthly'),
+            cta: t('home.pricing_cta'),
+            highlight: true,
+            popularLabel: t('home.pricing_most_popular'),
+            features: [
+              t('home.plan_pro_feat1'),
+              t('home.plan_pro_feat2'),
+              t('home.plan_pro_feat3'),
+              t('home.plan_pro_feat4'),
+              t('home.plan_pro_feat5'),
+              t('home.plan_pro_feat6'),
+            ],
+          },
+          {
+            name: t('home.plan_biz_name'),
+            tagline: t('home.plan_biz_tagline'),
+            currency: t('home.pricing_currency'),
+            price: t('home.plan_biz_price'),
+            period: t('home.pricing_per_month'),
+            billing: t('home.pricing_billed_monthly'),
+            cta: t('home.pricing_cta_contact'),
+            features: [
+              t('home.plan_biz_feat1'),
+              t('home.plan_biz_feat2'),
+              t('home.plan_biz_feat3'),
+              t('home.plan_biz_feat4'),
+              t('home.plan_biz_feat5'),
+              t('home.plan_biz_feat6'),
+            ],
+          },
+        ]}
+      />
 
       {/* ───────── FAQ ─────────
        * Native <details>/<summary> for keyboard accessibility, no JS needed. */}
@@ -732,110 +730,6 @@ function IndustryCard({ icon, label }: { icon: React.ReactNode; label: string })
     </div>
   );
 }
-
-/** FaqItem — collapsible Q&A using native <details>. Keyboard-accessible. */
-/**
- * PricingCard — single tier in the pricing grid.
- *
- * Two visual modes:
- *   - default: white card with gray border, normal hover
- *   - highlight (used for Pro/middle tier): gradient border, "most popular"
- *     ribbon, slight upward translate on desktop, shadow + glow
- *
- * The price block is split into currency + big number + period so we can
- * style each independently (giant number, smaller suffix).
- */
-function PricingCard({
-  name, tagline, currency, price, period, billing, cta, features,
-  highlight = false, popularLabel,
-}: {
-  name: string;
-  tagline: string;
-  currency: string;
-  price: string;
-  period: string;
-  billing: string;
-  cta: string;
-  features: string[];
-  highlight?: boolean;
-  popularLabel?: string;
-}) {
-  return (
-    <div
-      className={`relative rounded-2xl p-6 sm:p-8 flex flex-col ${
-        highlight
-          ? // Highlighted tier: gradient bg, white text, scaled up on md+
-            'bg-gradient-to-br from-purple-600 via-brand-600 to-pink-600 text-white shadow-2xl md:-translate-y-2 ring-1 ring-white/20'
-          : // Standard tier: white card with subtle border + hover lift
-            'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all'
-      }`}
-    >
-      {/* "Most popular" ribbon — only on highlighted card */}
-      {highlight && popularLabel && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-yellow-300 text-purple-900 text-xs font-bold shadow-lg whitespace-nowrap">
-          ⭐ {popularLabel}
-        </div>
-      )}
-
-      {/* Plan name + tagline */}
-      <div className="mb-5">
-        <h3 className={`font-display font-bold text-2xl mb-1 ${highlight ? 'text-white' : 'text-gray-900'}`}>
-          {name}
-        </h3>
-        <p className={`text-sm ${highlight ? 'text-purple-100' : 'text-gray-500'}`}>
-          {tagline}
-        </p>
-      </div>
-
-      {/* Price block — large currency-prefixed number + small "/month" suffix */}
-      <div className="mb-2">
-        <div className="flex items-baseline gap-1">
-          <span className={`text-base font-medium ${highlight ? 'text-purple-100' : 'text-gray-500'}`}>
-            {currency}
-          </span>
-          <span className={`font-display font-bold text-5xl ${highlight ? 'text-white' : 'text-gray-900'}`}>
-            {price}
-          </span>
-          <span className={`text-sm ${highlight ? 'text-purple-100' : 'text-gray-500'}`}>
-            {period}
-          </span>
-        </div>
-        <p className={`text-xs mt-1 ${highlight ? 'text-purple-100/80' : 'text-gray-400'}`}>
-          {billing}
-        </p>
-      </div>
-
-      {/* Feature list with checkmarks */}
-      <ul className="space-y-3 my-6 flex-grow">
-        {features.map((f, i) => (
-          <li key={i} className="flex items-start gap-2.5">
-            <Check
-              className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                highlight ? 'text-yellow-200' : 'text-green-500'
-              }`}
-            />
-            <span className={`text-sm leading-relaxed ${highlight ? 'text-white' : 'text-gray-700'}`}>
-              {f}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      {/* CTA button — inverted color on highlight (white pill on gradient) */}
-      <Link
-        href="/auth/signup"
-        className={`block text-center px-6 py-3 rounded-xl font-bold transition-colors ${
-          highlight
-            ? 'bg-white text-purple-700 hover:bg-purple-50 shadow-lg'
-            : 'bg-gray-900 text-white hover:bg-gray-800'
-        }`}
-      >
-        {cta}
-      </Link>
-    </div>
-  );
-}
-
 
 /** FaqItem — collapsible Q&A using native <details>. Keyboard-accessible. */
 function FaqItem({ q, a }: { q: string; a: string }) {
