@@ -1239,6 +1239,179 @@ export const he = {
       legend_deletes: 'מחיקות',
       legend_warns: 'אזהרות',
     },
+
+    /* ────────────── Broadcast tab ──────────────
+       Sub-tabs and form labels inside the "פרסום ומחיקה" tab.
+       Was previously hardcoded in BroadcastTab.tsx. */
+    broadcast: {
+      // Sub-tab labels (top of BroadcastTab)
+      tab_new: 'פרסום חדש',
+      tab_history: 'היסטוריה',
+      tab_deletes: 'מחיקות',
+
+      // AI compose button (toggles label depending on whether textarea has text)
+      ai_compose: 'כתוב עם AI',
+      ai_improve: 'שפר עם AI',
+
+      // Form labels
+      delay_label: 'השהייה בין שליחות (שניות)',
+
+      // Compose form — validation + submit + success/error messages
+      compose: {
+        validation_message_required: 'יש להזין טקסט להודעה',
+        validation_groups_required: 'בחר לפחות קבוצה אחת',
+        validation_schedule_required: 'בחר תאריך ושעה לתזמון',
+        validation_invalid_date: 'תאריך לא תקין',
+        send_failed: 'שליחה נכשלה',
+        network_error: 'שגיאת רשת',
+        success_scheduled: 'התזמון נשמר! {count} קבוצות יקבלו את ההודעה החל מ-{when}',
+        success_sent: 'הפרסום החל! {count} קבוצות בתור.',
+        message_placeholder: 'כתוב את ההודעה כאן... תומך באמוג׳ים ובעברית 😊',
+        group_search_placeholder: 'חפש קבוצה...',
+        no_groups_found: 'לא נמצאו קבוצות תואמות',
+        no_groups_active: 'אין קבוצות פעילות. סרוק קבוצות בטאב',
+        groups_link: 'קבוצות',
+        unnamed_group: 'קבוצה ללא שם',
+        summary_label: 'סיכום:',
+        schedule_button: 'תזמן פרסום',
+        send_now_button: 'שלח עכשיו',
+        cancel_confirm: 'לבטל את הפרסום? הודעות שכבר נשלחו לא יחזרו אחורה.',
+        delete_all_confirm: 'למחוק את כל ההודעות שנשלחו בפרסום הזה?',
+        error_label: 'שגיאה',
+        delete_job_created: 'עבודת מחיקה נוצרה ({count} הודעות).',
+      },
+
+      // History view — list of past/active broadcast jobs
+      history: {
+        loading: 'טוען...',
+        no_jobs: 'עדיין לא ביצעת פרסום.',
+        status_pending: 'ממתין',
+        status_running: 'בריצה',
+        status_completed: 'הושלם',
+        status_cancelled: 'בוטל',
+        status_failed: 'נכשל',
+      },
+
+      // Deletions view — list of past/active delete jobs
+      deletions: {
+        cancel_confirm: 'לבטל את עבודת המחיקה?',
+        loading: 'טוען...',
+        no_jobs: 'אין עבודות מחיקה.',
+        no_jobs_hint: 'כדי למחוק הודעות, עבור לטאב "{history_label}" ובחר עבודת פרסום שהושלמה.',
+        history_label: 'היסטוריה',
+        status_pending: 'ממתין',
+        status_deleting: 'מוחק',
+        status_completed: 'הושלם',
+        status_cancelled: 'בוטל',
+        status_failed: 'נכשל',
+        type_full_broadcast: '🗑️ מחיקת פרסום שלם',
+        type_manual: '🗑️ מחיקה ידנית',
+      },
+
+      // AI compose modal — opens when user clicks "כתוב עם AI"
+      ai_modal: {
+        title: 'כתיבה עם AI',
+        subtitle: 'תן לי כותרת — אני כותב את ההודעה',
+        close: 'סגור',
+        topic_placeholder: 'לדוגמה: הנחת חורף 20% על כל המוצרים עד יום שישי',
+        tone_label: 'נימה',
+        tone_auto: 'אוטומטי (3 נימות)',
+        tone_formal: 'רשמי',
+        tone_friendly: 'ידידותי',
+        tone_energetic: 'אנרגטי',
+        length_label: 'אורך',
+        length_short: 'קצר',
+        length_medium: 'בינוני',
+        length_long: 'ארוך',
+        topic_required: 'כתוב נושא או רעיון קצר',
+        ai_error: 'שגיאת AI',
+        network_error: 'שגיאת רשת',
+        pick_version_label: 'בחר גרסה:',
+      },
+    },
+  },
+
+  /* ────────────── Focus Mode ──────────────
+     "Focus Mode" is the AI personal assistant page (/dashboard/focus).
+     Was previously hardcoded in FocusClient.tsx. */
+  focus: {
+    title: 'מצב מיקוד',
+
+    // Default prompts shown in the input + sent to the AI
+    default_prompt: 'תפקס אותי - מה לעשות היום?',
+    cta: 'תפקס אותי - מה לעשות היום לפי דחיפות?',
+    input_placeholder: "ברירת מחדל: 'תפקס אותי - מה לעשות היום?' - או כתוב משהו ספציפי...",
+    role_settings_button: 'הגדרות תפקיד',
+
+    // Urgency labels for tasks (shown as colored pills)
+    urgency: {
+      urgent: 'דחוף!',
+      important: 'חשוב',
+      recommended: 'מומלץ',
+      idea: 'רעיון',
+    },
+
+    // Hero greeting + briefing states
+    greeting: 'בוקר טוב! 👋',
+    thinking_title: 'המערכת חושבת...',
+    thinking_subtitle: 'בוחן נתונים, מנתח דחיפות, מסדר עדיפויות',
+    no_info_title: 'אין מספיק מידע',
+    how_to_start: 'איך מתחילים?',
+    all_clear_title: 'הכל בשליטה!',
+    all_clear_subtitle: 'אין משימות דחופות עכשיו. תיהנה מהיום ☕',
+
+    // Errors
+    briefing_error: 'שגיאה ביצירת בריפינג',
+    network_error: 'שגיאת רשת',
+
+    // Action buttons under each task — past-tense feedback after click
+    actions: {
+      done: '✓ סומן כבוצע',
+      skip: '⊘ דולג',
+      postpone: '⏰ נדחה',
+      delegate: '→ הואצל',
+      add_to_table: '➕ נוסף לטבלה',
+    },
+
+    // Role settings dialog (first-time setup or edit)
+    role_dialog: {
+      role_label: 'תפקיד',
+      role_placeholder: 'למשל: מנהל מכירות',
+      description_label: 'תיאור (אופציונלי)',
+      description_placeholder: 'במה אתה מטפל בעיקר? מה התחומי אחריות?',
+      examples_label: 'דוגמאות מהירות:',
+      cancel: 'ביטול',
+      saving: 'שומר...',
+      save: 'שמור',
+      save_failed: 'שמירה נכשלה:',
+    },
+
+    // Quick role examples shown as one-tap buttons
+    role_examples: {
+      sales_manager_title: 'מנהל מכירות',
+      sales_manager_desc: 'אחראי על צוות מכירות, לידים גדולים, סגירת עסקאות אסטרטגיות',
+      sales_agent_title: 'סוכן מכירות',
+      sales_agent_desc: 'טיפול בלידים חדשים, שיחות מכירה, מעקב אחרי הצעות',
+      technician_title: 'טכנאי שירות',
+      technician_desc: 'טיפול בקריאות שירות, פתרון בעיות אצל לקוחות, תיעוד פתרונות',
+      project_manager_title: 'מנהל פרויקטים',
+      project_manager_desc: 'ניהול לוחות זמנים, תיאום עם ספקים, מעקב אחרי משימות',
+    },
+
+    // Add-to-tasks dialog (when user clicks ➕ on a briefing task)
+    add_to_tasks: {
+      table_required: 'צריך לבחור טבלה',
+      add_failed: 'שגיאה בהוספה',
+      loading_options: 'טוען אפשרויות...',
+      load_failed: 'שגיאה בטעינה',
+      select_table: '— בחר טבלה —',
+      assignee_self: 'לי',
+      assignee_default: 'ברירת מחדל',
+      team_member_label: 'חבר צוות',
+      select_team_member: '— בחר חבר צוות —',
+      allowed_phone_label: 'טלפון מורשה',
+      select_phone: '— בחר טלפון —',
+    },
   },
 
   /* ────────────── Hub & CRM Modules ────────────── */

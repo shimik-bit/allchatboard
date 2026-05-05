@@ -1227,6 +1227,179 @@ export const en: LocaleDictionary = {
       legend_deletes: 'Deletes',
       legend_warns: 'Warns',
     },
+
+    /* ────────────── Broadcast tab ──────────────
+       Sub-tabs and form labels inside the "Broadcast & Delete" tab.
+       Was previously hardcoded in BroadcastTab.tsx. */
+    broadcast: {
+      // Sub-tab labels (top of BroadcastTab)
+      tab_new: 'New broadcast',
+      tab_history: 'History',
+      tab_deletes: 'Deletes',
+
+      // AI compose button (toggles label depending on whether textarea has text)
+      ai_compose: 'Write with AI',
+      ai_improve: 'Improve with AI',
+
+      // Form labels
+      delay_label: 'Delay between messages (seconds)',
+
+      // Compose form — validation + submit + success/error messages
+      compose: {
+        validation_message_required: 'Message text is required',
+        validation_groups_required: 'Pick at least one group',
+        validation_schedule_required: 'Pick a date and time for scheduling',
+        validation_invalid_date: 'Invalid date',
+        send_failed: 'Send failed',
+        network_error: 'Network error',
+        success_scheduled: 'Scheduled! {count} groups will receive the message starting at {when}',
+        success_sent: 'Broadcast started! {count} groups queued.',
+        message_placeholder: 'Write the message here... emojis and Hebrew supported 😊',
+        group_search_placeholder: 'Search a group...',
+        no_groups_found: 'No matching groups found',
+        no_groups_active: 'No active groups. Scan groups in the',
+        groups_link: 'Groups',
+        unnamed_group: 'Unnamed group',
+        summary_label: 'Summary:',
+        schedule_button: 'Schedule broadcast',
+        send_now_button: 'Send now',
+        cancel_confirm: 'Cancel the broadcast? Messages already sent cannot be undone.',
+        delete_all_confirm: 'Delete all messages sent in this broadcast?',
+        error_label: 'Error',
+        delete_job_created: 'Delete job created ({count} messages).',
+      },
+
+      // History view — list of past/active broadcast jobs
+      history: {
+        loading: 'Loading...',
+        no_jobs: "You haven't sent any broadcasts yet.",
+        status_pending: 'Pending',
+        status_running: 'Running',
+        status_completed: 'Completed',
+        status_cancelled: 'Cancelled',
+        status_failed: 'Failed',
+      },
+
+      // Deletions view — list of past/active delete jobs
+      deletions: {
+        cancel_confirm: 'Cancel the delete job?',
+        loading: 'Loading...',
+        no_jobs: 'No delete jobs.',
+        no_jobs_hint: 'To delete messages, switch to the "{history_label}" tab and pick a completed broadcast.',
+        history_label: 'History',
+        status_pending: 'Pending',
+        status_deleting: 'Deleting',
+        status_completed: 'Completed',
+        status_cancelled: 'Cancelled',
+        status_failed: 'Failed',
+        type_full_broadcast: '🗑️ Delete entire broadcast',
+        type_manual: '🗑️ Manual delete',
+      },
+
+      // AI compose modal — opens when user clicks "Write with AI"
+      ai_modal: {
+        title: 'AI Compose',
+        subtitle: 'Give me a topic — I write the message',
+        close: 'Close',
+        topic_placeholder: 'For example: 20% winter discount on all products until Friday',
+        tone_label: 'Tone',
+        tone_auto: 'Auto (3 tones)',
+        tone_formal: 'Formal',
+        tone_friendly: 'Friendly',
+        tone_energetic: 'Energetic',
+        length_label: 'Length',
+        length_short: 'Short',
+        length_medium: 'Medium',
+        length_long: 'Long',
+        topic_required: 'Write a short topic or idea',
+        ai_error: 'AI error',
+        network_error: 'Network error',
+        pick_version_label: 'Pick a version:',
+      },
+    },
+  },
+
+  /* ────────────── Focus Mode ──────────────
+     "Focus Mode" is the AI personal assistant page (/dashboard/focus).
+     Was previously hardcoded in FocusClient.tsx. */
+  focus: {
+    title: 'Focus Mode',
+
+    // Default prompts shown in the input + sent to the AI
+    default_prompt: 'Focus me - what should I do today?',
+    cta: 'Focus me - what should I do today by urgency?',
+    input_placeholder: "Default: 'Focus me - what should I do today?' - or type something specific...",
+    role_settings_button: 'Role settings',
+
+    // Urgency labels for tasks (shown as colored pills)
+    urgency: {
+      urgent: 'Urgent!',
+      important: 'Important',
+      recommended: 'Recommended',
+      idea: 'Idea',
+    },
+
+    // Hero greeting + briefing states
+    greeting: 'Good morning! 👋',
+    thinking_title: 'Thinking...',
+    thinking_subtitle: 'Reviewing data, analyzing urgency, prioritizing',
+    no_info_title: 'Not enough info',
+    how_to_start: 'How do we start?',
+    all_clear_title: 'All clear!',
+    all_clear_subtitle: 'No urgent tasks right now. Enjoy your day ☕',
+
+    // Errors
+    briefing_error: 'Briefing generation failed',
+    network_error: 'Network error',
+
+    // Action buttons under each task — past-tense feedback after click
+    actions: {
+      done: '✓ Marked done',
+      skip: '⊘ Skipped',
+      postpone: '⏰ Postponed',
+      delegate: '→ Delegated',
+      add_to_table: '➕ Added to table',
+    },
+
+    // Role settings dialog (first-time setup or edit)
+    role_dialog: {
+      role_label: 'Role',
+      role_placeholder: 'e.g. Sales manager',
+      description_label: 'Description (optional)',
+      description_placeholder: 'What do you mainly handle? What are your responsibilities?',
+      examples_label: 'Quick examples:',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      save: 'Save',
+      save_failed: 'Save failed:',
+    },
+
+    // Quick role examples shown as one-tap buttons
+    role_examples: {
+      sales_manager_title: 'Sales Manager',
+      sales_manager_desc: 'Owns the sales team, big leads, strategic deal closing',
+      sales_agent_title: 'Sales Agent',
+      sales_agent_desc: 'New leads, sales calls, follow-ups on offers',
+      technician_title: 'Service Technician',
+      technician_desc: 'Service calls, customer troubleshooting, fix documentation',
+      project_manager_title: 'Project Manager',
+      project_manager_desc: 'Schedules, vendor coordination, task tracking',
+    },
+
+    // Add-to-tasks dialog (when user clicks ➕ on a briefing task)
+    add_to_tasks: {
+      table_required: 'Please select a table',
+      add_failed: 'Add failed',
+      loading_options: 'Loading options...',
+      load_failed: 'Load failed',
+      select_table: '— Select a table —',
+      assignee_self: 'Me',
+      assignee_default: 'Default',
+      team_member_label: 'Team member',
+      select_team_member: '— Select team member —',
+      allowed_phone_label: 'Allowed phone',
+      select_phone: '— Select phone —',
+    },
   },
 
   /* ────────────── Hub & CRM Modules ────────────── */
