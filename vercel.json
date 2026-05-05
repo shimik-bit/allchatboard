@@ -44,11 +44,11 @@
     },
     {
       "path": "/api/groupguard/profiles/extract-cron",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/groupguard/summaries/cron",
-      "schedule": "5 * * * *"
+      "schedule": "0 21 * * *"
     }
   ]
 }

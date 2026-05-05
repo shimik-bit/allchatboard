@@ -11,20 +11,25 @@ export const maxDuration = 60;
  *
  * Auth: Bearer ${CRON_SECRET}
  *
- * Runs hourly. For each call:
- *   1. Find all groups with summary_enabled=true AND summary_auto=true AND
- *      summary_hour matches the current UTC hour
- *   2. For each, generate a summary if one doesn't already exist for today
- *   3. Process up to BATCH_SIZE groups per run to stay under 60s
+ * Runs ONCE per day (Vercel Hobby plan limit). Sweeps all groups with
+ * summary_enabled=true AND summary_auto=true and generates a summary for
+ * each one.
  *
- * The hourly schedule means a group set to "21:00" gets its summary
- * generated within the 21:00 hour. Sub-hour precision isn't worth the
- * cron complexity since users don't expect "exactly 21:00 sharp" for a
- * batched daily report.
+ * Why not honor each group's chosen summary_hour? Vercel Hobby disallows
+ * sub-daily cron schedules, so we can't run an hourly cron that checks
+ * for matching hours. The summary_hour field still exists on the row but
+ * is currently ignored by the cron — kept for forward-compat when/if the
+ * project upgrades to Vercel Pro.
  *
- * Re-runs in the same hour are safe: summarizeGroup() dedupes via
- * summary_date UNIQUE constraint, so the second cron call this hour will
- * skip groups it already processed.
+ * Re-runs in the same day are safe: summarizeGroup() dedupes via
+ * summary_date UNIQUE constraint, so a manual run earlier won't be
+ * overwritten by the cron.
+ *
+ * Limits: BATCH_SIZE caps processing per invocation. If the workspace has
+ * more than BATCH_SIZE groups configured for auto-summary, only the first
+ * BATCH_SIZE are processed today and the rest get picked up tomorrow.
+ * In practice no workspace should have >10 daily-summary groups; if that
+ * changes, we can paginate or upgrade the plan.
  */
 
 const BATCH_SIZE = 10;
@@ -42,21 +47,20 @@ function checkAuth(req: NextRequest): boolean {
 async function handle() {
   const supabase = createAdminClient();
   const startedAt = Date.now();
-  const currentHour = new Date().getUTCHours();
 
-  // Find groups whose schedule fires this hour. Note: we filter on
-  // summary_hour matching *current UTC hour*. For workspaces in Israel
-  // (UTC+2/+3), this is shifted — a group set to "21" in the UI is stored
-  // as 21 here. Future enhancement could join workspace timezone to make
-  // the displayed time match local time, but for the v1 we accept that the
-  // hour is "UTC hour-of-day" and document accordingly in the UI tooltip.
+  // We run this cron ONCE per day at a fixed hour (21:00 UTC = ~midnight in
+  // Israel). Vercel's Hobby plan disallows sub-daily crons, so the previous
+  // hourly approach (which let each group pick its own summary_hour) had to
+  // be replaced with a single daily sweep across all enabled groups.
+  //
+  // The summary_hour field still exists on the row for forward-compat with
+  // a future Pro-plan upgrade, but it's currently ignored by this cron.
   const { data: candidates, error } = await supabase
     .from('whatsapp_groups')
     .select('id, group_name, workspace_id')
     .eq('is_active', true)
     .eq('summary_enabled', true)
     .eq('summary_auto', true)
-    .eq('summary_hour', currentHour)
     .limit(BATCH_SIZE);
 
   if (error) {
@@ -70,7 +74,7 @@ async function handle() {
       processed: 0,
       generated: 0,
       duration_ms: Date.now() - startedAt,
-      message: `no_candidates_at_utc_hour_${currentHour}`,
+      message: 'no_candidates',
     };
   }
 
