@@ -10,7 +10,9 @@ import {
   ChevronDown,
   // Member Profiles section
   Wand2, Database, Gauge, RefreshCw, Lock,
-  MapPin, Languages, Tag, Star,
+  Languages, Tag,
+  // Profile section additions: country flag, links, AI summary
+  Linkedin, Link2, FileText,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n/server';
 import { PricingSection } from '@/components/landing/PricingSection';
@@ -290,6 +292,21 @@ export default function HomePage() {
               icon={<Database className="w-5 h-5" />}
               title={t('home.profiles_cap_fields_title')}
               desc={t('home.profiles_cap_fields_desc')}
+            />
+            <ProfileCapCard
+              icon={<Globe className="w-5 h-5" />}
+              title={t('home.profiles_cap_country_title')}
+              desc={t('home.profiles_cap_country_desc')}
+            />
+            <ProfileCapCard
+              icon={<Linkedin className="w-5 h-5" />}
+              title={t('home.profiles_cap_links_title')}
+              desc={t('home.profiles_cap_links_desc')}
+            />
+            <ProfileCapCard
+              icon={<FileText className="w-5 h-5" />}
+              title={t('home.profiles_cap_summary_title')}
+              desc={t('home.profiles_cap_summary_desc')}
             />
             <ProfileCapCard
               icon={<Gauge className="w-5 h-5" />}
@@ -831,7 +848,7 @@ function ProfileMockup({ t }: { t: (k: string) => string }) {
   return (
     <div className="max-w-xl mx-auto" aria-hidden="true">
       <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden ring-1 ring-purple-100/50">
-        {/* Header band — gradient bg, avatar, name, role, completion meter */}
+        {/* Header band — gradient bg, avatar, name, role, country flag, completion meter */}
         <div className="bg-gradient-to-br from-purple-600 via-brand-600 to-pink-600 p-5 sm:p-6 text-white relative overflow-hidden">
           {/* Soft glow blobs inside the header for depth */}
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
@@ -849,8 +866,16 @@ function ProfileMockup({ t }: { t: (k: string) => string }) {
             </div>
           </div>
 
+          {/* Country pill — flag + country, with auto-detection note.
+              This is the "detected from phone prefix" feature made tangible. */}
+          <div className="relative mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur border border-white/20 text-xs">
+            <span className="text-base leading-none">{t('home.profiles_mockup_country_flag')}</span>
+            <span className="font-semibold">{t('home.profiles_mockup_country_name')}</span>
+            <span className="text-purple-100 opacity-80">· {t('home.profiles_mockup_country_label')}</span>
+          </div>
+
           {/* Completion meter — bar fills to 87% */}
-          <div className="relative mt-5">
+          <div className="relative mt-4">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-purple-100">{t('home.profiles_mockup_completion')}</span>
               <span className="font-bold">87%</span>
@@ -861,28 +886,18 @@ function ProfileMockup({ t }: { t: (k: string) => string }) {
           </div>
         </div>
 
-        {/* Body — 5 fields + 1 topics row */}
+        {/* Body */}
         <div className="p-5 sm:p-6 space-y-3.5">
+          {/* Core info fields */}
           <ProfileField
             icon={<Briefcase className="w-3.5 h-3.5" />}
             label={t('home.profiles_mockup_field_business')}
             value={t('home.profiles_mockup_value_business')}
           />
           <ProfileField
-            icon={<Star className="w-3.5 h-3.5" />}
+            icon={<GraduationCap className="w-3.5 h-3.5" />}
             label={t('home.profiles_mockup_field_specialization')}
             value={t('home.profiles_mockup_value_specialization')}
-          />
-          <ProfileField
-            icon={<MapPin className="w-3.5 h-3.5" />}
-            label={t('home.profiles_mockup_field_city')}
-            value={t('home.profiles_mockup_value_city')}
-          />
-          <ProfileField
-            icon={<Globe className="w-3.5 h-3.5" />}
-            label={t('home.profiles_mockup_field_website')}
-            value={t('home.profiles_mockup_value_website')}
-            mono
           />
           <ProfileField
             icon={<Languages className="w-3.5 h-3.5" />}
@@ -890,7 +905,33 @@ function ProfileMockup({ t }: { t: (k: string) => string }) {
             value={t('home.profiles_mockup_value_languages')}
           />
 
-          {/* Topics — chips instead of plain text */}
+          {/* Links row — 3 distinct link types as chips with their icon */}
+          <div className="flex items-start gap-3 pt-1">
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 grid place-items-center flex-shrink-0 mt-0.5">
+              <Link2 className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-500 mb-1.5">{t('home.profiles_mockup_links_label')}</div>
+              <div className="flex flex-col gap-1.5">
+                <LinkChip icon={<Linkedin className="w-3 h-3" />} text={t('home.profiles_mockup_link_linkedin')} color="blue" />
+                <LinkChip icon={<Globe className="w-3 h-3" />} text={t('home.profiles_mockup_link_project')} color="purple" />
+                <LinkChip icon={<Link2 className="w-3 h-3" />} text={t('home.profiles_mockup_link_other')} color="pink" />
+              </div>
+            </div>
+          </div>
+
+          {/* AI Summary — distinct block with sparkles icon and a short paragraph */}
+          <div className="mt-1 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 p-3.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 mb-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              {t('home.profiles_mockup_summary_label')}
+            </div>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              {t('home.profiles_mockup_summary_text')}
+            </p>
+          </div>
+
+          {/* Topics chips */}
           <div className="flex items-start gap-3 pt-1">
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 grid place-items-center flex-shrink-0 mt-0.5">
               <Tag className="w-3.5 h-3.5" />
@@ -912,6 +953,29 @@ function ProfileMockup({ t }: { t: (k: string) => string }) {
           {t('home.profiles_mockup_extracted_from')}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * LinkChip — small inline pill showing a link with its icon.
+ * Three color variants (blue=LinkedIn, purple=project, pink=other) so the
+ * three links are visually distinct at a glance.
+ *
+ * Uses font-mono on the URL text for that "this is a real URL" feel.
+ */
+function LinkChip({
+  icon, text, color,
+}: { icon: React.ReactNode; text: string; color: 'blue' | 'purple' | 'pink' }) {
+  const colorClass = {
+    blue:   'bg-blue-50 text-blue-700 border-blue-200',
+    purple: 'bg-purple-50 text-purple-700 border-purple-200',
+    pink:   'bg-pink-50 text-pink-700 border-pink-200',
+  }[color];
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${colorClass} max-w-full`}>
+      <span className="flex-shrink-0">{icon}</span>
+      <span className="font-mono truncate text-[11px]">{text}</span>
     </div>
   );
 }
