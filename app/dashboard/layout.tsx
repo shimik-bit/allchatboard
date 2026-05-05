@@ -7,6 +7,7 @@ import { DevModeIndicator } from '@/components/DevMode';
 import { LanguageProvider } from '@/lib/i18n/provider';
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { ThemeProvider } from '@/lib/themes/ThemeProvider';
+import WhatsAppAutoRecovery from '@/components/WhatsAppAutoRecovery';
 
 const ACTIVE_WS_COOKIE = 'tf_active_workspace';
 
@@ -88,6 +89,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <OnboardingTour />
+
+        {/* Background WhatsApp recovery: silent fire-and-forget on every
+            dashboard mount. Server-side throttle (5 min per instance)
+            prevents hammering Green API on rapid page navigation. */}
+        <WhatsAppAutoRecovery workspaceId={workspace.id} />
       </div>
       </ThemeProvider>
     </LanguageProvider>
