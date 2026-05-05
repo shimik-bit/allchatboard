@@ -1068,6 +1068,13 @@ export const en: LocaleDictionary = {
       sort_recent: 'Recent',
       sort_active: 'Most active',
       sort_complete: 'Complete profile',
+      // Manual rescan button (kicks off AI extraction without waiting for cron)
+      rescan_button: 'Scan now',
+      rescan_running: 'Scanning...',
+      rescan_tooltip: 'Run AI scan immediately on members not scanned in the last hour',
+      rescan_done: 'Scanned {processed} profiles, {updated} updated',
+      rescan_none: 'All profiles up to date. Check back in an hour.',
+      rescan_error: 'Scan failed',
       loading: 'Loading...',
       previous: 'Previous',
       next: 'Next',

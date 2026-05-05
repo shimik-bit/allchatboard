@@ -17,6 +17,7 @@ import {
   Award,
   X,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
 
@@ -90,6 +91,61 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+  // Manual rescan state — separate from the page `loading` flag so the
+  // grid stays interactive while the AI extraction runs in the background.
+  // `rescanResult` is shown as a transient toast under the button after
+  // a run completes; it auto-clears after 6 seconds.
+  const [rescanning, setRescanning] = useState(false);
+  const [rescanResult, setRescanResult] = useState<{
+    type: 'success' | 'info' | 'error';
+    text: string;
+  } | null>(null);
+
+  async function handleRescan() {
+    if (rescanning) return;
+    setRescanning(true);
+    setRescanResult(null);
+    try {
+      const res = await fetch('/api/groupguard/profiles/rescan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setRescanResult({
+          type: 'error',
+          text: d.error || t('groupguard.members.rescan_error'),
+        });
+      } else if (d.processed === 0) {
+        // No candidates needed extraction — likely all profiles are fresh
+        setRescanResult({
+          type: 'info',
+          text: t('groupguard.members.rescan_none'),
+        });
+      } else {
+        setRescanResult({
+          type: 'success',
+          text: t('groupguard.members.rescan_done', {
+            processed: d.processed,
+            updated: d.updated,
+          }),
+        });
+        // Refresh the grid to show the newly-extracted fields
+        await load();
+      }
+    } catch (e: any) {
+      setRescanResult({
+        type: 'error',
+        text: String(e?.message || e),
+      });
+    } finally {
+      setRescanning(false);
+      // Auto-dismiss the toast after 6 seconds
+      setTimeout(() => setRescanResult(null), 6000);
+    }
+  }
 
   // Debounce search input
   useEffect(() => {
@@ -184,7 +240,37 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
             <option value="complete">{t('groupguard.members.sort_complete')}</option>
           </select>
         </div>
+
+        {/* Manual rescan — kicks the AI extraction without waiting for the
+            6-hour cron. Disabled while a scan is in progress so users can't
+            spam-click it (each click costs OpenAI tokens). */}
+        <button
+          onClick={handleRescan}
+          disabled={rescanning}
+          className="flex items-center gap-1.5 px-3 py-2 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title={t('groupguard.members.rescan_tooltip')}
+        >
+          <RefreshCw className={`w-4 h-4 ${rescanning ? 'animate-spin' : ''}`} />
+          {rescanning
+            ? t('groupguard.members.rescan_running')
+            : t('groupguard.members.rescan_button')}
+        </button>
       </div>
+
+      {/* Rescan result toast — shown briefly after a manual scan finishes. */}
+      {rescanResult && (
+        <div
+          className={`text-xs px-3 py-2 rounded-lg border ${
+            rescanResult.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : rescanResult.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+          }`}
+        >
+          {rescanResult.text}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="text-sm text-gray-600">
