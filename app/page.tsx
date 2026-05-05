@@ -8,6 +8,9 @@ import {
   Smartphone, BrainCircuit, TrendingUp,
   Building2, Scale, Stethoscope, ShoppingCart, GraduationCap, Headphones,
   ChevronDown,
+  // Member Profiles section
+  Wand2, Database, Gauge, RefreshCw, Lock,
+  MapPin, Languages, Tag, Star,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n/server';
 import { PricingSection } from '@/components/landing/PricingSection';
@@ -230,6 +233,85 @@ export default function HomePage() {
           <IndustryCard icon={<ShoppingCart className="w-6 h-6" />} label={t('home.industry_retail')} />
           <IndustryCard icon={<GraduationCap className="w-6 h-6" />} label={t('home.industry_education')} />
           <IndustryCard icon={<Headphones className="w-6 h-6" />} label={t('home.industry_services')} />
+        </div>
+      </section>
+
+      {/* ───────── MEMBER PROFILES ─────────
+       * Showcase section for the AI-built member profile feature.
+       *
+       * Layout: large mockup card centered + 6 capability cards arranged
+       * in 2 rows of 3 around it (or stacked on mobile). The mockup shows
+       * a real profile (name, role, completion meter, 6 fields, topic tags)
+       * to make abstract capabilities tangible.
+       *
+       * Background: very light purple-pink gradient matching the rest of
+       * the brand, with a single floating blob for depth. */}
+      <section
+        id="profiles"
+        className="relative px-6 py-20 overflow-hidden bg-gradient-to-b from-white via-purple-50/40 to-white"
+      >
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl animate-blob" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl animate-blob" style={{ animationDelay: '5s' }} />
+        </div>
+
+        <div className="max-w-6xl mx-auto relative">
+          {/* Section header */}
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 text-purple-700 text-sm font-medium mb-4">
+              <Users className="w-4 h-4" />
+              {t('home.profiles_eyebrow')}
+            </div>
+            <h2 className="font-display font-bold text-4xl md:text-5xl mb-4 leading-tight">
+              {t('home.profiles_title_part1')}
+              <br />
+              <span className="bg-gradient-to-l from-purple-600 to-pink-500 bg-clip-text text-transparent">
+                {t('home.profiles_title_part2')}
+              </span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              {t('home.profiles_subtitle')}
+            </p>
+          </div>
+
+          {/* Mockup card centered, large */}
+          <div className="mb-14 animate-float-slow">
+            <ProfileMockup t={t} />
+          </div>
+
+          {/* 6 capability cards: 1 col on mobile, 2 on sm, 3 on md+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+            <ProfileCapCard
+              icon={<Wand2 className="w-5 h-5" />}
+              title={t('home.profiles_cap_auto_title')}
+              desc={t('home.profiles_cap_auto_desc')}
+            />
+            <ProfileCapCard
+              icon={<Database className="w-5 h-5" />}
+              title={t('home.profiles_cap_fields_title')}
+              desc={t('home.profiles_cap_fields_desc')}
+            />
+            <ProfileCapCard
+              icon={<Gauge className="w-5 h-5" />}
+              title={t('home.profiles_cap_completion_title')}
+              desc={t('home.profiles_cap_completion_desc')}
+            />
+            <ProfileCapCard
+              icon={<Search className="w-5 h-5" />}
+              title={t('home.profiles_cap_search_title')}
+              desc={t('home.profiles_cap_search_desc')}
+            />
+            <ProfileCapCard
+              icon={<RefreshCw className="w-5 h-5" />}
+              title={t('home.profiles_cap_refresh_title')}
+              desc={t('home.profiles_cap_refresh_desc')}
+            />
+            <ProfileCapCard
+              icon={<Lock className="w-5 h-5" />}
+              title={t('home.profiles_cap_privacy_title')}
+              desc={t('home.profiles_cap_privacy_desc')}
+            />
+          </div>
         </div>
       </section>
 
@@ -727,6 +809,155 @@ function IndustryCard({ icon, label }: { icon: React.ReactNode; label: string })
         {icon}
       </div>
       <div className="font-semibold text-sm text-gray-900">{label}</div>
+    </div>
+  );
+}
+
+/**
+ * ProfileMockup — a realistic preview of a member profile card built by AI.
+ *
+ * Designed to make abstract claims tangible: instead of saying "we extract
+ * fields", show a real card with a name, a role, a completion meter, and
+ * 6 specific fields filled in. The "built from 47 messages" footer makes
+ * it clear the data came from chat content, not from a form the user
+ * filled out.
+ *
+ * Layout: card with gradient header (avatar + name + role + completion
+ * meter), then a body with 5 field rows + a topics row with chip tags.
+ * Max width chosen so it sits well centered on desktop without dominating
+ * the section.
+ */
+function ProfileMockup({ t }: { t: (k: string) => string }) {
+  return (
+    <div className="max-w-xl mx-auto" aria-hidden="true">
+      <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden ring-1 ring-purple-100/50">
+        {/* Header band — gradient bg, avatar, name, role, completion meter */}
+        <div className="bg-gradient-to-br from-purple-600 via-brand-600 to-pink-600 p-5 sm:p-6 text-white relative overflow-hidden">
+          {/* Soft glow blobs inside the header for depth */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-yellow-300/15 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative flex items-center gap-4">
+            {/* Avatar — initials inside a soft circle (no real photo) */}
+            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur grid place-items-center ring-2 ring-white/40 flex-shrink-0">
+              <span className="font-display font-bold text-2xl">שא</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-purple-100 mb-0.5">{t('home.profiles_mockup_eyebrow')}</div>
+              <div className="font-display font-bold text-xl truncate">{t('home.profiles_mockup_name')}</div>
+              <div className="text-sm text-purple-100 truncate">{t('home.profiles_mockup_role')}</div>
+            </div>
+          </div>
+
+          {/* Completion meter — bar fills to 87% */}
+          <div className="relative mt-5">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="text-purple-100">{t('home.profiles_mockup_completion')}</span>
+              <span className="font-bold">87%</span>
+            </div>
+            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-full w-[87%] bg-gradient-to-r from-yellow-300 to-yellow-200 rounded-full shadow-sm" />
+            </div>
+          </div>
+        </div>
+
+        {/* Body — 5 fields + 1 topics row */}
+        <div className="p-5 sm:p-6 space-y-3.5">
+          <ProfileField
+            icon={<Briefcase className="w-3.5 h-3.5" />}
+            label={t('home.profiles_mockup_field_business')}
+            value={t('home.profiles_mockup_value_business')}
+          />
+          <ProfileField
+            icon={<Star className="w-3.5 h-3.5" />}
+            label={t('home.profiles_mockup_field_specialization')}
+            value={t('home.profiles_mockup_value_specialization')}
+          />
+          <ProfileField
+            icon={<MapPin className="w-3.5 h-3.5" />}
+            label={t('home.profiles_mockup_field_city')}
+            value={t('home.profiles_mockup_value_city')}
+          />
+          <ProfileField
+            icon={<Globe className="w-3.5 h-3.5" />}
+            label={t('home.profiles_mockup_field_website')}
+            value={t('home.profiles_mockup_value_website')}
+            mono
+          />
+          <ProfileField
+            icon={<Languages className="w-3.5 h-3.5" />}
+            label={t('home.profiles_mockup_field_languages')}
+            value={t('home.profiles_mockup_value_languages')}
+          />
+
+          {/* Topics — chips instead of plain text */}
+          <div className="flex items-start gap-3 pt-1">
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 grid place-items-center flex-shrink-0 mt-0.5">
+              <Tag className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-500 mb-1.5">{t('home.profiles_mockup_field_topics')}</div>
+              <div className="flex flex-wrap gap-1.5">
+                <TopicChip>{t('home.profiles_mockup_topic1')}</TopicChip>
+                <TopicChip>{t('home.profiles_mockup_topic2')}</TopicChip>
+                <TopicChip>{t('home.profiles_mockup_topic3')}</TopicChip>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer — extracted-from line for credibility */}
+        <div className="bg-gray-50 border-t border-gray-100 px-5 sm:px-6 py-3 flex items-center gap-2 text-xs text-gray-500">
+          <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+          {t('home.profiles_mockup_extracted_from')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileField({
+  icon, label, value, mono = false,
+}: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 grid place-items-center flex-shrink-0 mt-0.5">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+        <div className={`text-sm font-medium text-gray-900 truncate ${mono ? 'font-mono text-xs' : ''}`}>
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TopicChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * ProfileCapCard — one of the 6 capability cards under the mockup.
+ *
+ * Compact card with a small icon tile + heading + 1-2 line description.
+ * Hover lifts and changes border color to purple for interactivity feel.
+ */
+function ProfileCapCard({
+  icon, title, desc,
+}: { icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-purple-300 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 text-purple-600 grid place-items-center mb-3">
+        {icon}
+      </div>
+      <h3 className="font-bold text-base mb-1.5 text-gray-900">{title}</h3>
+      <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
     </div>
   );
 }

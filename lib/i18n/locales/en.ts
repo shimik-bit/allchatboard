@@ -746,6 +746,47 @@ export const en: LocaleDictionary = {
     industry_education: 'Education',
     industry_services: 'Customer Service',
 
+    // Member Profiles section — dedicated showcase of the auto-built profiles
+    profiles_eyebrow: 'Smart Profiles',
+    profiles_title_part1: 'Get to know everyone',
+    profiles_title_part2: 'who messages your groups',
+    profiles_subtitle: 'TaskFlow AI scans every message and automatically builds a professional profile for each member — no surveys, no forms, no one needs to fill anything in.',
+
+    // 6 capability cards around the profile mockup
+    profiles_cap_auto_title: 'Auto-built',
+    profiles_cap_auto_desc: 'Profiles build themselves from a handful of messages — zero manual work, zero data entry.',
+    profiles_cap_fields_title: '13 extracted fields',
+    profiles_cap_fields_desc: 'Name, profession, specialization, business, website, city, skills, languages, topics, and more — from AI that understands context.',
+    profiles_cap_completion_title: 'Completion meter',
+    profiles_cap_completion_desc: 'Completion percentage per profile. See at a glance who you already know and who deserves more attention.',
+    profiles_cap_search_title: 'Smart search',
+    profiles_cap_search_desc: '"Who in the group works in Tel Aviv real estate?" — natural-language query, instant answer.',
+    profiles_cap_refresh_title: 'Continuous updates',
+    profiles_cap_refresh_desc: 'Each new message refines the profile. If someone mentions a new city or service — the profile updates.',
+    profiles_cap_privacy_title: 'Privacy guaranteed',
+    profiles_cap_privacy_desc: 'Data stays with you, encrypted at rest and in transit. No one outside your team sees the profiles.',
+
+    // The big mockup card content
+    profiles_mockup_eyebrow: 'Real example',
+    profiles_mockup_name: 'Shira Avni',
+    profiles_mockup_role: 'Senior Real Estate Broker',
+    profiles_mockup_completion: 'Profile 87% complete',
+    profiles_mockup_field_business: 'Business',
+    profiles_mockup_value_business: 'Avni Boutique Real Estate',
+    profiles_mockup_field_specialization: 'Specialization',
+    profiles_mockup_value_specialization: 'Luxury homes, penthouses',
+    profiles_mockup_field_city: 'City',
+    profiles_mockup_value_city: 'Tel Aviv',
+    profiles_mockup_field_website: 'Website',
+    profiles_mockup_value_website: 'avni-realestate.co.il',
+    profiles_mockup_field_languages: 'Languages',
+    profiles_mockup_value_languages: 'Hebrew, English, Russian',
+    profiles_mockup_field_topics: 'Common topics',
+    profiles_mockup_topic1: 'Mortgages',
+    profiles_mockup_topic2: 'Investments',
+    profiles_mockup_topic3: 'Resale homes',
+    profiles_mockup_extracted_from: 'Built from 47 group messages',
+
     // FAQ
     faq_eyebrow: 'Common questions',
     faq_title: 'What you might be wondering',
