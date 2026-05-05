@@ -29,7 +29,21 @@
 
 html {
   direction: rtl;
+  /* Smooth scrolling for anchor nav links in the marketing header.
+     scroll-padding-top accounts for the sticky header height (~72px) so
+     section headings don't get hidden underneath when jumping to #anchors. */
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
+
+/* Animation delay utilities — Tailwind doesn't ship these, and we use them
+   to stagger fade-in-up entrances on the hero so elements arrive in order
+   rather than all at once. */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-700 { animation-delay: 0.7s; }
 
 body {
   font-family: 'Heebo', system-ui, sans-serif;

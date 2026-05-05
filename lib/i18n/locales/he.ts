@@ -596,6 +596,11 @@ export const he = {
   /* ────────────── Homepage ────────────── */
   home: {
     nav_protection: 'הגנה ופרופילים',
+    // Header nav (desktop only — mobile keeps the simple logo + signup button)
+    nav_features: 'פיצ׳רים',
+    nav_how: 'איך זה עובד',
+    nav_pricing: 'מסלולים',
+    nav_faq: 'שאלות נפוצות',
     cta_start_free: 'התחל חינם',
     cta_start_trial: 'התחל ניסיון חינם',
     cta_start_trial_14_days: 'התחל ניסיון חינם של 14 יום',
@@ -757,6 +762,49 @@ export const he = {
     faq5_a: '14 יום ניסיון מלא, ללא כרטיס אשראי. גישה לכל הפיצ׳רים, ללא הגבלה על מספר טבלאות, רשומות, או הודעות. אם זה לא מתאים — פשוט אל תמשיכו.',
     faq6_q: 'מה אם אני רוצה לבטל?',
     faq6_a: 'ביטול בקליק אחד מהדשבורד. אין חוזים, אין קנסות, אין שיחות מכירה. הנתונים שלכם נשארים זמינים להורדה למשך 30 יום נוספים.',
+
+    // Pricing — placeholder values, will be updated later
+    pricing_eyebrow: 'מחירים',
+    pricing_title: 'תמחור פשוט, ללא הפתעות',
+    pricing_subtitle: 'בחרו את המסלול המתאים. כל המסלולים כוללים 14 יום ניסיון חינם, ללא כרטיס אשראי.',
+    pricing_currency: '₪',
+    pricing_per_month: '/ חודש',
+    pricing_billed_monthly: 'חיוב חודשי, ביטול בכל עת',
+    pricing_most_popular: 'הכי פופולרי',
+    pricing_cta: 'התחל ניסיון',
+    pricing_cta_contact: 'צרו קשר',
+
+    // Tier 1: Starter
+    plan_starter_name: 'בסיסי',
+    plan_starter_tagline: 'לעסקים קטנים שמתחילים',
+    plan_starter_price: '199',
+    plan_starter_feat1: '1 חיבור WhatsApp',
+    plan_starter_feat2: 'עד 5 טבלאות',
+    plan_starter_feat3: 'עד 5,000 הודעות בחודש',
+    plan_starter_feat4: '1 משתמש',
+    plan_starter_feat5: 'תמיכה במייל',
+
+    // Tier 2: Pro (highlighted)
+    plan_pro_name: 'מקצועי',
+    plan_pro_tagline: 'לצוותים שצומחים',
+    plan_pro_price: '499',
+    plan_pro_feat1: '3 חיבורי WhatsApp',
+    plan_pro_feat2: 'טבלאות ללא הגבלה',
+    plan_pro_feat3: 'עד 25,000 הודעות בחודש',
+    plan_pro_feat4: 'עד 5 משתמשים',
+    plan_pro_feat5: 'אינטגרציות (Zapier, Webhooks)',
+    plan_pro_feat6: 'תמיכה בצ׳אט',
+
+    // Tier 3: Business
+    plan_biz_name: 'עסקי',
+    plan_biz_tagline: 'לארגונים ועסקים גדולים',
+    plan_biz_price: '999',
+    plan_biz_feat1: 'חיבורי WhatsApp ללא הגבלה',
+    plan_biz_feat2: 'משתמשים ללא הגבלה',
+    plan_biz_feat3: 'עד 100,000 הודעות בחודש',
+    plan_biz_feat4: 'API מלא ו-SLA',
+    plan_biz_feat5: 'מנהל הצלחה אישי',
+    plan_biz_feat6: 'תמיכה טלפונית 24/7',
 
     // Final CTA
     final_eyebrow: 'מוכנים להתחיל?',
