@@ -12,6 +12,7 @@ import {
   Plus, Smartphone, RefreshCw, Trash2, Power, PowerOff,
   CheckCircle2, AlertCircle, Clock, X, Loader2, Copy, ExternalLink,
   Wifi, WifiOff, Settings as SettingsIcon, ChevronDown, ChevronUp,
+  Download,
 } from 'lucide-react';
 
 type Instance = {
@@ -266,6 +267,39 @@ function InstanceCard({
     }
   }
 
+  async function handleRecoverMessages() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/whatsapp/recover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const recovered = data.messages_recovered || 0;
+        const groups = data.groups_created || 0;
+        if (recovered === 0 && groups === 0) {
+          alert('לא נמצאו הודעות חסרות — הכל מסונכרן ✓');
+        } else {
+          const parts: string[] = [];
+          if (recovered > 0) parts.push(`${recovered} הודעות שוחזרו`);
+          if (groups > 0) parts.push(`${groups} קבוצות חדשות נוצרו`);
+          if (data.webhook_reset) parts.push('Webhook אופס');
+          alert('שחזור הצליח: ' + parts.join(' · '));
+          onChange();
+        }
+      } else {
+        alert('שגיאה בשחזור: ' + (data.error || 'unknown'));
+      }
+    } catch (err: any) {
+      alert('שגיאה: ' + (err?.message || 'unknown'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const webhookUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/api/whatsapp/webhook?workspace=${workspaceId}`
     : '';
@@ -414,6 +448,18 @@ function InstanceCard({
                 <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
                 רענן סטטוס
               </button>
+
+              {isAuthorized && (
+                <button
+                  onClick={handleRecoverMessages}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-medium disabled:opacity-50"
+                  title="מאתר ושחזר הודעות שלא הגיעו למערכת מ-Green API ב-30 דקות האחרונות"
+                >
+                  <Download className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+                  שחזר הודעות חסרות
+                </button>
+              )}
 
               {isAuthorized && (
                 <button
