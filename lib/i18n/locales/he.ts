@@ -1080,6 +1080,13 @@ export const he = {
       sort_recent: 'אחרונים',
       sort_active: 'פעילים ביותר',
       sort_complete: 'פרופיל מלא',
+      // Manual rescan button (kicks off AI extraction without waiting for cron)
+      rescan_button: 'סרוק עכשיו',
+      rescan_running: 'סורק...',
+      rescan_tooltip: 'הפעל סריקת AI מיידית על חברים שלא נסרקו בשעה האחרונה',
+      rescan_done: 'נסרקו {processed} פרופילים, עודכנו {updated}',
+      rescan_none: 'כל הפרופילים מעודכנים. בדקו שוב בעוד שעה.',
+      rescan_error: 'שגיאה בסריקה',
       loading: 'טוען...',
       previous: 'הקודם',
       next: 'הבא',

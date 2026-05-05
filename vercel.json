@@ -19,6 +19,12 @@
     },
     "app/api/health/check/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/groupguard/profiles/extract-cron/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/groupguard/profiles/rescan/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -29,6 +35,10 @@
     {
       "path": "/api/workflows/scheduled-cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/groupguard/profiles/extract-cron",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
