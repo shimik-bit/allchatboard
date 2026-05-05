@@ -73,6 +73,7 @@ export async function extractProfileForMember(
     .select('text, received_at')
     .eq('workspace_id', profile.workspace_id)
     .eq('sender_phone', profile.phone)
+    .eq('direction', 'in')
     .not('text', 'is', null)
     .gte('received_at', thirtyDaysAgo)
     .order('received_at', { ascending: false })

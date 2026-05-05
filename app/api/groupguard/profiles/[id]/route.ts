@@ -53,12 +53,17 @@ export async function GET(
     .eq('profile_id', profileId)
     .order('last_seen_at', { ascending: false });
 
-  // Load recent message samples (last 10)
+  // Load recent message samples (last 10) — only the user's actual messages,
+  // not bot replies. Bot replies are stored as direction='out' but use the
+  // user's phone as sender_phone (target), so we must filter by direction
+  // to avoid showing the bot's "we couldn't classify your message" replies
+  // back to the admin as if they were the user's words.
   const { data: recentMessages } = await supabase
     .from('wa_messages')
     .select('id, text, received_at, group_id')
     .eq('workspace_id', profile.workspace_id)
     .eq('sender_phone', profile.phone)
+    .eq('direction', 'in')
     .not('text', 'is', null)
     .order('received_at', { ascending: false })
     .limit(10);
