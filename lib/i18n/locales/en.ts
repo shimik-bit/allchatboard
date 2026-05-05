@@ -1227,6 +1227,30 @@ export const en: LocaleDictionary = {
       legend_deletes: 'Deletes',
       legend_warns: 'Warns',
     },
+
+    /* ────────────── Broadcast tab ──────────────
+       Sub-tabs and form labels inside the "Broadcast & Delete" tab.
+       Was previously hardcoded in BroadcastTab.tsx. */
+    broadcast: {
+      // Sub-tab labels (top of BroadcastTab)
+      tab_new: 'New broadcast',
+      tab_history: 'History',
+      tab_deletes: 'Deletes',
+
+      // AI compose button (toggles label depending on whether textarea has text)
+      ai_compose: 'Write with AI',
+      ai_improve: 'Improve with AI',
+
+      // Form labels
+      delay_label: 'Delay between messages (seconds)',
+    },
+  },
+
+  /* ────────────── Focus Mode ──────────────
+     "Focus Mode" is the AI personal assistant page (/dashboard/focus).
+     Was previously hardcoded in FocusClient.tsx. */
+  focus: {
+    title: 'Focus Mode',
   },
 
   /* ────────────── Hub & CRM Modules ────────────── */

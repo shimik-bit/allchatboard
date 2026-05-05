@@ -10,6 +10,7 @@ import {
   Save, Edit2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useT } from '@/lib/i18n/useT';
 
 type Membership = {
   workspace_id: string;
@@ -70,6 +71,7 @@ export default function FocusClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useT();
   const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId);
   const [loading, setLoading] = useState(false);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
@@ -140,7 +142,7 @@ export default function FocusClient({
           <div className="flex-1">
             <h1 className="font-display font-black text-xl flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-600" />
-              Focus Mode
+              {t('focus.title')}
             </h1>
             <p className="text-xs text-gray-500">
               עוזר אישי שמסדר לך את היום

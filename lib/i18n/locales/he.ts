@@ -1239,6 +1239,30 @@ export const he = {
       legend_deletes: 'מחיקות',
       legend_warns: 'אזהרות',
     },
+
+    /* ────────────── Broadcast tab ──────────────
+       Sub-tabs and form labels inside the "פרסום ומחיקה" tab.
+       Was previously hardcoded in BroadcastTab.tsx. */
+    broadcast: {
+      // Sub-tab labels (top of BroadcastTab)
+      tab_new: 'פרסום חדש',
+      tab_history: 'היסטוריה',
+      tab_deletes: 'מחיקות',
+
+      // AI compose button (toggles label depending on whether textarea has text)
+      ai_compose: 'כתוב עם AI',
+      ai_improve: 'שפר עם AI',
+
+      // Form labels
+      delay_label: 'השהייה בין שליחות (שניות)',
+    },
+  },
+
+  /* ────────────── Focus Mode ──────────────
+     "Focus Mode" is the AI personal assistant page (/dashboard/focus).
+     Was previously hardcoded in FocusClient.tsx. */
+  focus: {
+    title: 'מצב מיקוד',
   },
 
   /* ────────────── Hub & CRM Modules ────────────── */

@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Trash2, AlertCircle, RefreshCcw, Plus,
   Sparkles, Wand2,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n/useT';
 
 /**
  * BroadcastTab — admin-only UI for broadcasting + deleting WhatsApp messages.
@@ -61,6 +62,7 @@ type Group = {
 type SubTab = 'compose' | 'history' | 'deletions';
 
 export default function BroadcastTab({ workspaceId }: { workspaceId: string }) {
+  const { t } = useT();
   const [subTab, setSubTab] = useState<SubTab>('compose');
 
   return (
@@ -69,15 +71,15 @@ export default function BroadcastTab({ workspaceId }: { workspaceId: string }) {
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
         <SubTabBtn active={subTab === 'compose'} onClick={() => setSubTab('compose')}>
           <Send className="w-4 h-4" />
-          <span>פרסום חדש</span>
+          <span>{t('groupguard.broadcast.tab_new')}</span>
         </SubTabBtn>
         <SubTabBtn active={subTab === 'history'} onClick={() => setSubTab('history')}>
           <Clock className="w-4 h-4" />
-          <span>היסטוריה</span>
+          <span>{t('groupguard.broadcast.tab_history')}</span>
         </SubTabBtn>
         <SubTabBtn active={subTab === 'deletions'} onClick={() => setSubTab('deletions')}>
           <Trash2 className="w-4 h-4" />
-          <span>מחיקות</span>
+          <span>{t('groupguard.broadcast.tab_deletes')}</span>
         </SubTabBtn>
       </div>
 
@@ -106,6 +108,7 @@ function SubTabBtn({ active, onClick, children }: { active: boolean; onClick: ()
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreated: () => void }) {
+  const { t } = useT();
   const [message, setMessage] = useState('');
   const [delaySeconds, setDelaySeconds] = useState(30);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
@@ -249,7 +252,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
             className="text-xs text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-purple-50"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{message.trim() ? 'שפר עם AI' : 'כתוב עם AI'}</span>
+            <span>{message.trim() ? t('groupguard.broadcast.ai_improve') : t('groupguard.broadcast.ai_compose')}</span>
           </button>
         </div>
         <textarea
@@ -350,7 +353,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
       {/* Delay */}
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">
-          השהייה בין שליחות (שניות)
+          {t('groupguard.broadcast.delay_label')}
         </label>
         <div className="flex gap-2 items-center">
           <input
