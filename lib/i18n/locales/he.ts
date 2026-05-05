@@ -1340,6 +1340,7 @@ export const he = {
     // Default prompts shown in the input + sent to the AI
     default_prompt: 'תפקס אותי - מה לעשות היום?',
     cta: 'תפקס אותי - מה לעשות היום לפי דחיפות?',
+    input_placeholder: "ברירת מחדל: 'תפקס אותי - מה לעשות היום?' - או כתוב משהו ספציפי...",
     role_settings_button: 'הגדרות תפקיד',
 
     // Urgency labels for tasks (shown as colored pills)

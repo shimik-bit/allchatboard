@@ -44,11 +44,12 @@ type Briefing = {
   suggestions?: Array<{ title: string; href: string; icon: string }>;
 };
 
+// Module-level config — labelKey holds the i18n path; resolved via t() at use site.
 const PRIORITY_CONFIG = {
-  critical: { color: 'bg-red-100 text-red-800 border-red-200', icon: Flame, label: 'דחוף!' },
-  high: { color: 'bg-orange-100 text-orange-800 border-orange-200', icon: AlertCircle, label: 'חשוב' },
-  medium: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Target, label: 'מומלץ' },
-  suggestion: { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Lightbulb, label: 'רעיון' },
+  critical: { color: 'bg-red-100 text-red-800 border-red-200', icon: Flame, labelKey: 'focus.urgency.urgent' },
+  high: { color: 'bg-orange-100 text-orange-800 border-orange-200', icon: AlertCircle, labelKey: 'focus.urgency.important' },
+  medium: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Target, labelKey: 'focus.urgency.recommended' },
+  suggestion: { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Lightbulb, labelKey: 'focus.urgency.idea' },
 } as const;
 
 const ACTION_HINT_ICONS = {
@@ -94,19 +95,19 @@ export default function FocusClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspace_id: workspaceId,
-          prompt: prompt || customPrompt || 'תפקס אותי - מה לעשות היום לפי דחיפות?',
+          prompt: prompt || customPrompt || t('focus.cta'),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'שגיאה ביצירת בריפינג');
+        setError(data.error || t('focus.briefing_error'));
       } else {
         setBriefing(data.briefing);
         setSessionId(data.session_id);
       }
     } catch (err: any) {
-      setError(err.message || 'שגיאת רשת');
+      setError(err.message || t('focus.network_error'));
     } finally {
       setLoading(false);
     }
@@ -164,7 +165,7 @@ export default function FocusClient({
           <button
             onClick={() => setShowRoleSettings(!showRoleSettings)}
             className="p-2 text-gray-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg"
-            title="הגדרות תפקיד"
+            title="{t('focus.role_settings_button')}"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -188,7 +189,7 @@ export default function FocusClient({
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto mb-4 grid place-items-center">
               <Sparkles className="w-8 h-8 text-white" />
             </div>
-            <h2 className="font-display font-bold text-2xl mb-2">בוקר טוב! 👋</h2>
+            <h2 className="font-display font-bold text-2xl mb-2">{t('focus.greeting')}</h2>
             <p className="text-gray-600 mb-6">
               אני אסדר לך את היום. ה-AI יבחן את כל המידע במערכת ויציע 5 משימות חכמות לפי הדחיפות.
             </p>
@@ -203,7 +204,7 @@ export default function FocusClient({
             <textarea
               value={customPrompt}
               onChange={e => setCustomPrompt(e.target.value)}
-              placeholder="ברירת מחדל: 'תפקס אותי - מה לעשות היום?' - או כתוב משהו ספציפי..."
+              placeholder={t('focus.input_placeholder')}
               rows={2}
               className="w-full text-sm p-3 border border-gray-200 rounded-xl mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
             />
@@ -226,8 +227,8 @@ export default function FocusClient({
         {loading && (
           <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
             <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
-            <p className="text-gray-700 font-medium">המערכת חושבת...</p>
-            <p className="text-xs text-gray-500 mt-1">בוחן נתונים, מנתח דחיפות, מסדר עדיפויות</p>
+            <p className="text-gray-700 font-medium">{t('focus.thinking_title')}</p>
+            <p className="text-xs text-gray-500 mt-1">{t('focus.thinking_subtitle')}</p>
           </div>
         )}
 
@@ -246,13 +247,13 @@ export default function FocusClient({
                 // Empty workspace - no records to base tasks on
                 <div className="bg-white rounded-2xl border-2 border-amber-200 p-8 text-center">
                   <div className="text-5xl mb-3">📭</div>
-                  <p className="text-gray-900 font-bold text-lg mb-1">אין מספיק מידע</p>
+                  <p className="text-gray-900 font-bold text-lg mb-1">{t('focus.no_info_title')}</p>
                   <p className="text-sm text-gray-600 mb-5 max-w-md mx-auto">
                     {briefing.summary}
                   </p>
                   {briefing.suggestions && briefing.suggestions.length > 0 && (
                     <div className="space-y-2 max-w-sm mx-auto">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-2">איך מתחילים?</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-2">{t('focus.how_to_start')}</p>
                       {briefing.suggestions.map((s, i) => (
                         <Link
                           key={i}
@@ -271,8 +272,8 @@ export default function FocusClient({
                 // Has data but no tasks needed
                 <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
                   <Coffee className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-700 font-medium">הכל בשליטה!</p>
-                  <p className="text-sm text-gray-500 mt-1">אין משימות דחופות עכשיו. תיהנה מהיום ☕</p>
+                  <p className="text-gray-700 font-medium">{t('focus.all_clear_title')}</p>
+                  <p className="text-sm text-gray-500 mt-1">{t('focus.all_clear_subtitle')}</p>
                 </div>
               )
             ) : (
@@ -330,6 +331,7 @@ function TaskCard({
   onAction: (action: string) => void;
   onAddedToTasks: (idx: number) => void;
 }) {
+  const { t } = useT();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const config = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const PriorityIcon = config.icon;
@@ -338,11 +340,11 @@ function TaskCard({
   // Already-actioned card - dimmed
   if (actionTaken) {
     const labels: Record<string, string> = {
-      done: '✓ סומן כבוצע',
-      skipped: '⊘ דולג',
-      snoozed: '⏰ נדחה',
-      delegated: '→ הואצל',
-      added_to_table: '➕ נוסף לטבלה',
+      done: t('focus.actions.done'),
+      skipped: t('focus.actions.skip'),
+      snoozed: t('focus.actions.postpone'),
+      delegated: t('focus.actions.delegate'),
+      added_to_table: t('focus.actions.add_to_table'),
     };
     return (
       <div className="bg-gray-50 rounded-xl border border-gray-100 p-3 opacity-60">
@@ -358,7 +360,7 @@ function TaskCard({
       <div className="flex items-start gap-3 mb-2">
         <div className={`px-2 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 ${config.color}`}>
           <PriorityIcon className="w-3 h-3" />
-          {config.label}
+          {t(config.labelKey)}
         </div>
         {task.estimated_minutes && (
           <span className="text-[10px] text-gray-400 flex items-center gap-1">
@@ -450,16 +452,17 @@ function RoleSettings({
   onSaved: () => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const supabase = createClient();
   const [title, setTitle] = useState(currentRole?.role_title || '');
   const [description, setDescription] = useState(currentRole?.role_description || '');
   const [busy, setBusy] = useState(false);
 
   const examples = [
-    { title: 'מנהל מכירות', desc: 'אחראי על צוות מכירות, לידים גדולים, סגירת עסקאות אסטרטגיות' },
-    { title: 'סוכן מכירות', desc: 'טיפול בלידים חדשים, שיחות מכירה, מעקב אחרי הצעות' },
-    { title: 'טכנאי שירות', desc: 'טיפול בקריאות שירות, פתרון בעיות אצל לקוחות, תיעוד פתרונות' },
-    { title: 'מנהל פרויקטים', desc: 'ניהול לוחות זמנים, תיאום עם ספקים, מעקב אחרי משימות' },
+    { title: t('focus.role_examples.sales_manager_title'), desc: t('focus.role_examples.sales_manager_desc') },
+    { title: t('focus.role_examples.sales_agent_title'), desc: t('focus.role_examples.sales_agent_desc') },
+    { title: t('focus.role_examples.technician_title'), desc: t('focus.role_examples.technician_desc') },
+    { title: t('focus.role_examples.project_manager_title'), desc: t('focus.role_examples.project_manager_desc') },
   ];
 
   async function handleSave() {
@@ -480,7 +483,7 @@ function RoleSettings({
 
     setBusy(false);
     if (!error) onSaved();
-    else alert('שמירה נכשלה: ' + error.message);
+    else alert(t('focus.role_dialog.save_failed') + ' ' + error.message);
   }
 
   return (
@@ -500,22 +503,22 @@ function RoleSettings({
 
       <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium mb-1">תפקיד</label>
+          <label className="block text-xs font-medium mb-1">{t('focus.role_dialog.role_label')}</label>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="למשל: מנהל מכירות"
+            placeholder={t('focus.role_dialog.role_placeholder')}
             className="w-full text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1">תיאור (אופציונלי)</label>
+          <label className="block text-xs font-medium mb-1">{t('focus.role_dialog.description_label')}</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="במה אתה מטפל בעיקר? מה התחומי אחריות?"
+            placeholder={t('focus.role_dialog.description_placeholder')}
             rows={2}
             className="w-full text-sm p-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
@@ -523,7 +526,7 @@ function RoleSettings({
 
         {/* Quick examples */}
         <div className="space-y-1">
-          <p className="text-[10px] font-bold text-gray-500 uppercase">דוגמאות מהירות:</p>
+          <p className="text-[10px] font-bold text-gray-500 uppercase">{t('focus.role_dialog.examples_label')}</p>
           <div className="flex flex-wrap gap-1">
             {examples.map((ex, i) => (
               <button
@@ -540,14 +543,14 @@ function RoleSettings({
       </div>
 
       <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onClose} className="text-sm text-gray-600 hover:text-gray-900">ביטול</button>
+        <button onClick={onClose} className="text-sm text-gray-600 hover:text-gray-900">{t('focus.role_dialog.cancel')}</button>
         <button
           onClick={handleSave}
           disabled={busy || !title.trim()}
           className="inline-flex items-center gap-1 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
         >
           <Save className="w-3.5 h-3.5" />
-          {busy ? 'שומר...' : 'שמור'}
+          {busy ? t('focus.role_dialog.saving') : t('focus.role_dialog.save')}
         </button>
       </div>
     </div>
@@ -568,6 +571,7 @@ function AddToTasksDialog({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { t } = useT();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -614,7 +618,7 @@ function AddToTasksDialog({
 
   async function handleSubmit() {
     if (!tableId) {
-      setError('צריך לבחור טבלה');
+      setError(t('focus.add_to_tasks.table_required'));
       return;
     }
     setBusy(true);
@@ -646,7 +650,7 @@ function AddToTasksDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'שגיאה בהוספה');
+        setError(data.error || t('focus.add_to_tasks.add_failed'));
         setBusy(false);
         return;
       }
@@ -681,10 +685,10 @@ function AddToTasksDialog({
         {loading ? (
           <div className="py-12 text-center text-gray-400">
             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-            <p className="text-sm">טוען אפשרויות...</p>
+            <p className="text-sm">{t('focus.add_to_tasks.loading_options')}</p>
           </div>
         ) : !options ? (
-          <div className="py-8 text-center text-red-600 text-sm">{error || 'שגיאה בטעינה'}</div>
+          <div className="py-8 text-center text-red-600 text-sm">{error || t('focus.add_to_tasks.load_failed')}</div>
         ) : (
           <div className="space-y-4">
             {/* Task preview */}
@@ -703,7 +707,7 @@ function AddToTasksDialog({
                 onChange={(e) => setTableId(e.target.value)}
                 className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
               >
-                <option value="">— בחר טבלה —</option>
+                <option value="">{t('focus.add_to_tasks.select_table')}</option>
                 {options.tables.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.icon || '📋'} {t.name}
@@ -730,9 +734,9 @@ function AddToTasksDialog({
                     className="text-purple-600"
                   />
                   <span className="text-sm flex-1">
-                    <strong>לי</strong> ({options.my_display_name})
+                    <strong>{t('focus.add_to_tasks.assignee_self')}</strong> ({options.my_display_name})
                   </span>
-                  <span className="text-xs text-gray-500">ברירת מחדל</span>
+                  <span className="text-xs text-gray-500">{t('focus.add_to_tasks.assignee_default')}</span>
                 </label>
 
                 {/* Delegate to member - only if user has permission */}
@@ -746,7 +750,7 @@ function AddToTasksDialog({
                       className="text-purple-600"
                     />
                     <span className="text-sm flex-1">
-                      <strong>חבר צוות</strong>
+                      <strong>{t('focus.add_to_tasks.team_member_label')}</strong>
                     </span>
                   </label>
                 )}
@@ -757,7 +761,7 @@ function AddToTasksDialog({
                     onChange={(e) => setAssigneeId(e.target.value)}
                     className="w-full text-sm p-2 border border-purple-200 rounded-lg mr-6 mt-1 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   >
-                    <option value="">— בחר חבר צוות —</option>
+                    <option value="">{t('focus.add_to_tasks.select_team_member')}</option>
                     {options.members
                       .filter((m) => !m.is_self)
                       .map((m) => (
@@ -779,7 +783,7 @@ function AddToTasksDialog({
                       className="text-purple-600"
                     />
                     <span className="text-sm flex-1">
-                      <strong>טלפון מורשה</strong> (יקבל הודעת WA)
+                      <strong>{t('focus.add_to_tasks.allowed_phone_label')}</strong> (יקבל הודעת WA)
                     </span>
                   </label>
                 )}
@@ -790,7 +794,7 @@ function AddToTasksDialog({
                     onChange={(e) => setAssigneeId(e.target.value)}
                     className="w-full text-sm p-2 border border-purple-200 rounded-lg mr-6 mt-1 focus:outline-none focus:ring-2 focus:ring-purple-200"
                   >
-                    <option value="">— בחר טלפון —</option>
+                    <option value="">{t('focus.add_to_tasks.select_phone')}</option>
                     {options.phones.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.display_name} ({p.phone})
@@ -832,7 +836,7 @@ function AddToTasksDialog({
                 className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
                 disabled={busy}
               >
-                ביטול
+                {t('focus.role_dialog.cancel')}
               </button>
               <button
                 onClick={handleSubmit}

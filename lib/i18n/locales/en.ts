@@ -1328,6 +1328,7 @@ export const en: LocaleDictionary = {
     // Default prompts shown in the input + sent to the AI
     default_prompt: 'Focus me - what should I do today?',
     cta: 'Focus me - what should I do today by urgency?',
+    input_placeholder: "Default: 'Focus me - what should I do today?' - or type something specific...",
     role_settings_button: 'Role settings',
 
     // Urgency labels for tasks (shown as colored pills)
