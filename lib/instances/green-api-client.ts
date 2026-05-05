@@ -216,7 +216,7 @@ export async function logoutInstance(
 export async function getInstanceDetails(
   instanceId: string,
   apiToken: string
-): Promise<{ wid?: string; name?: string; avatar?: string }> {
+): Promise<{ wid?: string; phone?: string; name?: string; avatar?: string }> {
   const baseUrl = getInstanceBaseUrl(instanceId);
   const url = `${baseUrl}/waInstance${instanceId}/getWaSettings/${apiToken}`;
 
@@ -224,8 +224,15 @@ export async function getInstanceDetails(
   if (!res.ok) return {};
 
   const data = await res.json();
+  // Green API getWaSettings returns:
+  //   { stateInstance, deviceId, chatId, phone: "972554318627", ... }
+  // It does NOT return a `wid` field — that was an out-of-date assumption.
+  // We expose both `phone` (the actual field) and `wid` (synthesized from
+  // phone for backward-compat with extractPhoneFromWid callers).
+  const phone: string | undefined = data?.phone;
   return {
-    wid: data?.wid,             // "972501234567@c.us"
+    phone,
+    wid: phone ? `${phone}@c.us` : data?.wid,
     name: data?.name,
     avatar: data?.avatar,
   };
