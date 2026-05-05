@@ -52,7 +52,13 @@ export async function GET(req: NextRequest) {
       gg_enabled_at,
       gg_notify_admins,
       gg_admin_phones,
-      gg_notify_message
+      gg_notify_message,
+      summary_enabled,
+      summary_auto,
+      summary_hour,
+      summary_send_to_whatsapp,
+      summary_whatsapp_target,
+      last_summary_at
     `)
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false });

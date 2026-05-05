@@ -34,6 +34,7 @@ import {
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
 import BroadcastTab from './BroadcastTab';
+import SummarySection from './SummarySection';
 import { useT } from '@/lib/i18n/useT';
 
 // ============================================================================
@@ -60,6 +61,13 @@ type GGGroup = {
   gg_notify_admins: boolean;
   gg_admin_phones: string[];
   gg_notify_message: string | null;
+  // Daily summaries (added in feat/groupguard-daily-summaries)
+  summary_enabled?: boolean;
+  summary_auto?: boolean;
+  summary_hour?: number;
+  summary_send_to_whatsapp?: boolean;
+  summary_whatsapp_target?: string | null;
+  last_summary_at?: string | null;
 };
 
 type Stats = Record<string, { kicks: number; deletes: number; reports: number }>;
@@ -592,6 +600,21 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
                     updateLocal(g.id, patch);
                     saveGroup(g.id, patch);
                   }}
+                />
+
+                {/* Daily summaries — generates an end-of-day AI digest of group
+                    activity, optionally pushed to WhatsApp. Self-contained: it
+                    handles its own settings persistence + history loading. */}
+                <SummarySection
+                  groupId={g.id}
+                  initial={{
+                    summary_enabled: g.summary_enabled ?? false,
+                    summary_auto: g.summary_auto ?? false,
+                    summary_hour: g.summary_hour ?? 21,
+                    summary_send_to_whatsapp: g.summary_send_to_whatsapp ?? false,
+                    summary_whatsapp_target: g.summary_whatsapp_target ?? null,
+                  }}
+                  onSettingsChange={(patch) => updateLocal(g.id, patch)}
                 />
 
                 {/* Status indicator */}
