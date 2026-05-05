@@ -39,6 +39,7 @@ type Profile = {
   skills: string[] | null;
   interests: string[] | null;
   bio: string | null;
+  avatar_url: string | null;
   completeness_pct: number;
   message_count: number;
   groups_count: number;
@@ -69,6 +70,7 @@ type ProfileDetail = {
     text: string;
     received_at: string;
     group_id: string;
+    group_name: string | null;
   }>;
 };
 
@@ -369,9 +371,11 @@ function ProfileCard({
       <CompletenessRing pct={profile.completeness_pct} />
 
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-medium text-sm flex-shrink-0">
-          {initials}
-        </div>
+        <Avatar
+          url={profile.avatar_url}
+          initials={initials}
+          size="md"
+        />
         <div className="flex-1 min-w-0 pr-6">
           <div className="font-medium text-gray-900 truncate">
             {displayName}
@@ -545,9 +549,11 @@ function ProfileDetailContent({ data }: { data: ProfileDetail }) {
     <div className="space-y-5">
       {/* Top section */}
       <div className="flex items-start gap-4">
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-medium text-2xl flex-shrink-0">
-          {initials}
-        </div>
+        <Avatar
+          url={p.avatar_url}
+          initials={initials}
+          size="lg"
+        />
         <div className="flex-1 min-w-0">
           <div className="text-xl font-bold text-gray-900">{displayName}</div>
           {p.profession && (
@@ -698,8 +704,17 @@ function ProfileDetailContent({ data }: { data: ProfileDetail }) {
             {data.recent_messages.slice(0, 5).map((m) => (
               <div key={m.id} className="text-xs bg-gray-50 rounded p-2">
                 <div className="text-gray-700 line-clamp-3">{m.text}</div>
-                <div className="text-gray-400 mt-1">
-                  {new Date(m.received_at).toLocaleString(dateLocale)}
+                <div className="text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span>{new Date(m.received_at).toLocaleString(dateLocale)}</span>
+                  {m.group_name && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded">
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        {m.group_name}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -783,4 +798,46 @@ function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Avatar — shows the user's WhatsApp profile picture if available, falls back
+ * to an initials gradient circle otherwise.
+ *
+ * Uses an internal "image failed to load" state because Green API URLs can
+ * occasionally 403 even after they resolved successfully a moment earlier
+ * (CDN auth quirks). When that happens we silently fall back to initials
+ * rather than show a broken-image icon.
+ */
+function Avatar({
+  url,
+  initials,
+  size,
+}: {
+  url: string | null;
+  initials: string;
+  size: 'md' | 'lg';
+}) {
+  const [errored, setErrored] = useState(false);
+  const dimensions = size === 'lg' ? 'w-20 h-20 text-2xl' : 'w-12 h-12 text-sm';
+  const showImage = url && !errored;
+
+  return (
+    <div
+      className={`${dimensions} rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-medium flex-shrink-0 overflow-hidden`}
+    >
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={initials}
+          className="w-full h-full object-cover"
+          onError={() => setErrored(true)}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
 }

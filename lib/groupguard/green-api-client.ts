@@ -199,6 +199,47 @@ export async function isBotAdmin(
 }
 
 
+/**
+ * שליפת תמונת פרופיל של משתמש מ-WhatsApp.
+ *
+ * Green API endpoint: /getAvatar
+ * Returns either:
+ *   { available: false }                         — user has no avatar OR
+ *                                                   visibility is restricted
+ *                                                   (privacy = contacts only)
+ *   { urlAvatar: "https://pps.whatsapp.net/..." } — public CDN URL
+ *
+ * The CDN URL is stable enough for caching (days), but technically can
+ * rotate, so we re-fetch periodically. The URL doesn't require auth to
+ * load — the browser fetches it directly via <img src>.
+ *
+ * @param creds   - Green API credentials
+ * @param chatId  - "972501234567@c.us" for an individual contact
+ *                  (use phone + @c.us suffix; group avatars use @g.us)
+ */
+export async function getAvatar(
+  creds: GreenApiCredentials,
+  chatId: string,
+): Promise<GreenApiResult<{ urlAvatar: string | null; available: boolean }>> {
+  const result = await greenApiPost<{ urlAvatar?: string; available?: boolean; reason?: string }>(
+    creds,
+    'getAvatar',
+    { chatId },
+  );
+  if (!result.ok) return result as GreenApiResult<{ urlAvatar: string | null; available: boolean }>;
+
+  // Normalize the response shape — Green API returns either {urlAvatar, available:true}
+  // or {available:false, reason:"..."} or sometimes just {urlAvatar:""} with no available flag.
+  const urlAvatar = result.data?.urlAvatar?.trim() || null;
+  const available = result.data?.available !== false && !!urlAvatar;
+
+  return {
+    ok: true,
+    data: { urlAvatar: available ? urlAvatar : null, available },
+  };
+}
+
+
 // ============================================================================
 // Phone normalization helpers
 // ============================================================================

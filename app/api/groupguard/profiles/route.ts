@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       .select(`
         id, phone, display_name, full_name, profession, specialization,
         business_name, business_type, websites, city, skills, interests,
-        bio, completeness_pct, message_count, groups_count,
+        bio, avatar_url, completeness_pct, message_count, groups_count,
         first_seen_at, last_seen_at, last_extracted_at,
         gg_member_groups!inner(group_id)
       `, { count: 'exact' })
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       .select(`
         id, phone, display_name, full_name, profession, specialization,
         business_name, business_type, websites, city, skills, interests,
-        bio, completeness_pct, message_count, groups_count,
+        bio, avatar_url, completeness_pct, message_count, groups_count,
         first_seen_at, last_seen_at, last_extracted_at
       `, { count: 'exact' })
       .eq('workspace_id', workspaceId);
