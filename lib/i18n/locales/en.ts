@@ -1070,6 +1070,8 @@ export const en: LocaleDictionary = {
       sort_complete: 'Complete profile',
       // Manual rescan button (kicks off AI extraction without waiting for cron)
       rescan_button: 'Scan now',
+      call_action: 'Call',
+      whatsapp_action: 'WhatsApp',
       rescan_running: 'Scanning...',
       rescan_tooltip: 'Run AI scan immediately on members not scanned in the last hour',
       rescan_done: 'Scanned {processed} profiles, {updated} updated',

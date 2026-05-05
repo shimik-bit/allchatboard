@@ -1082,6 +1082,8 @@ export const he = {
       sort_complete: 'פרופיל מלא',
       // Manual rescan button (kicks off AI extraction without waiting for cron)
       rescan_button: 'סרוק עכשיו',
+      call_action: 'התקשר',
+      whatsapp_action: 'וואטסאפ',
       rescan_running: 'סורק...',
       rescan_tooltip: 'הפעל סריקת AI מיידית על חברים שלא נסרקו בשעה האחרונה',
       rescan_done: 'נסרקו {processed} פרופילים, עודכנו {updated}',
