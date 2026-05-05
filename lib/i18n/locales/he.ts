@@ -747,6 +747,47 @@ export const he = {
     industry_education: 'חינוך והדרכה',
     industry_services: 'שירות לקוחות',
 
+    // Member Profiles section — dedicated showcase of the auto-built profiles
+    profiles_eyebrow: 'פרופילים חכמים',
+    profiles_title_part1: 'הכירו את כל מי',
+    profiles_title_part2: 'שכותב לכם בקבוצות',
+    profiles_subtitle: 'TaskFlow AI סורק כל הודעה ובונה אוטומטית פרופיל מקצועי לכל חבר — בלי שאלונים, בלי טפסים, בלי שאף אחד צריך למלא משהו.',
+
+    // 6 capability cards around the profile mockup
+    profiles_cap_auto_title: 'בנייה אוטומטית',
+    profiles_cap_auto_desc: 'הפרופיל נבנה מעצמו תוך כמה הודעות — שום עבודה ידנית, שום הזנת נתונים.',
+    profiles_cap_fields_title: '13 שדות מחולצים',
+    profiles_cap_fields_desc: 'שם, מקצוע, התמחות, עסק, אתר, עיר, כישורים, שפות, תחומי עניין ועוד — מ-AI שמבין הקשר.',
+    profiles_cap_completion_title: 'מד שלמות',
+    profiles_cap_completion_desc: 'אחוז שלמות לכל פרופיל. תזהו במבט אחד מי כבר ידוע לכם ועל מי כדאי לדעת יותר.',
+    profiles_cap_search_title: 'חיפוש חכם',
+    profiles_cap_search_desc: '״מי בקבוצה עוסק בנדל״ן בתל אביב?״ — שאלה בשפה חופשית, תשובה מיידית.',
+    profiles_cap_refresh_title: 'עדכון רציף',
+    profiles_cap_refresh_desc: 'כל הודעה חדשה מחדדת את הפרופיל. אם מישהו מזכיר עיר חדשה או שירות חדש — הפרופיל מתעדכן.',
+    profiles_cap_privacy_title: 'פרטיות מובטחת',
+    profiles_cap_privacy_desc: 'המידע נשאר אצלכם, מוצפן במנוחה ובתעבורה. אף אחד מבחוץ לא רואה את הפרופילים.',
+
+    // The big mockup card content
+    profiles_mockup_eyebrow: 'דוגמה אמיתית',
+    profiles_mockup_name: 'שירה אבני',
+    profiles_mockup_role: 'מתווכת נדל״ן בכירה',
+    profiles_mockup_completion: 'פרופיל שלם 87%',
+    profiles_mockup_field_business: 'שם עסק',
+    profiles_mockup_value_business: 'אבני נדל״ן בוטיק',
+    profiles_mockup_field_specialization: 'התמחות',
+    profiles_mockup_value_specialization: 'דירות יוקרה, פנטהאוזים',
+    profiles_mockup_field_city: 'עיר',
+    profiles_mockup_value_city: 'תל אביב',
+    profiles_mockup_field_website: 'אתר',
+    profiles_mockup_value_website: 'avni-realestate.co.il',
+    profiles_mockup_field_languages: 'שפות',
+    profiles_mockup_value_languages: 'עברית, אנגלית, רוסית',
+    profiles_mockup_field_topics: 'נושאים נפוצים',
+    profiles_mockup_topic1: 'משכנתאות',
+    profiles_mockup_topic2: 'השקעות',
+    profiles_mockup_topic3: 'דירות יד 2',
+    profiles_mockup_extracted_from: 'נבנה מתוך 47 הודעות בקבוצות',
+
     // FAQ
     faq_eyebrow: 'שאלות נפוצות',
     faq_title: 'מה רוצים לדעת?',
