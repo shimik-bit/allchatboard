@@ -1285,6 +1285,7 @@ export const en: LocaleDictionary = {
         cancel_confirm: 'Cancel the delete job?',
         loading: 'Loading...',
         no_jobs: 'No delete jobs.',
+        no_jobs_hint: 'To delete messages, switch to the "{history_label}" tab and pick a completed broadcast.',
         history_label: 'History',
         status_pending: 'Pending',
         status_deleting: 'Deleting',

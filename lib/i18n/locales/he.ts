@@ -1297,6 +1297,7 @@ export const he = {
         cancel_confirm: 'לבטל את עבודת המחיקה?',
         loading: 'טוען...',
         no_jobs: 'אין עבודות מחיקה.',
+        no_jobs_hint: 'כדי למחוק הודעות, עבור לטאב "{history_label}" ובחר עבודת פרסום שהושלמה.',
         history_label: 'היסטוריה',
         status_pending: 'ממתין',
         status_deleting: 'מוחק',

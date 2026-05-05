@@ -175,15 +175,15 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
     setError(null);
     setSuccess(null);
     if (!message.trim()) {
-      setError('יש להזין טקסט להודעה');
+      setError(t('groupguard.broadcast.compose.validation_message_required'));
       return;
     }
     if (selectedGroupIds.size === 0) {
-      setError('בחר לפחות קבוצה אחת');
+      setError(t('groupguard.broadcast.compose.validation_groups_required'));
       return;
     }
     if (scheduleEnabled && !scheduledAt) {
-      setError('בחר תאריך ושעה לתזמון');
+      setError(t('groupguard.broadcast.compose.validation_schedule_required'));
       return;
     }
 
@@ -199,7 +199,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
       if (scheduleEnabled && scheduledAt) {
         const d = new Date(scheduledAt);
         if (isNaN(d.getTime())) {
-          setError('תאריך לא תקין');
+          setError(t('groupguard.broadcast.compose.validation_invalid_date'));
           setSubmitting(false);
           return;
         }
@@ -213,14 +213,14 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error || 'שליחה נכשלה');
+        setError(json.error || t('groupguard.broadcast.compose.send_failed'));
         return;
       }
 
       setSuccess(
         scheduleEnabled
-          ? `התזמון נשמר! ${selectedGroupIds.size} קבוצות יקבלו את ההודעה החל מ-${new Date(scheduledAt).toLocaleString('he-IL')}`
-          : `הפרסום החל! ${selectedGroupIds.size} קבוצות בתור.`
+          ? t('groupguard.broadcast.compose.success_scheduled', { count: selectedGroupIds.size, when: new Date(scheduledAt).toLocaleString('he-IL') })
+          : t('groupguard.broadcast.compose.success_sent', { count: selectedGroupIds.size })
       );
       // Reset form
       setMessage('');
@@ -230,7 +230,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
       // Auto-jump to history after a moment so they see the running job
       setTimeout(() => onCreated(), 1500);
     } catch (e: any) {
-      setError(e?.message || 'שגיאת רשת');
+      setError(e?.message || t('groupguard.broadcast.compose.network_error'));
     } finally {
       setSubmitting(false);
     }
@@ -261,7 +261,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
           maxLength={4096}
           rows={6}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
-          placeholder="כתוב את ההודעה כאן... תומך באמוג׳ים ובעברית 😊"
+          placeholder={t('groupguard.broadcast.compose.message_placeholder')}
         />
       </div>
 
@@ -304,7 +304,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
             value={groupSearch}
             onChange={(e) => setGroupSearch(e.target.value)}
             className="w-full pr-9 pl-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
-            placeholder="חפש קבוצה..."
+            placeholder={t('groupguard.broadcast.compose.group_search_placeholder')}
           />
         </div>
         <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
@@ -315,7 +315,9 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
             </div>
           ) : filteredGroups.length === 0 ? (
             <div className="p-6 text-center text-sm text-gray-500">
-              {groupSearch ? 'לא נמצאו קבוצות תואמות' : 'אין קבוצות פעילות. סרוק קבוצות בטאב "קבוצות".'}
+              {groupSearch
+                ? t('groupguard.broadcast.compose.no_groups_found')
+                : `${t('groupguard.broadcast.compose.no_groups_active')} "${t('groupguard.broadcast.compose.groups_link')}".`}
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -334,7 +336,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
                     </div>
                     <div className="flex-1 min-w-0 text-right">
                       <div className="text-sm font-medium text-gray-900 truncate">
-                        {g.group_name || 'קבוצה ללא שם'}
+                        {g.group_name || t('groupguard.broadcast.compose.unnamed_group')}
                       </div>
                       {g.members_count != null && (
                         <div className="text-xs text-gray-500">
@@ -411,7 +413,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
       {/* Estimate */}
       {selectedGroupIds.size > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
-          <div className="font-semibold mb-1">סיכום:</div>
+          <div className="font-semibold mb-1">{t('groupguard.broadcast.compose.summary_label')}</div>
           <div className="text-xs space-y-0.5">
             <div>• {selectedGroupIds.size} קבוצות יקבלו את ההודעה</div>
             {estimatedMinutes > 0 && (
@@ -451,7 +453,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
         ) : (
           <>
             <Send className="w-4 h-4" />
-            {scheduleEnabled ? 'תזמן פרסום' : 'שלח עכשיו'}
+            {scheduleEnabled ? t('groupguard.broadcast.compose.schedule_button') : t('groupguard.broadcast.compose.send_now_button')}
           </>
         )}
       </button>
@@ -464,6 +466,7 @@ function ComposeView({ workspaceId, onCreated }: { workspaceId: string; onCreate
 // ─────────────────────────────────────────────────────────────────────────────
 
 function HistoryView({ workspaceId }: { workspaceId: string }) {
+  const { t } = useT();
   const [jobs, setJobs] = useState<BroadcastJob[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -491,13 +494,13 @@ function HistoryView({ workspaceId }: { workspaceId: string }) {
   }, [jobs, load]);
 
   async function cancelJob(id: string) {
-    if (!confirm('לבטל את הפרסום? הודעות שכבר נשלחו לא יחזרו אחורה.')) return;
+    if (!confirm(t('groupguard.broadcast.compose.cancel_confirm'))) return;
     await fetch(`/api/whatsapp/broadcasts/${id}`, { method: 'DELETE' });
     load();
   }
 
   async function startDeleteFromBroadcast(broadcastId: string) {
-    if (!confirm('למחוק את כל ההודעות שנשלחו בפרסום הזה?')) return;
+    if (!confirm(t('groupguard.broadcast.compose.delete_all_confirm'))) return;
     const res = await fetch('/api/whatsapp/delete-jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -510,20 +513,20 @@ function HistoryView({ workspaceId }: { workspaceId: string }) {
     });
     const json = await res.json();
     if (!res.ok) {
-      alert(json.error || 'שגיאה');
+      alert(json.error || t('groupguard.broadcast.compose.error_label'));
       return;
     }
-    alert(`עבודת מחיקה נוצרה (${json.total_targets} הודעות).`);
+    alert(t('groupguard.broadcast.compose.delete_job_created', { count: json.total_targets }));
   }
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-500"><Loader2 className="w-5 h-5 animate-spin inline ml-2" />טוען...</div>;
+    return <div className="text-center py-8 text-gray-500"><Loader2 className="w-5 h-5 animate-spin inline ml-2" />{t('groupguard.broadcast.history.loading')}</div>;
   }
   if (jobs.length === 0) {
     return (
       <div className="text-center py-12">
         <Send className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-        <div className="text-sm text-gray-500">עדיין לא ביצעת פרסום.</div>
+        <div className="text-sm text-gray-500">{t('groupguard.broadcast.history.no_jobs')}</div>
       </div>
     );
   }
@@ -550,6 +553,7 @@ function HistoryView({ workspaceId }: { workspaceId: string }) {
 }
 
 function JobCard({ job, onCancel, onDeleteAll }: { job: BroadcastJob; onCancel: () => void; onDeleteAll: () => void }) {
+  const { t } = useT();
   const isActive = job.status === 'pending' || job.status === 'running';
   const isDone = job.status === 'done';
   const progress = job.total_targets > 0
@@ -557,11 +561,11 @@ function JobCard({ job, onCancel, onDeleteAll }: { job: BroadcastJob; onCancel: 
     : 0;
 
   const statusInfo = {
-    pending: { label: 'ממתין', color: 'bg-yellow-100 text-yellow-800' },
-    running: { label: 'בריצה', color: 'bg-blue-100 text-blue-800' },
-    done: { label: 'הושלם', color: 'bg-green-100 text-green-800' },
-    cancelled: { label: 'בוטל', color: 'bg-gray-100 text-gray-700' },
-    failed: { label: 'נכשל', color: 'bg-red-100 text-red-800' },
+    pending: { label: t('groupguard.broadcast.history.status_pending'), color: 'bg-yellow-100 text-yellow-800' },
+    running: { label: t('groupguard.broadcast.history.status_running'), color: 'bg-blue-100 text-blue-800' },
+    done: { label: t('groupguard.broadcast.history.status_completed'), color: 'bg-green-100 text-green-800' },
+    cancelled: { label: t('groupguard.broadcast.history.status_cancelled'), color: 'bg-gray-100 text-gray-700' },
+    failed: { label: t('groupguard.broadcast.history.status_failed'), color: 'bg-red-100 text-red-800' },
   }[job.status];
 
   return (
@@ -635,6 +639,7 @@ function JobCard({ job, onCancel, onDeleteAll }: { job: BroadcastJob; onCancel: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DeletionsView({ workspaceId }: { workspaceId: string }) {
+  const { t } = useT();
   const [jobs, setJobs] = useState<DeleteJob[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -657,19 +662,19 @@ function DeletionsView({ workspaceId }: { workspaceId: string }) {
   }, [jobs, load]);
 
   async function cancelJob(id: string) {
-    if (!confirm('לבטל את עבודת המחיקה?')) return;
+    if (!confirm(t('groupguard.broadcast.deletions.cancel_confirm'))) return;
     await fetch(`/api/whatsapp/delete-jobs/${id}`, { method: 'DELETE' });
     load();
   }
 
-  if (loading) return <div className="text-center py-8 text-gray-500"><Loader2 className="w-5 h-5 animate-spin inline ml-2" />טוען...</div>;
+  if (loading) return <div className="text-center py-8 text-gray-500"><Loader2 className="w-5 h-5 animate-spin inline ml-2" />{t('groupguard.broadcast.deletions.loading')}</div>;
   if (jobs.length === 0) {
     return (
       <div className="text-center py-12">
         <Trash2 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-        <div className="text-sm text-gray-500">אין עבודות מחיקה.</div>
+        <div className="text-sm text-gray-500">{t('groupguard.broadcast.deletions.no_jobs')}</div>
         <div className="text-xs text-gray-400 mt-1">
-          כדי למחוק הודעות, עבור לטאב "היסטוריה" ובחר עבודת פרסום שהושלמה.
+          {t('groupguard.broadcast.deletions.no_jobs_hint', { history_label: t('groupguard.broadcast.deletions.history_label') })}
         </div>
       </div>
     );
@@ -692,16 +697,17 @@ function DeletionsView({ workspaceId }: { workspaceId: string }) {
 }
 
 function DeleteJobCard({ job, onCancel }: { job: DeleteJob; onCancel: () => void }) {
+  const { t } = useT();
   const isActive = job.status === 'pending' || job.status === 'running';
   const progress = job.total_targets > 0
     ? Math.round(((job.deleted_count + job.failed_count) / job.total_targets) * 100)
     : 0;
   const statusInfo = {
-    pending: { label: 'ממתין', color: 'bg-yellow-100 text-yellow-800' },
-    running: { label: 'מוחק', color: 'bg-blue-100 text-blue-800' },
-    done: { label: 'הושלם', color: 'bg-green-100 text-green-800' },
-    cancelled: { label: 'בוטל', color: 'bg-gray-100 text-gray-700' },
-    failed: { label: 'נכשל', color: 'bg-red-100 text-red-800' },
+    pending: { label: t('groupguard.broadcast.deletions.status_pending'), color: 'bg-yellow-100 text-yellow-800' },
+    running: { label: t('groupguard.broadcast.deletions.status_deleting'), color: 'bg-blue-100 text-blue-800' },
+    done: { label: t('groupguard.broadcast.deletions.status_completed'), color: 'bg-green-100 text-green-800' },
+    cancelled: { label: t('groupguard.broadcast.deletions.status_cancelled'), color: 'bg-gray-100 text-gray-700' },
+    failed: { label: t('groupguard.broadcast.deletions.status_failed'), color: 'bg-red-100 text-red-800' },
   }[job.status];
 
   return (
@@ -709,7 +715,7 @@ function DeleteJobCard({ job, onCancel }: { job: DeleteJob; onCancel: () => void
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-gray-900">
-            {job.kind === 'broadcast' ? '🗑️ מחיקת פרסום שלם' : '🗑️ מחיקה ידנית'}
+            {job.kind === 'broadcast' ? t('groupguard.broadcast.deletions.type_full_broadcast') : t('groupguard.broadcast.deletions.type_manual')}
           </div>
           <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
             <span className={`px-2 py-0.5 rounded-full font-semibold text-xs ${statusInfo.color}`}>
@@ -758,17 +764,19 @@ type Draft = { label: string; body: string; length_chars: number };
 type ToneChoice = 'auto' | 'formal' | 'friendly' | 'energetic';
 type LengthChoice = 'short' | 'medium' | 'long';
 
-const TONE_LABELS: Record<ToneChoice, string> = {
-  auto: 'אוטומטי (3 נימות)',
-  formal: 'רשמי',
-  friendly: 'ידידותי',
-  energetic: 'אנרגטי',
+// Module-level maps from option value to i18n key path. Resolved with t()
+// at the use site (inside AIComposeModal's render).
+const TONE_LABEL_KEYS: Record<ToneChoice, string> = {
+  auto: 'groupguard.broadcast.ai_modal.tone_auto',
+  formal: 'groupguard.broadcast.ai_modal.tone_formal',
+  friendly: 'groupguard.broadcast.ai_modal.tone_friendly',
+  energetic: 'groupguard.broadcast.ai_modal.tone_energetic',
 };
 
-const LENGTH_LABELS: Record<LengthChoice, string> = {
-  short: 'קצר',
-  medium: 'בינוני',
-  long: 'ארוך',
+const LENGTH_LABEL_KEYS: Record<LengthChoice, string> = {
+  short: 'groupguard.broadcast.ai_modal.length_short',
+  medium: 'groupguard.broadcast.ai_modal.length_medium',
+  long: 'groupguard.broadcast.ai_modal.length_long',
 };
 
 function AIComposeModal({
@@ -782,6 +790,7 @@ function AIComposeModal({
   onClose: () => void;
   onPick: (text: string) => void;
 }) {
+  const { t } = useT();
   // If there's existing text in the message, treat it as the starting topic
   // and label the action "improve". Otherwise the user is starting fresh.
   const [topic, setTopic] = useState(initialTopic);
@@ -793,7 +802,7 @@ function AIComposeModal({
 
   async function handleGenerate() {
     if (!topic.trim()) {
-      setError('כתוב נושא או רעיון קצר');
+      setError(t('groupguard.broadcast.ai_modal.topic_required'));
       return;
     }
     setError(null);
@@ -812,12 +821,12 @@ function AIComposeModal({
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error || 'AI שגיאה');
+        setError(json.error || t('groupguard.broadcast.ai_modal.ai_error'));
         return;
       }
       setDrafts(json.drafts || []);
     } catch (e: any) {
-      setError(e?.message || 'שגיאת רשת');
+      setError(e?.message || t('groupguard.broadcast.ai_modal.network_error'));
     } finally {
       setLoading(false);
     }
@@ -840,11 +849,11 @@ function AIComposeModal({
               <Wand2 className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900">כתיבה עם AI</h2>
-              <p className="text-xs text-gray-500">תן לי כותרת — אני כותב את ההודעה</p>
+              <h2 className="font-bold text-gray-900">{t('groupguard.broadcast.ai_modal.title')}</h2>
+              <p className="text-xs text-gray-500">{t('groupguard.broadcast.ai_modal.subtitle')}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="סגור">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label={t('groupguard.broadcast.ai_modal.close')}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -862,7 +871,7 @@ function AIComposeModal({
               rows={3}
               autoFocus
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
-              placeholder="לדוגמה: הנחת חורף 20% על כל המוצרים עד יום שישי"
+              placeholder={t('groupguard.broadcast.ai_modal.topic_placeholder')}
             />
             <div className="text-xs text-gray-400 mt-0.5">{topic.length}/500</div>
           </div>
@@ -870,26 +879,26 @@ function AIComposeModal({
           {/* Tone + Length pickers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">נימה</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">{t('groupguard.broadcast.ai_modal.tone_label')}</label>
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value as ToneChoice)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white"
               >
-                {(['auto', 'formal', 'friendly', 'energetic'] as ToneChoice[]).map((t) => (
-                  <option key={t} value={t}>{TONE_LABELS[t]}</option>
+                {(['auto', 'formal', 'friendly', 'energetic'] as ToneChoice[]).map((tone) => (
+                  <option key={tone} value={tone}>{t(TONE_LABEL_KEYS[tone])}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">אורך</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">{t('groupguard.broadcast.ai_modal.length_label')}</label>
               <select
                 value={length}
                 onChange={(e) => setLength(e.target.value as LengthChoice)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white"
               >
                 {(['short', 'medium', 'long'] as LengthChoice[]).map((l) => (
-                  <option key={l} value={l}>{LENGTH_LABELS[l]}</option>
+                  <option key={l} value={l}>{t(LENGTH_LABEL_KEYS[l])}</option>
                 ))}
               </select>
             </div>
@@ -931,7 +940,7 @@ function AIComposeModal({
           {/* Drafts list */}
           {drafts.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-gray-700">בחר גרסה:</div>
+              <div className="text-xs font-semibold text-gray-700">{t('groupguard.broadcast.ai_modal.pick_version_label')}</div>
               {drafts.map((d, i) => (
                 <button
                   key={i}
