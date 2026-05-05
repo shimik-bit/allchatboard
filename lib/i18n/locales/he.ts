@@ -673,22 +673,38 @@ export const he = {
     // Bottom CTA
     bottom_cta_hint: '💡 אפשר להתחיל מהבסיסי ולהפוך את הבוט לאדמין מאוחר יותר',
 
-    // Hero mockup (visual element below hero text)
-    hero_mockup_msg_label: 'הודעה בקבוצה',
-    hero_mockup_msg_sender: 'דניאל כהן',
-    hero_mockup_msg_time: '14:32',
-    hero_mockup_msg_text: 'מעוניין במחיר על דירת 4 חדרים בשכונת רמת אביב, תקציב 4-5M',
-    hero_mockup_arrow_label: 'AI מחלץ ומסווג',
+    // Hero mockup — WhatsApp-style group chat → extracted table rows
+    hero_mockup_group_name: 'צוות שיווק — אביבים נדל״ן',
+    hero_mockup_group_meta: '12 חברים, 4 פעילים עכשיו',
+    hero_mockup_arrow_label: 'AI מחלץ ומסווג כל הודעה',
     hero_mockup_table_label: 'טבלת לידים — מתעדכן אוטומטית',
-    hero_mockup_field_name: 'שם',
-    hero_mockup_field_property: 'נכס',
-    hero_mockup_field_area: 'אזור',
-    hero_mockup_field_budget: 'תקציב',
-    hero_mockup_field_status: 'סטטוס',
-    hero_mockup_value_property: '4 חדרים',
-    hero_mockup_value_area: 'רמת אביב',
-    hero_mockup_value_budget: '₪4-5M',
-    hero_mockup_value_status: 'ליד חדש',
+
+    // 3 messages, 3 senders. Each message becomes one row in the table below.
+    hero_mockup_msg1_sender: 'דניאל כהן',
+    hero_mockup_msg1_time: '14:32',
+    hero_mockup_msg1_text: 'מעוניין בדירת 4 חדרים ברמת אביב, תקציב 4-5M ₪',
+    hero_mockup_msg2_sender: 'מיכל לוי',
+    hero_mockup_msg2_time: '14:35',
+    hero_mockup_msg2_text: 'יש לי לקוח שמחפש פנטהאוז בצפון ת״א, עד 10M',
+    hero_mockup_msg3_sender: 'אבי שמש',
+    hero_mockup_msg3_time: '14:38',
+    hero_mockup_msg3_text: 'ליד חדש: משפחה עם 2 ילדים, 5 חדרים בהוד השרון',
+
+    // Table column headers + extracted row values
+    hero_mockup_col_name: 'שם',
+    hero_mockup_col_property: 'נכס',
+    hero_mockup_col_area: 'אזור',
+    hero_mockup_col_budget: 'תקציב',
+    hero_mockup_row1_property: '4 חדרים',
+    hero_mockup_row1_area: 'רמת אביב',
+    hero_mockup_row1_budget: '4-5M ₪',
+    hero_mockup_row2_property: 'פנטהאוז',
+    hero_mockup_row2_area: 'צפון ת״א',
+    hero_mockup_row2_budget: 'עד 10M',
+    hero_mockup_row3_property: '5 חדרים',
+    hero_mockup_row3_area: 'הוד השרון',
+    hero_mockup_row3_budget: '—',
+    hero_mockup_row_status: 'חדש',
 
     // Stats section
     stats_eyebrow: 'מספרים שמדברים',

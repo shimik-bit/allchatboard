@@ -672,22 +672,38 @@ export const en: LocaleDictionary = {
     // Bottom CTA
     bottom_cta_hint: '💡 You can start basic and make the bot an admin later',
 
-    // Hero mockup (visual element below hero text)
-    hero_mockup_msg_label: 'Group message',
-    hero_mockup_msg_sender: 'Daniel Cohen',
-    hero_mockup_msg_time: '14:32',
-    hero_mockup_msg_text: 'Looking for a 4-bedroom apartment in Ramat Aviv, budget around $1.2-1.5M',
-    hero_mockup_arrow_label: 'AI extracts & classifies',
+    // Hero mockup — WhatsApp-style group chat → extracted table rows
+    hero_mockup_group_name: 'Sales Team — Avivim Real Estate',
+    hero_mockup_group_meta: '12 members, 4 active now',
+    hero_mockup_arrow_label: 'AI extracts & classifies each message',
     hero_mockup_table_label: 'Leads table — auto-updated',
-    hero_mockup_field_name: 'Name',
-    hero_mockup_field_property: 'Property',
-    hero_mockup_field_area: 'Area',
-    hero_mockup_field_budget: 'Budget',
-    hero_mockup_field_status: 'Status',
-    hero_mockup_value_property: '4 bedrooms',
-    hero_mockup_value_area: 'Ramat Aviv',
-    hero_mockup_value_budget: '$1.2-1.5M',
-    hero_mockup_value_status: 'New lead',
+
+    // 3 messages, 3 senders. Each message becomes one row in the table below.
+    hero_mockup_msg1_sender: 'Daniel Cohen',
+    hero_mockup_msg1_time: '14:32',
+    hero_mockup_msg1_text: 'Looking for a 4-bedroom in Ramat Aviv, budget $1.2-1.5M',
+    hero_mockup_msg2_sender: 'Michal Levi',
+    hero_mockup_msg2_time: '14:35',
+    hero_mockup_msg2_text: 'Have a client looking for penthouse in north TA, up to $3M',
+    hero_mockup_msg3_sender: 'Avi Shemesh',
+    hero_mockup_msg3_time: '14:38',
+    hero_mockup_msg3_text: 'New lead: family with 2 kids, 5 bedrooms in Hod HaSharon',
+
+    // Table column headers + extracted row values
+    hero_mockup_col_name: 'Name',
+    hero_mockup_col_property: 'Property',
+    hero_mockup_col_area: 'Area',
+    hero_mockup_col_budget: 'Budget',
+    hero_mockup_row1_property: '4 bedrooms',
+    hero_mockup_row1_area: 'Ramat Aviv',
+    hero_mockup_row1_budget: '$1.2-1.5M',
+    hero_mockup_row2_property: 'Penthouse',
+    hero_mockup_row2_area: 'North TA',
+    hero_mockup_row2_budget: 'Up to $3M',
+    hero_mockup_row3_property: '5 bedrooms',
+    hero_mockup_row3_area: 'Hod HaSharon',
+    hero_mockup_row3_budget: '—',
+    hero_mockup_row_status: 'New',
 
     // Stats section
     stats_eyebrow: 'By the numbers',
