@@ -769,10 +769,25 @@ export const he = {
     pricing_subtitle: 'בחרו את המסלול המתאים. כל המסלולים כוללים 14 יום ניסיון חינם, ללא כרטיס אשראי.',
     pricing_currency: '₪',
     pricing_per_month: '/ חודש',
+    pricing_per_day: '/ יום',
     pricing_billed_monthly: 'חיוב חודשי, ביטול בכל עת',
     pricing_most_popular: 'הכי פופולרי',
     pricing_cta: 'התחל ניסיון',
     pricing_cta_contact: 'צרו קשר',
+    pricing_tab_personal: 'פרטי',
+    pricing_tab_business: 'עסקי',
+
+    // Personal — single low-touch plan, ₪1/day
+    plan_personal_name: 'אישי',
+    plan_personal_tagline: 'מתאים לאדם פרטי או יזם בודד',
+    plan_personal_price: '1',
+    plan_personal_billing: '≈ ₪30 לחודש • ביטול בכל עת',
+    plan_personal_feat1: 'שימוש במספר הוואטסאפ הקיים שלך',
+    plan_personal_feat2: 'אין צורך במספר אישי נוסף',
+    plan_personal_feat3: 'חיבור 1 לוואטסאפ',
+    plan_personal_feat4: 'עד 1,000 הודעות בחודש',
+    plan_personal_feat5: 'ביטול בקליק, בכל עת',
+    plan_personal_feat6: 'תמיכה במייל',
 
     // Tier 1: Starter
     plan_starter_name: 'בסיסי',
