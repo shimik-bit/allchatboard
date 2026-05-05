@@ -191,7 +191,7 @@ export default function SummarySection({
       {/* Settings only relevant when feature enabled */}
       {settings.summary_enabled && (
         <div className="space-y-4">
-          {/* Auto toggle + hour */}
+          {/* Auto toggle */}
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -208,24 +208,6 @@ export default function SummarySection({
                 <div className="text-xs text-gray-600 mt-0.5">{t('groupguard.summary.auto_desc')}</div>
               </div>
             </label>
-
-            {settings.summary_auto && (
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 ps-7">
-                <label className="text-xs text-gray-700">{t('groupguard.summary.hour_label')}</label>
-                <select
-                  value={settings.summary_hour}
-                  onChange={(e) => updateSettings({ summary_hour: Number(e.target.value) })}
-                  className="px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-purple-500"
-                >
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>
-                      {String(h).padStart(2, '0')}:00
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[11px] text-gray-500">{t('groupguard.summary.hour_hint')}</span>
-              </div>
-            )}
           </div>
 
           {/* WhatsApp delivery */}

@@ -1105,7 +1105,7 @@ export const en: LocaleDictionary = {
       title: 'Daily group summary',
       description: 'AI summarizes the day\u2019s messages into 5-8 key bullets',
       auto_label: 'Auto-summarize at end of day',
-      auto_desc: 'A summary will be generated automatically every day at the chosen hour',
+      auto_desc: 'A summary will be generated automatically every evening (~21:00 UTC)',
       hour_label: 'Hour:',
       hour_hint: '(UTC time)',
       whatsapp_label: 'Send the summary to WhatsApp',
