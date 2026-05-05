@@ -1,3 +1,4 @@
+// Production landing page — see SummarySection / MembersTab for related dashboard features.
 import Link from 'next/link';
 import {
   MessageSquare, Sparkles, LayoutGrid, Zap,
