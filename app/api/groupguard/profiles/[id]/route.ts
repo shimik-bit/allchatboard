@@ -58,15 +58,36 @@ export async function GET(
   // user's phone as sender_phone (target), so we must filter by direction
   // to avoid showing the bot's "we couldn't classify your message" replies
   // back to the admin as if they were the user's words.
+  //
+  // Also filter out direct-to-bot messages (group_id IS NULL). Those are
+  // assistant commands like "תוסיף ליד", not group activity, and showing
+  // them in a "messages this user posted" list is misleading.
+  //
+  // The join with whatsapp_groups gives us group_name for each message so
+  // the UI can label which group each line came from.
   const { data: recentMessages } = await supabase
     .from('wa_messages')
-    .select('id, text, received_at, group_id')
+    .select(`
+      id, text, received_at, group_id,
+      whatsapp_groups!inner(group_name)
+    `)
     .eq('workspace_id', profile.workspace_id)
     .eq('sender_phone', profile.phone)
     .eq('direction', 'in')
     .not('text', 'is', null)
+    .not('group_id', 'is', null)
     .order('received_at', { ascending: false })
     .limit(10);
+
+  // Flatten the join: API consumers get `group_name` directly on each
+  // message, not nested inside whatsapp_groups.
+  const recentWithGroupName = (recentMessages || []).map((m: any) => ({
+    id: m.id,
+    text: m.text,
+    received_at: m.received_at,
+    group_id: m.group_id,
+    group_name: m.whatsapp_groups?.group_name || null,
+  }));
 
   return NextResponse.json({
     profile,
@@ -77,6 +98,6 @@ export async function GET(
       first_seen_at: m.first_seen_at,
       last_seen_at: m.last_seen_at,
     })),
-    recent_messages: recentMessages || [],
+    recent_messages: recentWithGroupName,
   });
 }
