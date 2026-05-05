@@ -7,7 +7,7 @@ import {
   // New icons used by the redesigned sections below
   Smartphone, BrainCircuit, TrendingUp,
   Building2, Scale, Stethoscope, ShoppingCart, GraduationCap, Headphones,
-  ChevronDown, User,
+  ChevronDown,
 } from 'lucide-react';
 import { getT } from '@/lib/i18n/server';
 
@@ -416,32 +416,92 @@ export default function HomePage() {
  *   WhatsApp message arrives → AI extracts → table row appears.
  * Pure CSS/HTML (no images), so it's crisp on retina and scales fluidly.
  */
+/**
+ * HeroMockup — realistic WhatsApp-style group chat → extracted table.
+ *
+ * Top card: a WhatsApp group conversation with header (green bar + group
+ * info), beige doodle-pattern chat background, and 3 message bubbles from
+ * different senders (each with a colored sender name like real WhatsApp).
+ *
+ * Bottom card: a compact data table where each row corresponds to one of
+ * the messages above — driving home the "every message becomes a row"
+ * promise visually.
+ */
 function HeroMockup({ t }: { t: (k: string) => string }) {
+  // Inline SVG dot pattern → WhatsApp-style chat doodle background.
+  // Tiny + tileable so it adds zero weight.
+  const doodle =
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='10' cy='10' r='1' fill='%23d4cfc2'/%3E%3Ccircle cx='30' cy='30' r='1' fill='%23d4cfc2'/%3E%3C/svg%3E\")";
+
+  // Each message is paired with a row in the table; defining once avoids
+  // duplicating sender names + values in two places.
+  const rows = [
+    {
+      sender: t('home.hero_mockup_msg1_sender'),
+      time: t('home.hero_mockup_msg1_time'),
+      text: t('home.hero_mockup_msg1_text'),
+      // Each sender gets a different color for their name (real WhatsApp
+      // does this to make groups easier to scan).
+      color: 'text-purple-600',
+      property: t('home.hero_mockup_row1_property'),
+      area: t('home.hero_mockup_row1_area'),
+      budget: t('home.hero_mockup_row1_budget'),
+    },
+    {
+      sender: t('home.hero_mockup_msg2_sender'),
+      time: t('home.hero_mockup_msg2_time'),
+      text: t('home.hero_mockup_msg2_text'),
+      color: 'text-blue-600',
+      property: t('home.hero_mockup_row2_property'),
+      area: t('home.hero_mockup_row2_area'),
+      budget: t('home.hero_mockup_row2_budget'),
+    },
+    {
+      sender: t('home.hero_mockup_msg3_sender'),
+      time: t('home.hero_mockup_msg3_time'),
+      text: t('home.hero_mockup_msg3_text'),
+      color: 'text-orange-600',
+      property: t('home.hero_mockup_row3_property'),
+      area: t('home.hero_mockup_row3_area'),
+      budget: t('home.hero_mockup_row3_budget'),
+    },
+  ];
+
   return (
     <div className="relative max-w-md mx-auto" aria-hidden="true">
-      {/* Top: WhatsApp-style message card */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 transform -rotate-1">
-        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-          <MessageSquare className="w-3.5 h-3.5 text-green-500" />
-          <span className="font-medium">{t('home.hero_mockup_msg_label')}</span>
-        </div>
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 grid place-items-center text-white flex-shrink-0">
-            <User className="w-5 h-5" />
+      {/* ───── Top: WhatsApp group chat ───── */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white transform -rotate-1">
+        {/* WhatsApp header (the dark green bar at top of chats) */}
+        <div className="bg-[#075E54] px-3 py-2.5 flex items-center gap-3 text-white">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-300 to-green-600 grid place-items-center flex-shrink-0 ring-2 ring-white/20">
+            <Users className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="font-semibold text-sm text-gray-900">{t('home.hero_mockup_msg_sender')}</span>
-              <span className="text-xs text-gray-400">{t('home.hero_mockup_msg_time')}</span>
+            <div className="font-semibold text-sm truncate">
+              {t('home.hero_mockup_group_name')}
             </div>
-            <div className="text-sm text-gray-700 leading-relaxed">
-              {t('home.hero_mockup_msg_text')}
+            <div className="text-[11px] text-white/80 truncate">
+              {t('home.hero_mockup_group_meta')}
             </div>
           </div>
+        </div>
+
+        {/* Chat area — beige with subtle dot pattern */}
+        <div
+          className="p-3 space-y-2"
+          style={{
+            backgroundColor: '#ECE5DD',
+            backgroundImage: doodle,
+            backgroundSize: '40px 40px',
+          }}
+        >
+          {rows.map((m, i) => (
+            <ChatBubble key={i} sender={m.sender} time={m.time} text={m.text} colorClass={m.color} />
+          ))}
         </div>
       </div>
 
-      {/* Middle: AI label connecting the two cards */}
+      {/* ───── Middle: AI extraction badge ───── */}
       <div className="flex flex-col items-center my-4 relative z-10">
         <div className="px-3 py-1.5 rounded-full bg-gradient-to-l from-purple-600 to-pink-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
           <Sparkles className="w-3.5 h-3.5" />
@@ -449,38 +509,68 @@ function HeroMockup({ t }: { t: (k: string) => string }) {
         </div>
       </div>
 
-      {/* Bottom: extracted table row */}
+      {/* ───── Bottom: compact extracted table ───── */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transform rotate-1">
         <div className="bg-gradient-to-l from-purple-50 to-pink-50 px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
           <LayoutGrid className="w-3.5 h-3.5 text-purple-600" />
-          <span className="text-xs font-semibold text-purple-700">{t('home.hero_mockup_table_label')}</span>
+          <span className="text-xs font-semibold text-purple-700">
+            {t('home.hero_mockup_table_label')}
+          </span>
         </div>
-        <div className="p-4 space-y-2.5">
-          <MockField label={t('home.hero_mockup_field_name')} value={t('home.hero_mockup_msg_sender')} />
-          <MockField label={t('home.hero_mockup_field_property')} value={t('home.hero_mockup_value_property')} />
-          <MockField label={t('home.hero_mockup_field_area')} value={t('home.hero_mockup_value_area')} />
-          <MockField label={t('home.hero_mockup_field_budget')} value={t('home.hero_mockup_value_budget')} />
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-gray-500">{t('home.hero_mockup_field_status')}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              {t('home.hero_mockup_value_status')}
-            </span>
+
+        {/* Real table grid — 4 cols + status dot, compact for mobile */}
+        <div className="text-[11px] sm:text-xs">
+          {/* Column headers */}
+          <div className="grid grid-cols-[1.1fr_1fr_1fr_0.9fr_auto] gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100 font-semibold text-gray-500">
+            <div className="truncate">{t('home.hero_mockup_col_name')}</div>
+            <div className="truncate">{t('home.hero_mockup_col_property')}</div>
+            <div className="truncate">{t('home.hero_mockup_col_area')}</div>
+            <div className="truncate">{t('home.hero_mockup_col_budget')}</div>
+            <div className="w-2" />
           </div>
+          {/* Data rows */}
+          {rows.map((r, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1.1fr_1fr_1fr_0.9fr_auto] gap-2 px-3 py-2.5 border-b border-gray-50 last:border-b-0 items-center"
+            >
+              <div className="truncate font-medium text-gray-900">{r.sender}</div>
+              <div className="truncate text-gray-700">{r.property}</div>
+              <div className="truncate text-gray-700">{r.area}</div>
+              <div className="truncate text-gray-700">{r.budget}</div>
+              <div
+                className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]"
+                title={t('home.hero_mockup_row_status')}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-function MockField({ label, value }: { label: string; value: string }) {
+/**
+ * ChatBubble — single white bubble in the WhatsApp group mockup.
+ * Sender name uses a colored class (purple/blue/orange) the way real
+ * WhatsApp colors group members differently for quick scanning.
+ */
+function ChatBubble({
+  sender, time, text, colorClass,
+}: { sender: string; time: string; text: string; colorClass: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-900 truncate">{value}</span>
+    <div className="flex">
+      <div className="bg-white rounded-lg px-3 py-1.5 max-w-[88%] shadow-sm">
+        <div className={`text-[11px] font-semibold mb-0.5 ${colorClass}`}>
+          {sender}
+        </div>
+        <div className="text-[13px] text-gray-800 leading-snug">{text}</div>
+        <div className="text-[10px] text-gray-400 mt-0.5 text-end">{time}</div>
+      </div>
     </div>
   );
 }
+
 
 function FeatureCard({
   icon, title, desc,
