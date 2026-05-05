@@ -595,6 +595,11 @@ export const en: LocaleDictionary = {
   /* ────────────── Homepage ────────────── */
   home: {
     nav_protection: 'Protection & Profiles',
+    // Header nav (desktop only)
+    nav_features: 'Features',
+    nav_how: 'How it works',
+    nav_pricing: 'Pricing',
+    nav_faq: 'FAQ',
     cta_start_free: 'Start Free',
     cta_start_trial: 'Start free trial',
     cta_start_trial_14_days: 'Start 14-day free trial',
@@ -756,6 +761,49 @@ export const en: LocaleDictionary = {
     faq5_a: '14 days, fully featured, no credit card required. Full access — no limit on tables, records, or messages. If it doesn\u2019t fit — just don\u2019t continue.',
     faq6_q: 'What if I want to cancel?',
     faq6_a: 'One-click cancellation from the dashboard. No contracts, no penalties, no sales calls. Your data remains downloadable for 30 additional days.',
+
+    // Pricing — placeholder values, will be updated later
+    pricing_eyebrow: 'Pricing',
+    pricing_title: 'Simple pricing, no surprises',
+    pricing_subtitle: 'Pick the plan that fits. All plans include a 14-day free trial, no credit card required.',
+    pricing_currency: '$',
+    pricing_per_month: '/ month',
+    pricing_billed_monthly: 'Billed monthly, cancel anytime',
+    pricing_most_popular: 'Most popular',
+    pricing_cta: 'Start trial',
+    pricing_cta_contact: 'Contact us',
+
+    // Tier 1: Starter
+    plan_starter_name: 'Starter',
+    plan_starter_tagline: 'For small businesses getting started',
+    plan_starter_price: '59',
+    plan_starter_feat1: '1 WhatsApp connection',
+    plan_starter_feat2: 'Up to 5 tables',
+    plan_starter_feat3: 'Up to 5,000 messages/month',
+    plan_starter_feat4: '1 user',
+    plan_starter_feat5: 'Email support',
+
+    // Tier 2: Pro (highlighted)
+    plan_pro_name: 'Pro',
+    plan_pro_tagline: 'For growing teams',
+    plan_pro_price: '149',
+    plan_pro_feat1: '3 WhatsApp connections',
+    plan_pro_feat2: 'Unlimited tables',
+    plan_pro_feat3: 'Up to 25,000 messages/month',
+    plan_pro_feat4: 'Up to 5 users',
+    plan_pro_feat5: 'Integrations (Zapier, Webhooks)',
+    plan_pro_feat6: 'Chat support',
+
+    // Tier 3: Business
+    plan_biz_name: 'Business',
+    plan_biz_tagline: 'For organizations and large businesses',
+    plan_biz_price: '299',
+    plan_biz_feat1: 'Unlimited WhatsApp connections',
+    plan_biz_feat2: 'Unlimited users',
+    plan_biz_feat3: 'Up to 100,000 messages/month',
+    plan_biz_feat4: 'Full API and SLA',
+    plan_biz_feat5: 'Dedicated success manager',
+    plan_biz_feat6: '24/7 phone support',
 
     // Final CTA
     final_eyebrow: 'Ready to start?',
