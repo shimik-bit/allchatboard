@@ -18,8 +18,11 @@ import {
   X,
   ExternalLink,
   RefreshCw,
+  Phone,
+  MessageSquareText,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
+import { resolvePhoneCountry } from '@/lib/utils/phone-country';
 
 // ============================================================================
 // Types
@@ -545,9 +548,21 @@ function ProfileDetailContent({ data }: { data: ProfileDetail }) {
   const initials = getInitials(displayName);
   const dateLocale = locale === 'he' ? 'he-IL' : 'en-US';
 
+  // Country lookup from the phone prefix — used to display flag + country name
+  // beside the phone number. Falls back to null if prefix is unrecognized.
+  const country = resolvePhoneCountry(p.phone);
+  const countryName = country
+    ? (locale === 'he' ? country.name : country.nameEn)
+    : null;
+
+  // Format phone for display: "+972 55-669-1165" — easier to read than the
+  // raw run-on digits. Israeli numbers (10 digits after country code) use
+  // the standard 3-3-4 grouping; everything else just gets a +CC space.
+  const displayPhone = formatPhoneForDisplay(p.phone);
+
   return (
     <div className="space-y-5">
-      {/* Top section */}
+      {/* Top section — avatar, name, profession, completeness ring */}
       <div className="flex items-start gap-4">
         <Avatar
           url={p.avatar_url}
@@ -562,9 +577,63 @@ function ProfileDetailContent({ data }: { data: ProfileDetail }) {
           {p.specialization && (
             <div className="text-sm text-gray-500">{p.specialization}</div>
           )}
-          <div className="text-xs text-gray-400 mt-1" dir="ltr">+{p.phone}</div>
         </div>
         <CompletenessRingLarge pct={p.completeness_pct} />
+      </div>
+
+      {/* Phone + contact actions — clickable phone (tel:), WhatsApp shortcut,
+          country flag/name. Lives in its own card so it reads as a "contact"
+          block, not buried under the avatar. */}
+      <div className="bg-gradient-to-br from-purple-50/40 to-pink-50/30 border border-purple-100 rounded-xl p-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {/* Phone link with country prefix */}
+          <a
+            href={`tel:+${p.phone}`}
+            className="flex items-center gap-2 group min-w-0"
+            dir="ltr"
+          >
+            {country && (
+              <span className="text-base flex-shrink-0" title={country.nameEn}>
+                {country.flag}
+              </span>
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-900 group-hover:text-purple-700 transition-colors truncate">
+                {displayPhone}
+              </div>
+              {countryName && (
+                <div
+                  className="text-[11px] text-gray-500"
+                  dir={locale === 'he' ? 'rtl' : 'ltr'}
+                >
+                  {countryName}
+                </div>
+              )}
+            </div>
+          </a>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <a
+              href={`tel:+${p.phone}`}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+              title={t('groupguard.members.call_action')}
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('groupguard.members.call_action')}</span>
+            </a>
+            <a
+              href={`https://wa.me/${p.phone}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors"
+              title={t('groupguard.members.whatsapp_action')}
+            >
+              <MessageSquareText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('groupguard.members.whatsapp_action')}</span>
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Bio */}
@@ -798,6 +867,38 @@ function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Format a phone number for human-readable display.
+ *
+ * Israeli numbers (972 + 9 digits) get nicely grouped:
+ *   972556691165 → "+972 55-669-1165"
+ * Other countries get a simpler "+CC rest" format since we don't know their
+ * local grouping conventions:
+ *   14155551234  → "+1 4155551234"
+ *
+ * The raw digits are preserved in tel:/wa.me links — only the *display* is
+ * grouped. Returns the original with a leading "+" if no formatting matches.
+ */
+function formatPhoneForDisplay(phone: string | null | undefined): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+
+  // Israeli mobile: 972 + 5X-XXX-XXXX
+  if (digits.startsWith('972') && digits.length === 12) {
+    return `+972 ${digits.slice(3, 5)}-${digits.slice(5, 8)}-${digits.slice(8)}`;
+  }
+
+  // Best-effort generic: try to split off a 1-3 digit country code with a
+  // simple heuristic. We don't try to be clever — just give it some breathing
+  // room from the rest of the digits.
+  const cc = resolvePhoneCountry(digits);
+  if (cc) {
+    return `+${cc.code} ${digits.slice(cc.code.length)}`;
+  }
+
+  return `+${digits}`;
 }
 
 /**
