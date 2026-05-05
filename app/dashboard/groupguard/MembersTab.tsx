@@ -365,10 +365,23 @@ function ProfileCard({
   const displayName = profile.full_name || profile.display_name || `+${profile.phone}`;
   const initials = getInitials(displayName);
 
+  // The card itself is clickable (opens the detail modal), but we also want
+  // tel: and wa.me/ shortcuts inside it. <a> inside <button> is invalid HTML,
+  // so we use a div + onClick with role=button + Enter key handling instead.
+  // The two action <a>s call stopPropagation so clicking them doesn't also
+  // open the modal.
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="text-right p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all bg-white relative overflow-hidden"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="text-right p-4 border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all bg-white relative overflow-hidden cursor-pointer"
     >
       {/* Completeness ring (top corner) */}
       <CompletenessRing pct={profile.completeness_pct} />
@@ -429,24 +442,52 @@ function ProfileCard({
         </div>
       ) : null}
 
-      {/* Footer stats */}
-      <div className="flex items-center gap-3 text-[10px] text-gray-400 pt-2 border-t border-gray-100">
-        <span className="flex items-center gap-1">
-          <MessageCircle className="w-3 h-3" />
-          {profile.message_count}
-        </span>
-        <span className="flex items-center gap-1">
-          <Award className="w-3 h-3" />
-          {t('groupguard.members.groups_count', { count: profile.groups_count })}
-        </span>
-        {profile.city && (
-          <span className="flex items-center gap-1 truncate">
-            <MapPin className="w-3 h-3" />
-            {profile.city}
+      {/* Footer: stats on the start side, contact actions on the end side */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-3 text-[10px] text-gray-400 min-w-0">
+          <span className="flex items-center gap-1">
+            <MessageCircle className="w-3 h-3" />
+            {profile.message_count}
           </span>
-        )}
+          <span className="flex items-center gap-1">
+            <Award className="w-3 h-3" />
+            {t('groupguard.members.groups_count', { count: profile.groups_count })}
+          </span>
+          {profile.city && (
+            <span className="flex items-center gap-1 truncate">
+              <MapPin className="w-3 h-3" />
+              {profile.city}
+            </span>
+          )}
+        </div>
+
+        {/* Contact action buttons — stopPropagation prevents the parent card
+            click from firing, so a tap on these opens tel: / wa.me directly
+            without also bouncing into the profile modal. */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <a
+            href={`tel:+${profile.phone}`}
+            onClick={(e) => e.stopPropagation()}
+            className="w-7 h-7 grid place-items-center rounded-full bg-gray-50 hover:bg-purple-100 text-gray-600 hover:text-purple-700 transition-colors"
+            title={t('groupguard.members.call_action')}
+            aria-label={t('groupguard.members.call_action')}
+          >
+            <Phone className="w-3.5 h-3.5" />
+          </a>
+          <a
+            href={`https://wa.me/${profile.phone}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="w-7 h-7 grid place-items-center rounded-full bg-green-50 hover:bg-green-600 text-green-700 hover:text-white transition-colors"
+            title={t('groupguard.members.whatsapp_action')}
+            aria-label={t('groupguard.members.whatsapp_action')}
+          >
+            <MessageSquareText className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
