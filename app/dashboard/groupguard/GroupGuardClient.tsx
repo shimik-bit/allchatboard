@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
+import GroupReportModal from '@/components/groupguard/GroupReportModal';
 import BroadcastTab from './BroadcastTab';
 import SummarySection from './SummarySection';
 import { useT } from '@/lib/i18n/useT';
@@ -296,6 +297,7 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [scanModalGroup, setScanModalGroup] = useState<GGGroup | null>(null);
+  const [reportModalGroup, setReportModalGroup] = useState<GGGroup | null>(null);
 
   useEffect(() => {
     loadGroups();
@@ -426,6 +428,19 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Report button - per-group breakdowns by country, industry, etc */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReportModalGroup(g);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="דוח קבוצה — פילוחים לפי מדינה, מקצוע, תעשייה ועוד"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">דוח</span>
+                </button>
+
                 {/* Scan button - finds spammers in group */}
                 {g.gg_enabled && canEdit && (
                   <button
@@ -647,6 +662,18 @@ function GroupsTab({ workspaceId, canEdit }: { workspaceId: string; canEdit: boo
         <ScanGroupModal
           group={scanModalGroup}
           onClose={() => setScanModalGroup(null)}
+        />
+      )}
+
+      {/* Report modal - shown when user clicks "דוח" on a group.
+          Aggregations endpoint returns countries / professions / industries
+          / cities / languages / completeness in one round-trip; the modal
+          renders bars + a top-active leaderboard with avatars. */}
+      {reportModalGroup && (
+        <GroupReportModal
+          groupId={reportModalGroup.id}
+          groupName={reportModalGroup.group_name}
+          onClose={() => setReportModalGroup(null)}
         />
       )}
     </div>
