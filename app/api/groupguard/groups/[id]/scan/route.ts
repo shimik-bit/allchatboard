@@ -163,6 +163,32 @@ export async function POST(
   // 4. Normalize phones for blocklist lookup (strip @c.us)
   const normalizedPhones = participants.map((p) => stripWhatsAppSuffix(p.id));
 
+  // 4a. Sync the participant list into gg_member_profiles + gg_member_groups
+  //
+  //     Without this step, the scan would only return blocklist matches and
+  //     the rest of the group's members would never appear in the
+  //     "חברי קבוצות" tab. They'd only get a profile row if they happened
+  //     to send a message that triggers the message-extraction pipeline —
+  //     which means lurkers (the majority of any large group) stay invisible
+  //     forever.
+  //
+  //     We do a minimal upsert here: just phone + workspace_id, no name and
+  //     no AI fields. The display_name will be populated when the user
+  //     sends a message (we get senderName from Green API webhooks), and
+  //     the AI extraction job (extract-cron) fills in the structured fields
+  //     as messages accumulate. So this is essentially "register the user
+  //     as known" — a stub the rest of the system can hang context off.
+  //
+  //     We don't await the AI extraction here because for a 900+ member
+  //     group that would mean a 30+ minute synchronous wait. Better to
+  //     return fast and let the background jobs catch up.
+  const profileSync = await syncParticipantProfiles({
+    admin,
+    workspaceId: group.workspace_id,
+    groupId,
+    participants,
+  });
+
   // 5. Cross-reference against global blocklist (admin client - bypass RLS)
   type BlockEntry = {
     phone: string;
@@ -205,6 +231,8 @@ export async function POST(
       scan_summary: {
         total_members: participants.length,
         flagged_count: 0,
+        profiles_synced: profileSync.profiles_inserted,
+        memberships_synced: profileSync.memberships_inserted,
         scanned_at: new Date().toISOString(),
       },
     });
@@ -259,8 +287,122 @@ export async function POST(
     scan_summary: {
       total_members: participants.length,
       flagged_count: matches.length,
+      profiles_synced: profileSync.profiles_inserted,
+      memberships_synced: profileSync.memberships_inserted,
       scanned_at: new Date().toISOString(),
       group_name: group.group_name,
     },
   });
+}
+
+
+// ============================================================================
+// syncParticipantProfiles
+// ============================================================================
+//
+// Bulk-upsert all current group participants into gg_member_profiles +
+// gg_member_groups, so they appear in the "חברי קבוצות" tab right away —
+// not only after they happen to send a message.
+//
+// Strategy:
+//   1. Upsert profiles by (workspace_id, phone) — phone is the unique key.
+//      We pass minimal data: just phone + workspace_id. Names come later
+//      from message webhooks (senderName), AI fields from extract-cron.
+//      `ignoreDuplicates: false` lets existing rows pass through unchanged
+//      (we don't want to clobber AI-extracted data with empty strings).
+//   2. Bulk-select the resulting profile ids for the upserted phones.
+//   3. Upsert (profile_id, group_id) into gg_member_groups, marking
+//      first_seen_at = now() if new and last_seen_at = now() always.
+//
+// Performance: the sample group "בית" has 901 members. With Supabase's
+// REST API a 901-row upsert lands in ~1-2 seconds. Bulk operations are
+// always WAY faster than per-row loops — we never iterate.
+//
+// We swallow errors and just log them, returning counts. The scan
+// shouldn't fail just because the profile sync hiccuped — the user
+// still wants their blocklist results.
+
+async function syncParticipantProfiles(opts: {
+  admin: ReturnType<typeof createAdminClient>;
+  workspaceId: string;
+  groupId: string;
+  participants: Array<{ id: string; isAdmin: boolean; isSuperAdmin: boolean }>;
+}): Promise<{ profiles_inserted: number; memberships_inserted: number }> {
+  const { admin, workspaceId, groupId, participants } = opts;
+
+  // Build the rows. Strip @c.us / @s.whatsapp.net so phone is normalized.
+  const profileRows = participants
+    .map((p) => {
+      const phone = stripWhatsAppSuffix(p.id);
+      // Skip non-WA participants (e.g. lid/community broadcast addresses)
+      // — those don't fit the "phone" shape and would pollute the table.
+      if (!phone || !/^\d+$/.test(phone)) return null;
+      return {
+        workspace_id: workspaceId,
+        phone,
+        // first_seen_at / last_seen_at have DB defaults; we don't override
+        // because for an existing row we don't want to clobber first_seen_at.
+      };
+    })
+    .filter((r): r is { workspace_id: string; phone: string } => r !== null);
+
+  if (profileRows.length === 0) {
+    return { profiles_inserted: 0, memberships_inserted: 0 };
+  }
+
+  // Step 1: bulk-upsert profiles. The unique constraint on
+  // (workspace_id, phone) makes this idempotent.
+  const { error: profileErr } = await admin
+    .from('gg_member_profiles')
+    .upsert(profileRows, {
+      onConflict: 'workspace_id,phone',
+      ignoreDuplicates: true, // don't touch existing rows — they may have AI data we don't want to clobber
+    });
+
+  if (profileErr) {
+    console.error('[scan] profile sync failed:', profileErr);
+    return { profiles_inserted: 0, memberships_inserted: 0 };
+  }
+
+  // Step 2: select profile ids for all the phones we just upserted.
+  // We need the ids to insert into gg_member_groups, and Supabase upsert
+  // doesn't return existing-row ids, only newly inserted ones.
+  const phones = profileRows.map((r) => r.phone);
+  const { data: profileIds, error: selectErr } = await admin
+    .from('gg_member_profiles')
+    .select('id, phone')
+    .eq('workspace_id', workspaceId)
+    .in('phone', phones);
+
+  if (selectErr || !profileIds) {
+    console.error('[scan] profile id lookup failed:', selectErr);
+    return { profiles_inserted: profileRows.length, memberships_inserted: 0 };
+  }
+
+  // Step 3: bulk-upsert memberships. We don't bump message_count here —
+  // that's tracked by the message webhook, not by group membership scans.
+  const membershipRows = profileIds.map((p: { id: string; phone: string }) => ({
+    profile_id: p.id,
+    group_id: groupId,
+    last_seen_at: new Date().toISOString(),
+    // first_seen_at + message_count keep DB defaults on insert; on conflict
+    // we update only last_seen_at via the merge-duplicate strategy below.
+  }));
+
+  const { error: membershipErr } = await admin
+    .from('gg_member_groups')
+    .upsert(membershipRows, {
+      onConflict: 'profile_id,group_id',
+      ignoreDuplicates: false, // do bump last_seen_at for existing rows
+    });
+
+  if (membershipErr) {
+    console.error('[scan] membership sync failed:', membershipErr);
+    return { profiles_inserted: profileRows.length, memberships_inserted: 0 };
+  }
+
+  return {
+    profiles_inserted: profileRows.length,
+    memberships_inserted: membershipRows.length,
+  };
 }

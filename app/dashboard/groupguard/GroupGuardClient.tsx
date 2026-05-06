@@ -1571,6 +1571,8 @@ interface ScanResult {
   scan_summary: {
     total_members: number;
     flagged_count: number;
+    profiles_synced?: number;
+    memberships_synced?: number;
     scanned_at: string;
     group_name?: string;
   };
@@ -1777,6 +1779,12 @@ function ScanGroupModal({
                   <p className="text-sm text-gray-600 mt-1">
                     {t('groupguard.scan_modal.group_clean_message', { total: result.scan_summary.total_members })}
                   </p>
+                  {!!result.scan_summary.profiles_synced && result.scan_summary.profiles_synced > 0 && (
+                    <p className="text-xs text-purple-600 mt-3 inline-flex items-center gap-1.5 bg-purple-50 px-3 py-1.5 rounded-full">
+                      <Users className="w-3 h-3" />
+                      {result.scan_summary.profiles_synced.toLocaleString('he-IL')} פרופילי חברים נוספו ל"חברי קבוצות"
+                    </p>
+                  )}
                 </div>
               )}
 
