@@ -134,8 +134,47 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspace_id: workspaceId }),
       });
-      const d = await res.json();
-      if (!res.ok || !d.ok) {
+
+      // CRITICAL: don't blindly call res.json(). When the function times
+      // out (Vercel returns an HTML 504 page) or hits a 500 with a non-
+      // JSON body, res.json() throws an opaque error. In Safari/WebKit
+      // the error message is sometimes "The string did not match the
+      // expected pattern." which is useless for debugging.
+      // Strategy: if not ok, surface the status + first 200 chars of body
+      //           so we know WHAT happened. If ok, then parse JSON.
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => '(failed to read body)');
+        // Truncate so a giant HTML error page doesn't blow up the toast
+        const snippet = bodyText.slice(0, 200);
+        setAvatarResult({
+          type: 'error',
+          text: `שגיאת שרת ${res.status}: ${snippet}`,
+        });
+        return;
+      }
+
+      // Response is 200-class — try JSON parse, but in a guarded way so
+      // any parse failure surfaces with context rather than a cryptic
+      // browser-specific message.
+      let d: {
+        ok?: boolean;
+        error?: string;
+        processed?: number;
+        updated?: number;
+        no_picture?: number;
+      };
+      try {
+        d = await res.json();
+      } catch (parseErr: any) {
+        const bodyText = await res.text().catch(() => '');
+        setAvatarResult({
+          type: 'error',
+          text: `תגובה לא תקינה מהשרת: ${parseErr?.message || 'parse failed'}. תוכן: ${bodyText.slice(0, 100)}`,
+        });
+        return;
+      }
+
+      if (!d.ok) {
         setAvatarResult({
           type: 'error',
           text: d.error || 'שגיאה בטעינת תמונות פרופיל',
@@ -148,12 +187,31 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
       } else {
         setAvatarResult({
           type: 'success',
-          text: `נסרקו ${d.processed} פרופילים: ${d.updated} עם תמונה, ${d.no_picture} ללא תמונה זמינה.`,
+          text: `נסרקו ${d.processed} פרופילים: ${d.updated ?? 0} עם תמונה, ${d.no_picture ?? 0} ללא תמונה זמינה.`,
         });
-        await load();
+        // load() has its own try/catch so it can never throw out to here,
+        // but we still wrap to be defensive — a successful backfill should
+        // never look like an error to the user just because the refresh
+        // happened to hiccup.
+        try {
+          await load();
+        } catch {
+          /* refresh failure is non-fatal */
+        }
       }
     } catch (e: any) {
-      setAvatarResult({ type: 'error', text: String(e?.message || e) });
+      // Last-resort catch — only network errors should land here now since
+      // we already handled non-OK status and JSON parse failures above.
+      // Include the error name so we can tell network vs. other.
+      const errName = e?.name ? `${e.name}: ` : '';
+      setAvatarResult({
+        type: 'error',
+        text: `${errName}${e?.message || String(e)}`,
+      });
+      // Also log to console for the case where the user reports the bug
+      // and we want to see the stack trace.
+      // eslint-disable-next-line no-console
+      console.error('[avatar-backfill] click handler error:', e);
     } finally {
       setAvatarFetching(false);
       setTimeout(() => setAvatarResult(null), 6000);

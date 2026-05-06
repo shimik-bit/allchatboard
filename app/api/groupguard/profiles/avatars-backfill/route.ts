@@ -5,7 +5,7 @@ import { backfillWorkspaceAvatars } from '@/lib/groupguard/avatar-fetcher';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /**
  * POST /api/groupguard/profiles/avatars-backfill
