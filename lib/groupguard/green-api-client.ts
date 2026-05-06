@@ -258,6 +258,67 @@ export async function getAvatar(
   };
 }
 
+/**
+ * getContactInfo: Fetches both the contact's display name AND avatar URL in
+ * a single Green API call. Preferable to getAvatar() when we want the name
+ * too — saves a round-trip.
+ *
+ * The 'name' / 'contactName' fields are usually empty for arbitrary contacts
+ * (WhatsApp privacy rules — you only see saved-contact names, plus business-
+ * verified names). When empty, the caller should fall back to other sources
+ * (e.g. wa_messages.sender_name from past messages, which is the WhatsApp
+ * pushname and IS visible because it's part of every message envelope).
+ *
+ * Note: the underlying Green API also returns base64Avatar (a huge inline
+ * image blob). We DON'T parse it — it's pure waste of bytes when we already
+ * have the URL. The CDN URL is what we store and what the browser renders.
+ */
+export async function getContactInfo(
+  creds: GreenApiCredentials,
+  chatId: string,
+): Promise<
+  GreenApiResult<{
+    name: string | null;
+    contactName: string | null;
+    avatarUrl: string | null;
+    isBusiness: boolean;
+    category: string | null;
+  }>
+> {
+  const result = await greenApiPost<{
+    name?: string;
+    contactName?: string;
+    avatar?: string;
+    isBusiness?: boolean;
+    category?: string;
+  }>(creds, 'getContactInfo', { chatId });
+
+  if (!result.ok) {
+    return result as GreenApiResult<{
+      name: string | null;
+      contactName: string | null;
+      avatarUrl: string | null;
+      isBusiness: boolean;
+      category: string | null;
+    }>;
+  }
+
+  const name = result.data?.name?.trim() || null;
+  const contactName = result.data?.contactName?.trim() || null;
+  const avatarUrl = result.data?.avatar?.trim() || null;
+
+  return {
+    ok: true,
+    data: {
+      name,
+      contactName,
+      avatarUrl,
+      isBusiness: !!result.data?.isBusiness,
+      category: result.data?.category?.trim() || null,
+    },
+  };
+}
+
 
 // ============================================================================
 // Phone normalization helpers
