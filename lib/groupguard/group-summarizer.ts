@@ -26,10 +26,38 @@ import { sendMessage } from './green-api-client';
 // ============================================================================
 
 export type GroupSummary = {
-  bullets: string[];        // 5-8 bullet points
-  headline: string;         // 1-line overview
-  message_count: number;    // how many messages the AI saw
-  participant_count: number; // unique senders that day
+  /**
+   * 2-3 sentence narrative paragraph describing the overall theme/vibe/
+   * direction of the day. Sits above the bullets so a reader gets the
+   * frame before drilling into specifics. Optional — older summaries
+   * (pre-PR adding this field) won't have it, and the AI is allowed to
+   * omit it when the day was so unstructured that there's no through-line.
+   */
+  context?: string | null;
+
+  /**
+   * 6-10 single-sentence bullet points covering substantive content.
+   * Excludes pleasantries, greetings, off-topic chatter. Ordered by
+   * importance (action-required first, decisions next, discussions, etc).
+   */
+  bullets: string[];
+
+  /**
+   * Decisions or action items that came out of the conversation —
+   * 'who needs to do what next' kind of stuff. Higher-signal than
+   * regular bullets. Empty array when nothing actionable was discussed.
+   * Often empty for casual social groups.
+   */
+  key_decisions?: string[];
+
+  /** 1-line overview of the day's main theme. */
+  headline: string;
+
+  /** How many messages the AI saw. */
+  message_count: number;
+
+  /** Unique senders that day. */
+  participant_count: number;
 };
 
 export type SummarizeResult = {
@@ -211,7 +239,9 @@ export async function summarizeGroup(
         workspace_id: group.workspace_id,
         group_id: groupId,
         summary_date: summaryDate,
+        context: summary.context ?? null,
         bullets: summary.bullets,
+        key_decisions: summary.key_decisions ?? null,
         headline: summary.headline,
         message_count: summary.message_count,
         participant_count: summary.participant_count,
@@ -303,24 +333,26 @@ async function callOpenAISummary(
     return null;
   }
 
-  const systemPrompt = `אתה מסכם פעילות יומית של קבוצת WhatsApp ברורות ובתמציתיות.
+  const systemPrompt = `אתה מסכם פעילות יומית של קבוצת WhatsApp עבור מישהו שלא קרא את הקבוצה כל היום.
 
-המטרה: לעזור למישהו שלא קרא את הקבוצה כל היום להתעדכן תוך 30 שניות.
+המטרה: לתת לקורא הקשר רחב + מידע מדויק תוך 60 שניות.
 
 כללים:
 1. החזר JSON בלבד - אין preamble או הסבר.
 2. כתוב בעברית, גוף שלישי.
-3. 5-8 נקודות מפתח. נקודה = משפט אחד ברור.
-4. סדר חשיבות: נושאים שדורשים פעולה > החלטות > דיונים מהותיים > הכרזות > שיחת חולין.
-5. אל תכלול ברכות ("בוקר טוב"), שיחות חולין, או הודעות אקראיות בלי תוכן.
-6. אם מישהו ספציפי ביקש משהו או הציג שאלה חשובה - ציין את שמו.
-7. הכותרת (headline) - משפט אחד שמסכם את היום.
-8. אסור להמציא. אם משהו לא הוזכר - אל תכלול אותו.
+3. 'context' - פסקה של 2-3 משפטים שמתארת את האווירה הכללית של היום, על מה דובר באופן כללי, מה היה המצב. זה הפריים — מה שהקורא יקרא קודם לפני הנקודות. אם אין באמת אווירה ספציפית (יום שקט, סתם שיחת חולין), אפשר להחזיר string ריק.
+4. 'bullets' - 6-10 נקודות מפתח. נקודה = משפט אחד ברור. סדר חשיבות: נושאים שדורשים פעולה > החלטות > דיונים מהותיים > הכרזות > שיחת חולין. אל תכלול ברכות, שיחות חולין, או הודעות אקראיות בלי תוכן.
+5. 'key_decisions' - מערך של החלטות או משימות שהוסכמו ("X יעשה Y", "החלטנו ש-Z"). אם אין החלטות, החזר מערך ריק [].
+6. אם מישהו ספציפי ביקש משהו, הציג שאלה חשובה, או הביע עמדה — ציין את שמו.
+7. הכותרת (headline) - משפט אחד שמסכם את היום בקליפת אגוז.
+8. אסור להמציא. אם משהו לא הוזכר - אל תכלול אותו. אם 'context' או 'key_decisions' לא רלוונטיים — תחזיר string ריק / מערך ריק.
 
 החזר אובייקט JSON עם המבנה:
 {
+  "context": "פסקה של 2-3 משפטים על האווירה והנושאים הכלליים, או string ריק.",
   "headline": "משפט אחד שמסכם את היום",
-  "bullets": ["נקודה 1", "נקודה 2", "נקודה 3"]
+  "bullets": ["נקודה 1", "נקודה 2", "נקודה 3"],
+  "key_decisions": ["החלטה/משימה 1", "החלטה/משימה 2"]
 }`;
 
   const userPrompt = `קבוצה: ${groupName}
@@ -347,7 +379,7 @@ ${conversationText}
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 800,
+        max_tokens: 1400,
         response_format: { type: 'json_object' },
       }),
     });
@@ -384,7 +416,7 @@ function parseSummary(
         .filter((b: unknown) => typeof b === 'string')
         .map((b: string) => b.trim())
         .filter((b: string) => b.length > 0 && b.length <= 300)
-        .slice(0, 8)
+        .slice(0, 10)
       : [];
 
     if (bullets.length === 0) {
@@ -392,9 +424,26 @@ function parseSummary(
       return null;
     }
 
+    // Optional new fields. The AI is allowed to return empty strings /
+    // arrays when nothing applies — we accept that and don't fail. Length
+    // caps protect against runaway output blowing up the UI.
+    const context = typeof parsed.context === 'string'
+      ? parsed.context.trim().substring(0, 800)
+      : '';
+
+    const key_decisions = Array.isArray(parsed.key_decisions)
+      ? parsed.key_decisions
+        .filter((d: unknown) => typeof d === 'string')
+        .map((d: string) => d.trim())
+        .filter((d: string) => d.length > 0 && d.length <= 300)
+        .slice(0, 8)
+      : [];
+
     return {
+      context: context || null,
       headline,
       bullets,
+      key_decisions: key_decisions.length > 0 ? key_decisions : undefined,
       message_count: messageCount,
       participant_count: participantCount,
     };

@@ -24,6 +24,13 @@ export type SummaryItem = {
   summary_date: string;       // YYYY-MM-DD
   headline: string | null;
   bullets: string[];
+  /** 2-3 sentence narrative paragraph — null on older summaries that
+   *  predate this field, or when the AI judged there was no overall
+   *  theme worth narrating. */
+  context: string | null;
+  /** Decisions / action items from the conversation — null when nothing
+   *  decision-worthy came up that day. */
+  key_decisions: string[] | null;
   message_count: number;
   participant_count: number;
   triggered_by: 'manual' | 'auto' | 'backfill';
@@ -367,7 +374,18 @@ export default function SummarySection({
                   </button>
 
                   {expanded && (
-                    <div className="px-3 pb-3 pt-2 border-t border-gray-100 bg-gray-50/50">
+                    <div className="px-3 pb-3 pt-2 border-t border-gray-100 bg-gray-50/50 space-y-3">
+                      {/* Narrative context paragraph — sits ABOVE the bullets
+                          to give the reader a frame before they drill into
+                          specifics. Hidden when missing (older summaries
+                          or days where the AI judged there's no theme). */}
+                      {s.context && (
+                        <div className="text-xs text-gray-700 leading-relaxed bg-white rounded p-2 border border-purple-100">
+                          {s.context}
+                        </div>
+                      )}
+
+                      {/* Bullet list — substantive points sorted by importance */}
                       <ul className="space-y-1.5">
                         {s.bullets.map((b, i) => (
                           <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
@@ -376,6 +394,26 @@ export default function SummarySection({
                           </li>
                         ))}
                       </ul>
+
+                      {/* Key decisions / action items — separate section so
+                          they stand out from regular bullets. Often empty
+                          for casual social groups. */}
+                      {s.key_decisions && s.key_decisions.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded p-2">
+                          <div className="text-[11px] font-bold text-amber-900 mb-1 flex items-center gap-1">
+                            ✓ החלטות / משימות
+                          </div>
+                          <ul className="space-y-1">
+                            {s.key_decisions.map((d, i) => (
+                              <li key={i} className="flex items-start gap-2 text-xs text-amber-900">
+                                <span className="flex-shrink-0">→</span>
+                                <span>{d}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
                       {s.whatsapp_send_error && (
                         <div className="mt-2 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-1.5">
                           {t('groupguard.summary.send_error')}: {s.whatsapp_send_error}

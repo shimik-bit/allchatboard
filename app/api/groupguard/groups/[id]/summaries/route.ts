@@ -28,7 +28,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('gg_group_summaries')
     .select(`
-      id, summary_date, headline, bullets,
+      id, summary_date, headline, bullets, context, key_decisions,
       message_count, participant_count,
       triggered_by, whatsapp_sent_at, whatsapp_send_error,
       created_at

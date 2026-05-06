@@ -10,8 +10,10 @@ import {
   Calendar,
   PieChart,
   BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
+import DailyDigest from './DailyDigest';
 
 // ============================================================================
 // Types
@@ -51,6 +53,7 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddSpammerModal, setShowAddSpammerModal] = useState(false);
+  const [showDigest, setShowDigest] = useState(false);
 
   // Translation maps - need to be inside component to use t()
   const sourceLabels: Record<string, string> = {
@@ -116,6 +119,20 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
           {t('groupguard.dashboard.time_range') || 'Time range:'}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* "What did I miss today" digest — opens a modal that lists all
+              groups in the workspace with today's summary inline. Lets the
+              user catch up on multiple groups in one screen instead of
+              clicking into each group's settings panel. Purple to match
+              the AI/sparkle visual language used elsewhere for summaries. */}
+          <button
+            onClick={() => setShowDigest(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-medium transition-colors"
+            title="ראה סיכום של כל הקבוצות ליום הזה במבט אחד"
+          >
+            <Sparkles className="w-4 h-4" />
+            מה פספתי היום
+          </button>
+
           {/* Manual add to spammer list. Sits next to the time range so it
               feels like part of the dashboard's main controls. Opens a small
               modal — kept inline in this file rather than a separate
@@ -146,6 +163,14 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Daily digest modal */}
+      {showDigest && (
+        <DailyDigest
+          workspaceId={workspaceId}
+          onClose={() => setShowDigest(false)}
+        />
+      )}
 
       {/* Manual spammer add modal */}
       {showAddSpammerModal && (
