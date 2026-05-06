@@ -56,26 +56,24 @@ export async function POST(
   //    where users with valid membership were still denied due to
   //    cross-workspace context issues.
   //
-  //    NOTE: whatsapp_groups has TWO FKs to workspaces:
-  //      - workspace_id → workspaces.id (the owning workspace)
-  //      - target_workspace_id → workspaces.id (where to route messages)
-  //    We MUST disambiguate the join with the FK name, otherwise
-  //    PostgREST throws "could not embed because more than one relationship
-  //    was found" and the whole query fails — which the caller sees as
-  //    a misleading "Group not found" 404 error.
+  // 2. Load the group + workspace credentials using admin client (bypass RLS).
+  //    We do explicit permission check below — RLS was causing edge cases
+  //    where users with valid membership were still denied due to
+  //    cross-workspace context issues.
+  //
+  //    Earlier attempt used a PostgREST embed:
+  //      .select('id, ..., workspaces!whatsapp_groups_workspace_id_fkey!inner(...)')
+  //    But the double-hint syntax (FK name + !inner) appears to not work
+  //    reliably in our PostgREST version — the query keeps coming back
+  //    with no rows even though the data exists, surfacing as a misleading
+  //    'Group not found' 404 to the user.
+  //
+  //    Switched to two simple sequential queries. Slightly more code, but
+  //    each query is unambiguous and any future schema change (more FKs
+  //    on whatsapp_groups, RLS policy edits, etc.) won't silently break it.
   const { data: group, error: groupErr } = await admin
     .from('whatsapp_groups')
-    .select(`
-      id,
-      workspace_id,
-      green_api_chat_id,
-      group_name,
-      workspaces!whatsapp_groups_workspace_id_fkey!inner (
-        id,
-        whatsapp_instance_id,
-        whatsapp_token
-      )
-    `)
+    .select('id, workspace_id, green_api_chat_id, group_name')
     .eq('id', groupId)
     .maybeSingle();
 
@@ -89,6 +87,19 @@ export async function POST(
         groupErr: groupErr?.message ?? null,
       },
     }, { status: 404 });
+  }
+
+  const { data: workspace, error: wsErr } = await admin
+    .from('workspaces')
+    .select('id, whatsapp_instance_id, whatsapp_token')
+    .eq('id', group.workspace_id)
+    .maybeSingle();
+
+  if (wsErr || !workspace) {
+    return NextResponse.json({
+      error: 'Workspace not found for this group',
+      _debug: { groupId, workspaceId: group.workspace_id, wsErr: wsErr?.message ?? null },
+    }, { status: 500 });
   }
 
   // 3. Explicit membership check (replaces RLS protection)
@@ -114,11 +125,7 @@ export async function POST(
     }, { status: 403 });
   }
 
-  const workspace = Array.isArray(group.workspaces)
-    ? group.workspaces[0]
-    : group.workspaces;
-
-  if (!workspace?.whatsapp_instance_id || !workspace?.whatsapp_token) {
+  if (!workspace.whatsapp_instance_id || !workspace.whatsapp_token) {
     return NextResponse.json(
       { error: 'WhatsApp not connected for this workspace' },
       { status: 400 },
