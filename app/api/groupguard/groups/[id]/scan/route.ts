@@ -55,6 +55,14 @@ export async function POST(
   //    We do explicit permission check below — RLS was causing edge cases
   //    where users with valid membership were still denied due to
   //    cross-workspace context issues.
+  //
+  //    NOTE: whatsapp_groups has TWO FKs to workspaces:
+  //      - workspace_id → workspaces.id (the owning workspace)
+  //      - target_workspace_id → workspaces.id (where to route messages)
+  //    We MUST disambiguate the join with the FK name, otherwise
+  //    PostgREST throws "could not embed because more than one relationship
+  //    was found" and the whole query fails — which the caller sees as
+  //    a misleading "Group not found" 404 error.
   const { data: group, error: groupErr } = await admin
     .from('whatsapp_groups')
     .select(`
@@ -62,7 +70,7 @@ export async function POST(
       workspace_id,
       green_api_chat_id,
       group_name,
-      workspaces!inner (
+      workspaces!whatsapp_groups_workspace_id_fkey!inner (
         id,
         whatsapp_instance_id,
         whatsapp_token

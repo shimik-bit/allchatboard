@@ -57,6 +57,10 @@ export async function POST(
   }
 
   // 3. Load group + workspace
+  // NOTE: whatsapp_groups has TWO FKs to workspaces (workspace_id and
+  // target_workspace_id) — must disambiguate via the FK name or PostgREST
+  // throws an embedding error and the user sees a misleading
+  // "Group not found" 404. Same fix as in groups/[id]/scan/route.ts.
   const { data: group, error: groupErr } = await supabase
     .from('whatsapp_groups')
     .select(`
@@ -65,7 +69,7 @@ export async function POST(
       green_api_chat_id,
       group_name,
       gg_is_admin,
-      workspaces!inner (
+      workspaces!whatsapp_groups_workspace_id_fkey!inner (
         id,
         whatsapp_instance_id,
         whatsapp_token
