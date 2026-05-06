@@ -228,8 +228,40 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspace_id: workspaceId }),
       });
-      const d = await res.json();
-      if (!res.ok || !d.ok) {
+
+      // Same defensive pattern as handleAvatarBackfill — rescan calls
+      // OpenAI per profile, which is slow, and Vercel/Safari can return a
+      // non-JSON error page that breaks res.json() with the cryptic
+      // "The string did not match the expected pattern." Safari error.
+      // Surface non-OK responses with status + body snippet instead.
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => '(failed to read body)');
+        const snippet = bodyText.slice(0, 200);
+        setRescanResult({
+          type: 'error',
+          text: `שגיאת שרת ${res.status}: ${snippet}`,
+        });
+        return;
+      }
+
+      let d: {
+        ok?: boolean;
+        error?: string;
+        processed?: number;
+        updated?: number;
+      };
+      try {
+        d = await res.json();
+      } catch (parseErr: any) {
+        const bodyText = await res.text().catch(() => '');
+        setRescanResult({
+          type: 'error',
+          text: `תגובה לא תקינה מהשרת: ${parseErr?.message || 'parse failed'}. תוכן: ${bodyText.slice(0, 100)}`,
+        });
+        return;
+      }
+
+      if (!d.ok) {
         setRescanResult({
           type: 'error',
           text: d.error || t('groupguard.members.rescan_error'),
@@ -244,17 +276,28 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         setRescanResult({
           type: 'success',
           text: t('groupguard.members.rescan_done', {
-            processed: d.processed,
-            updated: d.updated,
+            processed: d.processed ?? 0,
+            updated: d.updated ?? 0,
           }),
         });
-        // Refresh the grid to show the newly-extracted fields
-        await load();
+        // Refresh the grid to show the newly-extracted fields. Wrapped to
+        // be defensive — a successful rescan shouldn't look like an error
+        // just because the refresh hiccupped.
+        try {
+          await load();
+        } catch {
+          /* refresh failure is non-fatal */
+        }
       }
     } catch (e: any) {
+      // Last-resort catch — network errors only at this point. Include
+      // error name for distinguishability and console-log the raw object.
+      // eslint-disable-next-line no-console
+      console.error('[rescan] click handler error:', e);
+      const errName = e?.name ? `${e.name}: ` : '';
       setRescanResult({
         type: 'error',
-        text: String(e?.message || e),
+        text: `${errName}${e?.message || String(e)}`,
       });
     } finally {
       setRescanning(false);
