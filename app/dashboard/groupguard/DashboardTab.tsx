@@ -11,9 +11,11 @@ import {
   PieChart,
   BarChart3,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
 import DailyDigest from './DailyDigest';
+import BlocklistLookupModal from './BlocklistLookupModal';
 
 // ============================================================================
 // Types
@@ -54,6 +56,7 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [showAddSpammerModal, setShowAddSpammerModal] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
+  const [showLookup, setShowLookup] = useState(false);
 
   // Translation maps - need to be inside component to use t()
   const sourceLabels: Record<string, string> = {
@@ -119,6 +122,20 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
           {t('groupguard.dashboard.time_range') || 'Time range:'}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Lookup phone in the global blocklist + workspace history.
+              Sits FIRST in the toolbar — most-used action when an admin
+              wonders "is this person already flagged?" or "did we kick
+              them before?". Blue/neutral styling to distinguish it from
+              the action buttons (purple = AI, red = destructive). */}
+          <button
+            onClick={() => setShowLookup(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+            title="חפש מספר במאגר הספאמרים ובהיסטוריית הקבוצות"
+          >
+            <Search className="w-4 h-4" />
+            חיפוש מספר
+          </button>
+
           {/* "What did I miss today" digest — opens a modal that lists all
               groups in the workspace with today's summary inline. Lets the
               user catch up on multiple groups in one screen instead of
@@ -163,6 +180,20 @@ export default function DashboardTab({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Lookup modal */}
+      {showLookup && (
+        <BlocklistLookupModal
+          workspaceId={workspaceId}
+          onClose={() => setShowLookup(false)}
+          onAddedSpammer={() => {
+            // After a successful "add to blocklist" inside the lookup
+            // modal, refresh the dashboard so any subsequent actions
+            // get reflected in the charts.
+            load();
+          }}
+        />
+      )}
 
       {/* Daily digest modal */}
       {showDigest && (
