@@ -105,14 +105,19 @@ export async function POST(req: NextRequest) {
   // expression in PostgREST.
   const { data: existing } = await admin
     .from('gg_global_blocklist')
-    .select('id, report_count, notes, is_confirmed')
+    .select('id, report_count, notes, is_confirmed, added_manually_at')
     .eq('phone', phone)
     .maybeSingle();
 
   const nowIso = new Date().toISOString();
 
   if (existing) {
-    // Bump the counter, reaffirm confirmation, prepend the new note
+    // Bump the counter, reaffirm confirmation, prepend the new note. Also
+    // mark this entry as manually-added (even if it was originally
+    // auto-detected — a manual confirmation by a workspace member is a
+    // stronger signal than the auto-detection alone). We keep the email
+    // snapshot of the latest manual adder; first manual_at is preserved
+    // if already set.
     const mergedNotes = existing.notes
       ? `${newNote}\n${existing.notes}`
       : newNote;
@@ -125,6 +130,12 @@ export async function POST(req: NextRequest) {
         is_confirmed: true,
         notes: mergedNotes,
         reason_summary: body.reason || null,
+        added_manually: true,
+        added_manually_by: user.id,
+        added_manually_by_email: user.email || null,
+        // If never set before, stamp now. If already set (someone else
+        // added manually previously), keep the older timestamp.
+        ...(existing.added_manually_at ? {} : { added_manually_at: nowIso }),
         updated_at: nowIso,
       })
       .eq('id', existing.id);
@@ -159,6 +170,10 @@ export async function POST(req: NextRequest) {
     is_confirmed: true,
     confirmed_at: nowIso,
     notes: newNote,
+    added_manually: true,
+    added_manually_by: user.id,
+    added_manually_by_email: user.email || null,
+    added_manually_at: nowIso,
   });
 
   if (insertErr) {

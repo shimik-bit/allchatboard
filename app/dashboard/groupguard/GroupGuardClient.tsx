@@ -103,6 +103,15 @@ type LogEntry = {
   was_successful: boolean;
   error_message: string | null;
   created_at: string;
+  // Only populated when trigger_source === 'global_blocklist'. Indicates
+  // whether the blocklist entry came from a manual add (and by whom),
+  // vs. auto-detection. Lets the UI label kicks accordingly so admins
+  // know what kind of decision they're looking at.
+  blocklist_meta: {
+    added_manually: boolean;
+    added_manually_by_email: string | null;
+    added_manually_at: string | null;
+  } | null;
 };
 
 type Summary = {
@@ -1350,6 +1359,32 @@ function LogRow({ entry }: { entry: LogEntry }) {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-0.5">
           <span>{sourceLabels[entry.trigger_source] || entry.trigger_source}</span>
+          {/* Manual-add badge: when the kick came from a manually-added
+              blocklist entry, surface that fact + who added it. The
+              detection-pipeline path is the same regardless ('global_blocklist'),
+              but the user mental model differs ('I/my teammate flagged this'
+              vs 'the bot auto-detected'). Skipping when added_manually is
+              false — auto-detected entries don't need the badge. */}
+          {entry.blocklist_meta?.added_manually && (
+            <>
+              <span>•</span>
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-700 rounded text-[10px] font-medium border border-red-100"
+                title={
+                  entry.blocklist_meta.added_manually_by_email
+                    ? `הוכנס ידנית ע"י ${entry.blocklist_meta.added_manually_by_email}`
+                    : 'הוכנס ידנית למאגר'
+                }
+              >
+                ✋ הוכנס ידנית
+                {entry.blocklist_meta.added_manually_by_email && (
+                  <span className="opacity-75">
+                    ע"י {entry.blocklist_meta.added_manually_by_email.split('@')[0]}
+                  </span>
+                )}
+              </span>
+            </>
+          )}
           <span>•</span>
           <span>{new Date(entry.created_at).toLocaleString(locale === 'he' ? 'he-IL' : 'en-US')}</span>
           {entry.error_message && (
