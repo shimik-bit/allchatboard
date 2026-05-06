@@ -141,12 +141,23 @@ export default function SummarySection({
           text: d.error || t('groupguard.summary.run_failed'),
         });
       } else if (d.skipped) {
-        // Friendly mapping of skip reasons
+        // Friendly mapping of skip reasons. For 'too_few_messages' we now
+        // include the actual counts (text_messages / total_messages /
+        // min_required) so users know exactly why their group with N msgs
+        // didn't get summarized — e.g. "you have 4 text messages out of 13
+        // total, need at least 3" reveals that 9 messages were system
+        // events (joins/leaves) or media without captions.
         const skipText =
           d.reason === 'no_messages'
-            ? t('groupguard.summary.skip_no_messages')
+            ? t('groupguard.summary.skip_no_messages', {
+                total: d.total_messages ?? 0,
+              })
             : d.reason === 'too_few_messages'
-              ? t('groupguard.summary.skip_too_few')
+              ? t('groupguard.summary.skip_too_few', {
+                  text: d.text_messages ?? 0,
+                  total: d.total_messages ?? 0,
+                  min: d.min_required ?? 3,
+                })
               : t('groupguard.summary.skip_already');
         setRunResult({ type: 'info', text: skipText });
       } else {
