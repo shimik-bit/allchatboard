@@ -58,6 +58,7 @@ export default function InstancesManager({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCloudCreateModal, setShowCloudCreateModal] = useState(false);
   const [partnerTokenAvailable, setPartnerTokenAvailable] = useState(false);
   const [qrInstance, setQrInstance] = useState<Instance | null>(null);
 
@@ -102,13 +103,23 @@ export default function InstancesManager({
           </p>
         </div>
         {canEdit && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            חבר WhatsApp חדש
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCloudCreateModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-bold transition-colors"
+              title="חיבור Meta WhatsApp Cloud API (1:1, ללא קבוצות)"
+            >
+              <span>☁️</span>
+              <span className="hidden sm:inline">Meta Cloud</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              חבר WhatsApp חדש
+            </button>
+          </div>
         )}
       </div>
 
@@ -165,6 +176,18 @@ export default function InstancesManager({
             if (instance.state !== 'authorized') {
               setQrInstance(instance);
             }
+          }}
+        />
+      )}
+
+      {/* Cloud API create modal */}
+      {showCloudCreateModal && (
+        <CreateCloudInstanceModal
+          workspaceId={workspaceId}
+          onClose={() => setShowCloudCreateModal(false)}
+          onSuccess={() => {
+            setShowCloudCreateModal(false);
+            loadInstances();
           }}
         />
       )}
@@ -918,6 +941,360 @@ function QrScanModal({
             <p>2. תפריט (3 נקודות) → מכשירים מקושרים</p>
             <p>3. לחץ "קישור מכשיר"</p>
             <p>4. סרוק את ה-QR למעלה</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// CreateCloudInstanceModal
+// ============================================================================
+//
+// Form-based connection flow for Meta WhatsApp Cloud API. Unlike Green API
+// (where we either auto-provision or take instance_id+token from a user
+// who already created the instance themselves), Cloud API needs four
+// pieces of info that the user has to grab from their Meta Developer
+// dashboard. We can't QR-scan our way out of it.
+//
+// Verification happens server-side: POST /api/instances/cloud calls
+// Meta's Graph API to validate the creds before saving anything.
+// On success we get back the webhook URL + verify token the user has
+// to paste into their Meta app's webhook settings — we display these
+// prominently as the post-creation step.
+
+function CreateCloudInstanceModal({
+  workspaceId,
+  onClose,
+  onSuccess,
+}: {
+  workspaceId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [phase, setPhase] = useState<'form' | 'success'>('form');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [displayName, setDisplayName] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const [businessAccountId, setBusinessAccountId] = useState('');
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+
+  const [setupResult, setSetupResult] = useState<{
+    webhook_url: string;
+    webhook_verify_token: string;
+    phone: { display_phone_number: string; verified_name: string; quality_rating?: string };
+  } | null>(null);
+
+  const [copied, setCopied] = useState<'url' | 'token' | null>(null);
+
+  function copy(text: string, key: 'url' | 'token') {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleSubmit() {
+    if (!displayName.trim() || !phoneNumberId.trim() || !accessToken.trim()) {
+      setError('שם תצוגה, Phone Number ID ו-Access Token הם שדות חובה');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/instances/cloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_id: workspaceId,
+          display_name: displayName.trim(),
+          phone_number_id: phoneNumberId.trim(),
+          access_token: accessToken.trim(),
+          business_account_id: businessAccountId.trim() || undefined,
+          app_id: appId.trim() || undefined,
+          app_secret: appSecret.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || data.detail || 'שגיאה ביצירת instance');
+        setBusy(false);
+        return;
+      }
+      setSetupResult({
+        webhook_url: data.setup.webhook_url,
+        webhook_verify_token: data.setup.webhook_verify_token,
+        phone: data.phone,
+      });
+      setPhase('success');
+    } catch (err: any) {
+      setError(err.message || 'שגיאה ברשת');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4"
+      onClick={phase === 'success' ? undefined : onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="font-display font-bold text-xl flex items-center gap-2">
+              <span className="text-2xl">☁️</span>
+              חיבור Meta Cloud API
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              שיחות 1:1 בלבד · ללא קבוצות · תומך SLA רשמי של Meta
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {phase === 'form' && (
+          <>
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
+              <p className="font-bold mb-1">לפני שמתחילים:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>
+                  צור אפליקציה ב-
+                  <a
+                    href="https://developers.facebook.com/apps"
+                    target="_blank"
+                    rel="noopener"
+                    className="underline font-bold"
+                  >
+                    Meta for Developers
+                  </a>
+                </li>
+                <li>הוסף את מוצר WhatsApp ועבר Business Verification</li>
+                <li>קבל Phone Number ID + Access Token (מומלץ System User token)</li>
+              </ol>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  שם תצוגה <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="WhatsApp עסקי - שירות לקוחות"
+                  className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Phone Number ID <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={phoneNumberId}
+                  onChange={(e) => setPhoneNumberId(e.target.value)}
+                  placeholder="123456789012345"
+                  dir="ltr"
+                  className="w-full text-sm p-2 border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  ה-ID של מספר ה-WhatsApp העסקי שלך ב-Meta (לא הטלפון עצמו)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Access Token <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder="EAAI..."
+                  dir="ltr"
+                  className="w-full text-sm p-2 border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  System User access token (מומלץ - פג רק במקרה של ביטול ידני)
+                </p>
+              </div>
+
+              <details className="text-xs">
+                <summary className="cursor-pointer font-bold text-gray-700">
+                  שדות אופציונליים (מומלצים)
+                </summary>
+                <div className="mt-2 space-y-2 pl-4 border-l-2 border-gray-100">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                      WhatsApp Business Account ID
+                    </label>
+                    <input
+                      type="text"
+                      value={businessAccountId}
+                      onChange={(e) => setBusinessAccountId(e.target.value)}
+                      dir="ltr"
+                      className="w-full text-sm p-2 border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                      App ID
+                    </label>
+                    <input
+                      type="text"
+                      value={appId}
+                      onChange={(e) => setAppId(e.target.value)}
+                      dir="ltr"
+                      className="w-full text-sm p-2 border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                      App Secret <span className="text-blue-600">(מומלץ - לאימות חתימת webhooks)</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={appSecret}
+                      onChange={(e) => setAppSecret(e.target.value)}
+                      dir="ltr"
+                      className="w-full text-sm p-2 border border-gray-300 rounded-lg font-mono"
+                    />
+                  </div>
+                </div>
+              </details>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-800">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={onClose}
+                  disabled={busy}
+                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-50"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={busy}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" /> מאמת...
+                    </>
+                  ) : (
+                    'חבר ואמת'
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {phase === 'success' && setupResult && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-green-900">המספר אומת בהצלחה</p>
+                  <p className="text-xs text-green-800 mt-1" dir="ltr">
+                    {setupResult.phone.display_phone_number} ·{' '}
+                    {setupResult.phone.verified_name}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="font-bold text-sm mb-2">⚠️ שלב אחרון: הגדרת webhook ב-Meta</p>
+              <p className="text-xs text-gray-600 mb-3">
+                לך ל-Meta App → WhatsApp → Configuration והדבק:
+              </p>
+
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                    Callback URL
+                  </label>
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <code
+                      dir="ltr"
+                      className="text-[10px] flex-1 truncate font-mono text-gray-800"
+                    >
+                      {setupResult.webhook_url}
+                    </code>
+                    <button
+                      onClick={() => copy(setupResult.webhook_url, 'url')}
+                      className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                        copied === 'url'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {copied === 'url' ? '✓ הועתק' : 'העתק'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                    Verify Token
+                  </label>
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <code
+                      dir="ltr"
+                      className="text-[10px] flex-1 truncate font-mono text-gray-800"
+                    >
+                      {setupResult.webhook_verify_token}
+                    </code>
+                    <button
+                      onClick={() => copy(setupResult.webhook_verify_token, 'token')}
+                      className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                        copied === 'token'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {copied === 'token' ? '✓ הועתק' : 'העתק'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900">
+                  אחרי הוספת ה-webhook, סמן Subscribe על:{' '}
+                  <strong>messages</strong>, <strong>message_status_updates</strong>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={onSuccess}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+            >
+              סיימתי ✓
+            </button>
           </div>
         )}
       </div>
