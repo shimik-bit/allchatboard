@@ -10,7 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAvatar } from './green-api-client';
+import { fetchAndStoreAvatar } from './avatar-fetcher';
 
 // ============================================================================
 // Types
@@ -139,59 +139,6 @@ export async function extractProfileForMember(
   });
 
   return true;
-}
-
-
-// ============================================================================
-// Avatar fetch — pulls the user's WhatsApp profile picture URL via Green API
-// ============================================================================
-
-const AVATAR_REFRESH_DAYS = 7;
-
-async function fetchAndStoreAvatar(
-  supabase: SupabaseClient,
-  profile: { id: string; phone: string; workspace_id: string; avatar_fetched_at: string | null },
-): Promise<void> {
-  // Throttle: skip if we fetched within the last week. WhatsApp avatar URLs
-  // change rarely; weekly is plenty fresh and saves Green API quota.
-  if (profile.avatar_fetched_at) {
-    const daysSince =
-      (Date.now() - new Date(profile.avatar_fetched_at).getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSince < AVATAR_REFRESH_DAYS) return;
-  }
-
-  // Get workspace credentials. We could pass these in, but reading them here
-  // keeps the extractor's signature small and means avatar fetch is fully
-  // optional — if creds are missing we just skip.
-  const { data: workspace } = await supabase
-    .from('workspaces')
-    .select('whatsapp_instance_id, whatsapp_token')
-    .eq('id', profile.workspace_id)
-    .single();
-
-  if (!workspace?.whatsapp_instance_id || !workspace?.whatsapp_token) {
-    return;
-  }
-
-  // chatId for individual contacts is "<phone>@c.us"
-  const chatId = profile.phone.includes('@') ? profile.phone : `${profile.phone}@c.us`;
-
-  const result = await getAvatar(
-    { instanceId: workspace.whatsapp_instance_id, apiToken: workspace.whatsapp_token },
-    chatId,
-  );
-
-  // Always update avatar_fetched_at, even when avatar isn't available, so the
-  // weekly throttle prevents repeated lookups for users with no public avatar.
-  const update: { avatar_fetched_at: string; avatar_url?: string | null } = {
-    avatar_fetched_at: new Date().toISOString(),
-  };
-
-  if (result.ok && result.data) {
-    update.avatar_url = result.data.urlAvatar; // may be null when "available:false"
-  }
-
-  await supabase.from('gg_member_profiles').update(update).eq('id', profile.id);
 }
 
 
