@@ -37,6 +37,12 @@
     },
     "app/api/whatsapp/recover-cron/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/groupguard/profiles/avatars-backfill/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/groupguard/profiles/avatars-backfill-cron/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -59,6 +65,10 @@
     {
       "path": "/api/whatsapp/recover-cron",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/groupguard/profiles/avatars-backfill-cron",
+      "schedule": "30 3 * * *"
     }
   ]
 }

@@ -115,6 +115,51 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
     text: string;
   } | null>(null);
 
+  // Avatar backfill state — kept separate from rescan state because they're
+  // independent operations (avatars don't need AI; AI doesn't need avatars).
+  // Toast auto-dismisses on the same 6-second timer.
+  const [avatarFetching, setAvatarFetching] = useState(false);
+  const [avatarResult, setAvatarResult] = useState<{
+    type: 'success' | 'info' | 'error';
+    text: string;
+  } | null>(null);
+
+  async function handleAvatarBackfill() {
+    if (avatarFetching) return;
+    setAvatarFetching(true);
+    setAvatarResult(null);
+    try {
+      const res = await fetch('/api/groupguard/profiles/avatars-backfill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) {
+        setAvatarResult({
+          type: 'error',
+          text: d.error || 'שגיאה בטעינת תמונות פרופיל',
+        });
+      } else if (d.processed === 0) {
+        setAvatarResult({
+          type: 'info',
+          text: 'אין פרופילים שדורשים טעינת תמונה. כל התמונות עודכנו ב-7 הימים האחרונים.',
+        });
+      } else {
+        setAvatarResult({
+          type: 'success',
+          text: `נסרקו ${d.processed} פרופילים: ${d.updated} עם תמונה, ${d.no_picture} ללא תמונה זמינה.`,
+        });
+        await load();
+      }
+    } catch (e: any) {
+      setAvatarResult({ type: 'error', text: String(e?.message || e) });
+    } finally {
+      setAvatarFetching(false);
+      setTimeout(() => setAvatarResult(null), 6000);
+    }
+  }
+
   async function handleRescan() {
     if (rescanning) return;
     setRescanning(true);
@@ -314,6 +359,20 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
             ? t('groupguard.members.rescan_running')
             : t('groupguard.members.rescan_button')}
         </button>
+
+        {/* Avatar backfill — fetches WhatsApp profile pics for members who
+            don't have one yet. Independent of AI extraction (some workspaces
+            have hundreds of members but few text messages, so AI extraction
+            never runs on them; their avatars used to stay empty forever). */}
+        <button
+          onClick={handleAvatarBackfill}
+          disabled={avatarFetching}
+          className="flex items-center gap-1.5 px-3 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="טוען תמונות פרופיל מ-WhatsApp עבור חברים שעדיין אין להם תמונה"
+        >
+          <User className={`w-4 h-4 ${avatarFetching ? 'animate-pulse' : ''}`} />
+          {avatarFetching ? 'טוען תמונות...' : 'טען תמונות פרופיל'}
+        </button>
       </div>
 
       {/* Rescan result toast — shown briefly after a manual scan finishes. */}
@@ -328,6 +387,22 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
           }`}
         >
           {rescanResult.text}
+        </div>
+      )}
+
+      {/* Avatar backfill result toast — separate from rescan toast because
+          users may run both operations and want to see each result. */}
+      {avatarResult && (
+        <div
+          className={`text-xs px-3 py-2 rounded-lg border ${
+            avatarResult.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : avatarResult.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+          }`}
+        >
+          {avatarResult.text}
         </div>
       )}
 
