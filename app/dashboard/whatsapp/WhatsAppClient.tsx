@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Workspace, WaMessage, WhatsAppGroup, MessageStatus } from '@/lib/types/database';
@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   MessageSquare, Check, AlertCircle, Clock, Copy,
-  Zap, ExternalLink, RefreshCw, Lock, Share2,
+  Zap, ExternalLink, RefreshCw, Lock, Share2, Users, User,
 } from 'lucide-react';
 import GroupsManager from '@/components/GroupsManager';
 import InstancesManager from '@/components/instances/InstancesManager';
@@ -50,6 +50,15 @@ export default function WhatsAppClient({
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const isConnected = !!(workspace.whatsapp_instance_id && workspace.whatsapp_token);
+
+  // Group lookup: id → group, used to enrich each row in "הודעות אחרונות"
+  // with the group name. Built once per render — initialGroups changes
+  // rarely so this is cheap.
+  const groupsById = useMemo(() => {
+    const m = new Map<string, WhatsAppGroup>();
+    for (const g of initialGroups) m.set(g.id, g);
+    return m;
+  }, [initialGroups]);
 
   // webhook URL — set this in Green API "System notifications" section
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -184,7 +193,11 @@ export default function WhatsAppClient({
         ) : (
           <div className="space-y-2">
             {initialMessages.map((m) => (
-              <MessageRow key={m.id} msg={m} />
+              <MessageRow
+                key={m.id}
+                msg={m}
+                group={m.group_id ? groupsById.get(m.group_id) : undefined}
+              />
             ))}
           </div>
         )}
@@ -193,7 +206,13 @@ export default function WhatsAppClient({
   );
 }
 
-function MessageRow({ msg }: { msg: WaMessage }) {
+function MessageRow({
+  msg,
+  group,
+}: {
+  msg: WaMessage;
+  group?: WhatsAppGroup;
+}) {
   const statusInfo: Record<MessageStatus, { label: string; color: string; icon: React.ReactNode }> = {
     received:   { label: 'התקבלה',    color: 'bg-gray-100 text-gray-600',   icon: <Clock className="w-3 h-3" /> },
     classified: { label: 'סווגה',     color: 'bg-blue-100 text-blue-700',   icon: <Zap className="w-3 h-3" /> },
@@ -210,6 +229,24 @@ function MessageRow({ msg }: { msg: WaMessage }) {
     icon: <Clock className="w-3 h-3" />,
   };
 
+  // Show the phone underneath the name when both are available, so admins
+  // can identify exactly who sent a message — names alone aren't unique
+  // ("Shimi" appears for multiple users in shared workspaces). The phone
+  // is rendered LTR with a tel: link so tapping it on mobile opens the
+  // dialer. WhatsApp suffixes (@c.us / @s.whatsapp.net) are stripped.
+  const displayName = msg.sender_name || msg.sender_phone || 'לא ידוע';
+  const phoneDigits = msg.sender_phone
+    ? msg.sender_phone.replace(/@c\.us$/, '').replace(/@s\.whatsapp\.net$/, '')
+    : null;
+  const showPhoneLine = phoneDigits && msg.sender_name && phoneDigits !== msg.sender_name;
+
+  // Group label: show the group name if this message came from one,
+  // otherwise label it as a private DM. Helps disambiguate same-name
+  // people writing in different groups.
+  const groupLabel = msg.group_id
+    ? group?.group_name || 'קבוצה'
+    : 'הודעה פרטית';
+
   return (
     <div className="p-3 rounded-lg border border-gray-100 hover:bg-gray-50/50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-1.5">
@@ -218,11 +255,35 @@ function MessageRow({ msg }: { msg: WaMessage }) {
             {(msg.sender_name || '?').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-medium truncate">
-              {msg.sender_name || msg.sender_phone || 'לא ידוע'}
-            </div>
-            <div className="text-[10px] text-gray-400" dir="ltr">
-              {msg.received_at && format(new Date(msg.received_at), 'd MMM, HH:mm', { locale: he })}
+            <div className="text-sm font-medium truncate">{displayName}</div>
+            {showPhoneLine && (
+              <a
+                href={`tel:+${phoneDigits}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[11px] text-gray-500 hover:text-purple-600 hover:underline block"
+                dir="ltr"
+              >
+                +{phoneDigits}
+              </a>
+            )}
+            <div className="text-[10px] text-gray-400 flex items-center gap-1.5 flex-wrap">
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                  msg.group_id
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'bg-blue-50 text-blue-700'
+                }`}
+              >
+                {msg.group_id ? (
+                  <Users className="w-2.5 h-2.5" />
+                ) : (
+                  <User className="w-2.5 h-2.5" />
+                )}
+                <span className="truncate max-w-[180px]">{groupLabel}</span>
+              </span>
+              <span dir="ltr">
+                {msg.received_at && format(new Date(msg.received_at), 'd MMM, HH:mm', { locale: he })}
+              </span>
             </div>
           </div>
         </div>
