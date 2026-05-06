@@ -83,6 +83,25 @@ async function greenApiPost<T = unknown>(
       };
     }
 
+    // Green API has a quirk: when the instance is mid-restart it returns
+    // HTTP 200 with a STRING body like "instance is starting or not authorized"
+    // instead of the expected JSON object. Without this guard, the caller
+    // gets back ok:true with data: "...string..." and tries to read
+    // .participants on it, which blows up downstream as a confusing
+    // "Group not found" because the data shape isn't what we expected.
+    if (typeof responseData === 'string') {
+      const lower = responseData.toLowerCase();
+      const isStarting =
+        lower.includes('starting') || lower.includes('not authorized');
+      return {
+        ok: false,
+        statusCode: response.status,
+        error: isStarting
+          ? 'ה-WhatsApp בתהליך התחברות, נסה שוב בעוד דקה'
+          : `Green API ${method}: ${responseData}`,
+      };
+    }
+
     return { ok: true, data: responseData as T };
   } catch (err) {
     return {
