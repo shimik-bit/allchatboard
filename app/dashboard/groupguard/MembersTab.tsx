@@ -89,7 +89,15 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [sort, setSort] = useState<Sort>('recent');
+  // Default to 'complete' (sort by profile completeness DESC) so the most
+  // useful, fully-extracted profiles surface at the top — empty profiles
+  // (just a phone number, no name/profession) sink to the bottom where
+  // they belong. Users can still switch to 'recent' or 'active' from the
+  // dropdown. Previous default was 'recent' which buried good profiles
+  // under cards full of "?" avatars.
+  const [sort, setSort] = useState<Sort>('complete');
+  const [groupFilter, setGroupFilter] = useState<string>(''); // '' = all groups
+  const [groups, setGroups] = useState<Array<{ id: string; group_name: string | null; member_count?: number }>>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
@@ -161,10 +169,37 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Load groups list once for the filter dropdown. We don't include this
+  // in the load() function below because groups change rarely and this
+  // saves a round-trip on every search/sort/page change.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/groupguard/groups?workspace_id=${workspaceId}`);
+        const d = await res.json();
+        if (cancelled) return;
+        // Endpoint returns { groups: [{id, group_name, ...}], ... }
+        setGroups(
+          (d.groups || []).map((g: any) => ({
+            id: g.id,
+            group_name: g.group_name,
+            member_count: g.member_count,
+          })),
+        );
+      } catch {
+        // Non-fatal — dropdown just shows empty list
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, search, sort, page]);
+  }, [workspaceId, search, sort, page, groupFilter]);
 
   async function load() {
     setLoading(true);
@@ -175,6 +210,7 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         page: String(page),
       });
       if (search) params.set('q', search);
+      if (groupFilter) params.set('group_id', groupFilter);
 
       const res = await fetch(`/api/groupguard/profiles?${params}`);
       const d = await res.json();
@@ -233,6 +269,24 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         <div className="flex items-center gap-1">
           <Filter className="w-4 h-4 text-gray-400" />
           <select
+            value={groupFilter}
+            onChange={(e) => {
+              setGroupFilter(e.target.value);
+              setPage(0);
+            }}
+            className="px-2 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500 max-w-[200px]"
+          >
+            <option value="">{t('groupguard.members.all_groups') || 'כל הקבוצות'}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.group_name || '(ללא שם)'}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <select
             value={sort}
             onChange={(e) => {
               setSort(e.target.value as Sort);
@@ -240,9 +294,9 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
             }}
             className="px-2 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500"
           >
+            <option value="complete">{t('groupguard.members.sort_complete')}</option>
             <option value="recent">{t('groupguard.members.sort_recent')}</option>
             <option value="active">{t('groupguard.members.sort_active')}</option>
-            <option value="complete">{t('groupguard.members.sort_complete')}</option>
           </select>
         </div>
 
@@ -277,9 +331,31 @@ export default function MembersTab({ workspaceId }: { workspaceId: string }) {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="text-sm text-gray-600">
-        {loading ? t('groupguard.members.loading') : t('groupguard.members.total_in_db', { count: total })}
+      {/* Stats + active filter pill — when a group is selected the user
+          gets a clear visual reminder of WHICH group they're filtering to,
+          plus a one-click way to clear back to "all groups". Without this
+          the dropdown is the only signal and it's easy to forget what's
+          applied while scrolling. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="text-sm text-gray-600">
+          {loading ? t('groupguard.members.loading') : t('groupguard.members.total_in_db', { count: total })}
+        </div>
+        {groupFilter && (
+          <button
+            onClick={() => {
+              setGroupFilter('');
+              setPage(0);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-bold hover:bg-purple-200 transition-colors"
+            title="הסר סינון"
+          >
+            <span>📁</span>
+            <span className="truncate max-w-[180px]">
+              {groups.find((g) => g.id === groupFilter)?.group_name || '(ללא שם)'}
+            </span>
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
       {error && (

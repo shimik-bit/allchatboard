@@ -1068,6 +1068,7 @@ export const en: LocaleDictionary = {
       sort_recent: 'Recent',
       sort_active: 'Most active',
       sort_complete: 'Complete profile',
+      all_groups: 'All groups',
       // Manual rescan button (kicks off AI extraction without waiting for cron)
       rescan_button: 'Scan now',
       call_action: 'Call',
