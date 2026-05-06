@@ -103,10 +103,58 @@ export async function GET(req: NextRequest) {
     groupMap[g.id] = g.group_name || g.green_api_chat_id;
   }
 
+  // Enrich global_blocklist-sourced entries with manual-add metadata.
+  // Reason: when a kick happens because the phone is in the blocklist, the
+  // log line by itself just says 'מאגר' — but it matters to the user
+  // whether THEY (or a teammate) added that phone manually, vs. the bot
+  // auto-detected it via reports/AI. So for each global_blocklist entry
+  // we look up the matching gg_global_blocklist row and surface the
+  // 'added_manually' fields. One IN-query for all phones in the page
+  // (not per-row) keeps this cheap.
+  const blocklistPhones = Array.from(
+    new Set(
+      (log || [])
+        .filter((l) => l.trigger_source === 'global_blocklist')
+        .map((l) => l.target_phone)
+        .filter(Boolean),
+    ),
+  );
+
+  const blocklistMap: Record<
+    string,
+    {
+      added_manually: boolean;
+      added_manually_by_email: string | null;
+      added_manually_at: string | null;
+    }
+  > = {};
+
+  if (blocklistPhones.length > 0) {
+    // Use the same supabase client — RLS allows reading blocklist rows
+    // (the table is read-public-write-restricted in our policies).
+    const { data: blocklistRows } = await supabase
+      .from('gg_global_blocklist')
+      .select('phone, added_manually, added_manually_by_email, added_manually_at')
+      .in('phone', blocklistPhones);
+
+    for (const row of blocklistRows || []) {
+      blocklistMap[row.phone] = {
+        added_manually: !!row.added_manually,
+        added_manually_by_email: row.added_manually_by_email,
+        added_manually_at: row.added_manually_at,
+      };
+    }
+  }
+
   return NextResponse.json({
     log: (log || []).map((l) => ({
       ...l,
       group_name: groupMap[l.group_id] || l.group_id,
+      // Only meaningful for global_blocklist source — null otherwise.
+      blocklist_meta:
+        l.trigger_source === 'global_blocklist'
+          ? blocklistMap[l.target_phone] || null
+          : null,
     })),
     summary,
   });
