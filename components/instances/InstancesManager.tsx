@@ -57,6 +57,7 @@ export default function InstancesManager({
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showChooser, setShowChooser] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCloudCreateModal, setShowCloudCreateModal] = useState(false);
   const [partnerTokenAvailable, setPartnerTokenAvailable] = useState(false);
@@ -103,23 +104,13 @@ export default function InstancesManager({
           </p>
         </div>
         {canEdit && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCloudCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-bold transition-colors"
-              title="חיבור Meta WhatsApp Cloud API (1:1, ללא קבוצות)"
-            >
-              <span>☁️</span>
-              <span className="hidden sm:inline">Meta Cloud</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              חבר WhatsApp חדש
-            </button>
-          </div>
+          <button
+            onClick={() => setShowChooser(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            חבר WhatsApp חדש
+          </button>
         )}
       </div>
 
@@ -133,7 +124,7 @@ export default function InstancesManager({
           </p>
           {canEdit && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => setShowChooser(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -160,6 +151,25 @@ export default function InstancesManager({
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
           {error}
         </div>
+      )}
+
+      {/* Connection-type chooser modal — shown first when user clicks
+          "Connect new WhatsApp", lets them pick green_api vs meta cloud
+          with clear explanation of when to use each. Cleaner than the
+          previous two-button-side-by-side layout where the cloud option
+          was a tiny ☁️ icon nobody noticed. */}
+      {showChooser && (
+        <ConnectionTypeChooser
+          onClose={() => setShowChooser(false)}
+          onPickGreenApi={() => {
+            setShowChooser(false);
+            setShowCreateModal(true);
+          }}
+          onPickCloud={() => {
+            setShowChooser(false);
+            setShowCloudCreateModal(true);
+          }}
+        />
       )}
 
       {/* Create modal */}
@@ -1297,6 +1307,146 @@ function CreateCloudInstanceModal({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// ConnectionTypeChooser
+// ============================================================================
+//
+// First step in connecting a new WhatsApp number — pick between Green API
+// (unofficial, supports groups, instant QR setup) and Meta Cloud API
+// (official, no groups, requires Business Verification but comes with a
+// real SLA from Meta).
+//
+// Shown as a modal with two big card-buttons. Each card lists the key
+// pros/cons so the user can make an informed choice rather than guessing
+// from a tiny ☁️ icon.
+
+function ConnectionTypeChooser({
+  onClose,
+  onPickGreenApi,
+  onPickCloud,
+}: {
+  onClose: () => void;
+  onPickGreenApi: () => void;
+  onPickCloud: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 grid place-items-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="font-display font-bold text-xl">
+              איך תרצה לחבר את ה-WhatsApp?
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              שתי דרכים שונות, כל אחת מתאימה למטרות אחרות
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Green API option — recommended for most users */}
+          <button
+            onClick={onPickGreenApi}
+            className="text-right border-2 border-purple-300 hover:border-purple-500 hover:shadow-md rounded-2xl p-4 transition-all bg-gradient-to-br from-purple-50 to-pink-50 group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Smartphone className="w-7 h-7 text-purple-600" />
+              <span className="text-[10px] font-bold text-purple-700 bg-purple-200 rounded-full px-2 py-0.5">
+                ⭐ מומלץ
+              </span>
+            </div>
+            <h4 className="font-bold text-base mb-1">WhatsApp רגיל</h4>
+            <p className="text-xs text-gray-600 mb-3">
+              חיבור מהיר עם סריקת QR – כמו WhatsApp Web
+            </p>
+            <ul className="space-y-1 text-xs">
+              <li className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>תומך בקבוצות</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>חיבור מיידי – סורקים QR ומוכן</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>שליחת הודעות חופשיות בלי תבניות</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-amber-700">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>API לא רשמי – יציבות תלויה בספק</span>
+              </li>
+            </ul>
+            <div className="mt-3 pt-3 border-t border-purple-200 text-[11px] text-purple-900 font-bold">
+              מתאים אם: יש לך קבוצות, רוצה להתחיל מהר, או רוב התקשורת עם לקוחות חדשים →
+            </div>
+          </button>
+
+          {/* Meta Cloud API option — for serious 1:1 users */}
+          <button
+            onClick={onPickCloud}
+            className="text-right border-2 border-blue-300 hover:border-blue-500 hover:shadow-md rounded-2xl p-4 transition-all bg-gradient-to-br from-blue-50 to-sky-50 group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl">☁️</span>
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-200 rounded-full px-2 py-0.5">
+                🛡️ רשמי של Meta
+              </span>
+            </div>
+            <h4 className="font-bold text-base mb-1">Meta Cloud API</h4>
+            <p className="text-xs text-gray-600 mb-3">
+              ה-API הרשמי של פייסבוק/Meta ל-WhatsApp Business
+            </p>
+            <ul className="space-y-1 text-xs">
+              <li className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>SLA רשמי של Meta – יציבות גבוהה</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>תג "מאומת" בצ'אט</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-red-700">
+                <X className="w-3.5 h-3.5 flex-shrink-0" />
+                <span><strong>אין תמיכה בקבוצות</strong></span>
+              </li>
+              <li className="flex items-center gap-1.5 text-amber-700">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>דורש Business Verification (~שבוע)</span>
+              </li>
+              <li className="flex items-center gap-1.5 text-amber-700">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>הודעות יזומות דורשות תבניות מאושרות</span>
+              </li>
+            </ul>
+            <div className="mt-3 pt-3 border-t border-blue-200 text-[11px] text-blue-900 font-bold">
+              מתאים אם: רק שיחות 1:1 עם לקוחות, חשובה אמינות מקסימלית →
+            </div>
+          </button>
+        </div>
+
+        {/* Help link to remind users they can have BOTH at once */}
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-3 text-[11px] text-gray-700">
+          💡 <strong>טיפ:</strong> אפשר לחבר את שניהם בחשבון! למשל – Green API לקבוצות שיווק, ו-Meta Cloud API לשירות לקוחות 1:1 שדורש אמינות מקסימלית.
+        </div>
       </div>
     </div>
   );
