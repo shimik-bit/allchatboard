@@ -56,25 +56,16 @@ export async function POST(
     return NextResponse.json({ error: 'No phones provided' }, { status: 400 });
   }
 
-  // 3. Load group + workspace
-  // NOTE: whatsapp_groups has TWO FKs to workspaces (workspace_id and
-  // target_workspace_id) — must disambiguate via the FK name or PostgREST
-  // throws an embedding error and the user sees a misleading
-  // "Group not found" 404. Same fix as in groups/[id]/scan/route.ts.
+  // 3. Load group + workspace via two separate queries.
+  // Earlier attempt used a PostgREST embed with FK disambiguation
+  // (workspaces!whatsapp_groups_workspace_id_fkey!inner). The double-hint
+  // syntax doesn't work reliably in our PostgREST version — it returns
+  // null even when the data exists, so the user saw a misleading
+  // 'Group not found' 404. Two separate queries are unambiguous and any
+  // future schema change won't silently break this path.
   const { data: group, error: groupErr } = await supabase
     .from('whatsapp_groups')
-    .select(`
-      id,
-      workspace_id,
-      green_api_chat_id,
-      group_name,
-      gg_is_admin,
-      workspaces!whatsapp_groups_workspace_id_fkey!inner (
-        id,
-        whatsapp_instance_id,
-        whatsapp_token
-      )
-    `)
+    .select('id, workspace_id, green_api_chat_id, group_name, gg_is_admin')
     .eq('id', groupId)
     .maybeSingle();
 
@@ -82,11 +73,20 @@ export async function POST(
     return NextResponse.json({ error: 'Group not found' }, { status: 404 });
   }
 
-  const workspace = Array.isArray(group.workspaces)
-    ? group.workspaces[0]
-    : group.workspaces;
+  const { data: workspace, error: wsErr } = await supabase
+    .from('workspaces')
+    .select('id, whatsapp_instance_id, whatsapp_token')
+    .eq('id', group.workspace_id)
+    .maybeSingle();
 
-  if (!workspace?.whatsapp_instance_id || !workspace?.whatsapp_token) {
+  if (wsErr || !workspace) {
+    return NextResponse.json(
+      { error: 'Workspace not found for this group' },
+      { status: 500 },
+    );
+  }
+
+  if (!workspace.whatsapp_instance_id || !workspace.whatsapp_token) {
     return NextResponse.json(
       { error: 'WhatsApp not connected for this workspace' },
       { status: 400 },
