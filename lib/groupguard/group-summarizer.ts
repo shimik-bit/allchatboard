@@ -41,6 +41,12 @@ export type SummarizeResult = {
   ok: true;
   skipped: true;
   reason: 'too_few_messages' | 'no_messages' | 'already_summarized';
+  // Diagnostic counts so the UI can show "you have 4 text messages, need at
+  // least 3" instead of just "too few messages" (which used to leave users
+  // confused about WHY their group with 13 messages couldn't be summarized).
+  total_messages?: number;
+  text_messages?: number;
+  min_required?: number;
 } | {
   ok: false;
   error: string;
@@ -56,6 +62,18 @@ export type SummarizeOptions = {
   // If true, replaces an existing summary for the same day (otherwise skips)
   force?: boolean;
 };
+
+/**
+ * Minimum number of TEXT messages (not media-only, not system events like
+ * "X joined the group") required before we attempt an AI summary.
+ *
+ * Lowered from 5 → 3 after observing real-world cases where active social
+ * groups have many member-add/leave events + media but only a handful of
+ * actual text messages on a given day. With 3 substantive messages the AI
+ * can still produce a useful summary; below 3 the result tends to be
+ * trivial ("X said hi, then Y replied").
+ */
+export const MIN_TEXT_MESSAGES_FOR_SUMMARY = 3;
 
 // ============================================================================
 // Main entry point
@@ -141,13 +159,26 @@ export async function summarizeGroup(
   );
 
   if (validMessages.length === 0) {
-    return { ok: true, skipped: true, reason: 'no_messages' };
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'no_messages',
+      total_messages: messages?.length ?? 0,
+      text_messages: 0,
+      min_required: MIN_TEXT_MESSAGES_FOR_SUMMARY,
+    };
   }
 
-  // Heuristic threshold — summarizing 1-4 messages is not worth the AI call,
-  // and the result would be either trivial ("X said hi") or hallucinatory.
-  if (validMessages.length < 5) {
-    return { ok: true, skipped: true, reason: 'too_few_messages' };
+  // Heuristic threshold — see MIN_TEXT_MESSAGES_FOR_SUMMARY constant.
+  if (validMessages.length < MIN_TEXT_MESSAGES_FOR_SUMMARY) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'too_few_messages',
+      total_messages: messages?.length ?? 0,
+      text_messages: validMessages.length,
+      min_required: MIN_TEXT_MESSAGES_FOR_SUMMARY,
+    };
   }
 
   // 5. Compute participant count BEFORE sampling (since sampling drops senders)

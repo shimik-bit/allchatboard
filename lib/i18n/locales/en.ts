@@ -1124,7 +1124,7 @@ export const en: LocaleDictionary = {
       run_done: 'Summary generated',
       run_failed: 'Summary failed',
       skip_no_messages: 'No messages in the last 24 hours',
-      skip_too_few: 'Too few messages to summarize (less than 5)',
+      skip_too_few: 'Found {text} text messages out of {total} total. Need at least {min} text messages to summarize. The rest are group joins/leaves or media without captions.',
       skip_already: 'Already summarized today',
       loading: 'Loading...',
       empty: 'No summaries yet. Click \u201CSummarize now\u201D to start.',
