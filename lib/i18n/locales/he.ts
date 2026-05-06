@@ -1080,6 +1080,7 @@ export const he = {
       sort_recent: 'אחרונים',
       sort_active: 'פעילים ביותר',
       sort_complete: 'פרופיל מלא',
+      all_groups: 'כל הקבוצות',
       // Manual rescan button (kicks off AI extraction without waiting for cron)
       rescan_button: 'סרוק עכשיו',
       call_action: 'התקשר',
