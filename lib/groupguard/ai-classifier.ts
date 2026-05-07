@@ -13,6 +13,8 @@
  */
 
 import type { AiClassification, AiSensitivity } from '@/lib/types/groupguard';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 // ============================================================================
 // In-memory cache (per Lambda instance)
@@ -67,6 +69,14 @@ export interface ClassifyOptions {
 export async function classifyMessage(
   text: string,
   options: ClassifyOptions,
+  // Optional usage-tracking. Passed only by callers that have a supabase
+  // client + workspace_id at hand (the production webhook does). Older
+  // call sites can still call without these and just get classification
+  // without logging — no behavior change for them.
+  trackUsage?: {
+    supabase: SupabaseClient;
+    workspaceId: string;
+  },
 ): Promise<AiClassification | null> {
   // הודעות קצרות מאוד לא צריכות סיווג - חסכון של עלות
   const cleaned = text.trim();
@@ -89,7 +99,7 @@ export async function classifyMessage(
 
   // קריאה ל-AI
   try {
-    const result = await callOpenAI(cleaned, options);
+    const result = await callOpenAI(cleaned, options, trackUsage);
     if (result) {
       // שמירה ב-cache
       CACHE.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
@@ -110,6 +120,15 @@ export async function classifyMessage(
 async function callOpenAI(
   text: string,
   options: ClassifyOptions,
+  // Threaded through from classifyMessage. When provided, we log token
+  // usage to ai_usage_log under feature='spam_classification' after a
+  // successful response. The cache layer above us means we only log on
+  // actual API hits (cached repeats incur zero cost), which is what we
+  // want for accurate billing reporting.
+  trackUsage?: {
+    supabase: SupabaseClient;
+    workspaceId: string;
+  },
 ): Promise<AiClassification | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -147,6 +166,22 @@ async function callOpenAI(
   const json = await response.json();
   const content = json.choices?.[0]?.message?.content;
   if (!content) return null;
+
+  // Best-effort log to ai_usage_log under feature='spam_classification'.
+  // This is a high-frequency feature (every message in monitored groups),
+  // so it'll dominate the AI usage breakdown for active workspaces.
+  if (trackUsage) {
+    const usage = json.usage || {};
+    void logAiUsage({
+      supabase: trackUsage.supabase,
+      workspaceId: trackUsage.workspaceId,
+      feature: AI_FEATURES.spam_classification,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokensInput: Number(usage.prompt_tokens) || 0,
+      tokensOutput: Number(usage.completion_tokens) || 0,
+    });
+  }
 
   return parseClassification(content);
 }

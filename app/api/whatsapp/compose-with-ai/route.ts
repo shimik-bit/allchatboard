@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import OpenAI from 'openai';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -170,6 +171,23 @@ ${tonesToGenerate.length === 1
     const raw = completion.choices[0]?.message?.content;
     if (!raw) {
       return NextResponse.json({ error: 'AI returned no content' }, { status: 502 });
+    }
+
+    // Log to ai_usage_log under feature='message_compose'. Note we log
+    // BEFORE parsing the response — even if the AI returned invalid JSON
+    // we still consumed the tokens and should bill for them. Don't log
+    // before this point though; an OpenAI error (network, 5xx) means we
+    // weren't charged so logging would be wrong.
+    if (completion.usage) {
+      void logAiUsage({
+        supabase,
+        workspaceId,
+        feature: AI_FEATURES.message_compose,
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        tokensInput: completion.usage.prompt_tokens || 0,
+        tokensOutput: completion.usage.completion_tokens || 0,
+      });
     }
 
     let parsed: { drafts?: Array<{ label: string; body: string }> };

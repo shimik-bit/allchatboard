@@ -323,12 +323,20 @@ async function checkAiContent(
   groupName: string | null,
   groupContext: string | null,
   sensitivity: AiSensitivity,
+  // Workspace id, threaded through for the AI usage logger. Without
+  // this the spam_classification feature would never appear on the
+  // AI usage dashboard despite being one of the higher-cost paths.
+  workspaceId: string,
 ): Promise<DetectionResult | null> {
-  const classification = await classifyMessage(messageText, {
-    groupName,
-    groupContext,
-    sensitivity,
-  });
+  const classification = await classifyMessage(
+    messageText,
+    {
+      groupName,
+      groupContext,
+      sensitivity,
+    },
+    { supabase, workspaceId },
+  );
 
   if (!classification) {
     // הסיווג נכשל - לא חוסמים, ממשיכים הלאה
@@ -500,6 +508,7 @@ export async function runDetectionPipeline(
       input.groupName,
       input.groupContext,
       groupSettings.ai_sensitivity,
+      input.workspaceId,
     );
     if (result?.shouldAct) return adaptActionToBotPermissions(result, groupSettings);
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import * as XLSX from 'xlsx';
 import OpenAI from 'openai';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -176,6 +177,22 @@ Return ONLY a JSON object with this shape (no markdown, no explanation):
         const aiResponse = JSON.parse(completion.choices[0]?.message?.content || '{}');
         proposedMapping = aiResponse.mapping || {};
         confidence = Number(aiResponse.confidence) || 0;
+
+        // Log to ai_usage_log under feature='excel_analysis'. The OpenAI
+        // SDK returns usage at the top level of the completion object.
+        // Fire-and-forget — a logging failure shouldn't kill the import.
+        const usage = completion.usage;
+        if (usage) {
+          void logAiUsage({
+            supabase: admin,
+            workspaceId,
+            feature: AI_FEATURES.excel_analysis,
+            provider: 'openai',
+            model: 'gpt-4o-mini',
+            tokensInput: usage.prompt_tokens || 0,
+            tokensOutput: usage.completion_tokens || 0,
+          });
+        }
       } catch (e: any) {
         console.error('AI mapping failed', e);
         // Fall back to fuzzy matching

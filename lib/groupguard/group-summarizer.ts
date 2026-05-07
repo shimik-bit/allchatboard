@@ -20,6 +20,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendMessage } from './green-api-client';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 // ============================================================================
 // Types
@@ -225,6 +226,8 @@ export async function summarizeGroup(
     group.group_name || 'הקבוצה',
     validMessages.length,
     participantCount,
+    supabase,
+    group.workspace_id,
   );
 
   if (!summary) {
@@ -326,6 +329,11 @@ async function callOpenAISummary(
   groupName: string,
   totalMessages: number,
   uniqueSenders: number,
+  // Passed through so we can log token usage to ai_usage_log under
+  // feature='group_summary'. Same supabase client the rest of this
+  // module uses — log_ai_usage is SECURITY DEFINER so any client works.
+  supabase: SupabaseClient,
+  workspaceId: string,
 ): Promise<GroupSummary | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -393,6 +401,20 @@ ${conversationText}
     const json = await response.json();
     const content = json.choices?.[0]?.message?.content;
     if (!content) return null;
+
+    // Best-effort log to ai_usage_log so this call shows up under
+    // feature='group_summary' on the AI usage dashboard. Errors here
+    // never break the summary itself — see logAiUsage docs.
+    const usage = json.usage || {};
+    void logAiUsage({
+      supabase,
+      workspaceId,
+      feature: AI_FEATURES.group_summary,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokensInput: Number(usage.prompt_tokens) || 0,
+      tokensOutput: Number(usage.completion_tokens) || 0,
+    });
 
     return parseSummary(content, totalMessages, uniqueSenders);
   } catch (err) {

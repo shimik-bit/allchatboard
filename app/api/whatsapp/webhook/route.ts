@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { getClassifyPrompt, getUpdatePrompt, getQueryPrompt } from '@/lib/i18n/prompts';
 import { isValidLocale, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locales';
 import { getInstanceBaseUrl } from '@/lib/instances/green-api-client';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -949,7 +950,7 @@ async function classifyAndInsert(opts: {
     ...history,
     { role: 'user', content: text },
   ];
-  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
+  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages, { admin, workspaceId: activeWorkspaceId });
   const classification = JSON.parse(aiRes);
 
   await incrementAiUsage(admin, activeWorkspaceId);
@@ -1120,7 +1121,7 @@ async function processUpdate(opts: {
     ...history,
     { role: 'user', content: replyText },
   ];
-  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
+  const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages, { admin, workspaceId: activeWorkspaceId });
   const result = JSON.parse(aiRes);
 
   await incrementAiUsage(admin, activeWorkspaceId);
@@ -1266,7 +1267,7 @@ async function handleQuery(opts: {
       ...history,
       { role: 'user', content: text },
     ];
-    const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages);
+    const aiRes = await callOpenAIWithMessages(systemPrompt, aiMessages, { admin, workspaceId: activeWorkspaceId });
     parsed = JSON.parse(aiRes);
     await incrementAiUsage(admin, activeWorkspaceId);
   } catch {
@@ -1384,20 +1385,34 @@ async function handleQuery(opts: {
 // OPENAI CALL
 // ============================================================================
 
-async function callOpenAI(systemPrompt: string, userMsg: string): Promise<string> {
-  return callOpenAIWithMessages(systemPrompt, [
-    { role: 'user', content: userMsg },
-  ]);
+async function callOpenAI(
+  systemPrompt: string,
+  userMsg: string,
+  trackUsage?: { admin: any; workspaceId: string; feature?: string },
+): Promise<string> {
+  return callOpenAIWithMessages(
+    systemPrompt,
+    [{ role: 'user', content: userMsg }],
+    trackUsage,
+  );
 }
 
 /**
  * Same as callOpenAI but accepts a custom messages array — useful for passing
  * conversation history (3 most recent in/out turns) so the AI can resolve
  * references like "send it with a date" → understands "it" = the previous list.
+ *
+ * Now also threads through optional usage tracking. When trackUsage is
+ * provided, every successful call writes a row to ai_usage_log under the
+ * given feature (default 'lead_routing' since this helper is the
+ * lead-routing/classification path in the webhook). Without this, the
+ * AI usage dashboard had no visibility into the dominant cost in any
+ * customer-active workspace.
  */
 async function callOpenAIWithMessages(
   systemPrompt: string,
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  trackUsage?: { admin: any; workspaceId: string; feature?: string },
 ): Promise<string> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) throw new Error('OPENAI_API_KEY not configured');
@@ -1420,6 +1435,25 @@ async function callOpenAIWithMessages(
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('AI החזיר תשובה ריקה');
+
+  // Best-effort log to ai_usage_log. Errors here are swallowed inside
+  // logAiUsage — we never want a logging failure to break user-facing
+  // routing. The default feature is 'lead_routing' since this helper is
+  // primarily called by the webhook classification/routing path; callers
+  // can override with a specific feature label if they want.
+  if (trackUsage) {
+    const usage = data.usage || {};
+    void logAiUsage({
+      supabase: trackUsage.admin,
+      workspaceId: trackUsage.workspaceId,
+      feature: (trackUsage.feature as any) || AI_FEATURES.lead_routing,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokensInput: Number(usage.prompt_tokens) || 0,
+      tokensOutput: Number(usage.completion_tokens) || 0,
+    });
+  }
+
   return content;
 }
 
