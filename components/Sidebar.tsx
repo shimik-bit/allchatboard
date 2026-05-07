@@ -8,7 +8,7 @@ import type { Workspace, Table } from '@/lib/types/database';
 import {
   LayoutGrid, Plus, Settings, MessageSquare, LogOut, HelpCircle, BookOpen, Key, Bell, Zap, CreditCard, Brain, Receipt, Activity, Wallet,
   ChevronDown, Sparkles, FileText, Phone, UserCheck, Menu, X, Shield, TrendingUp, Inbox,
-  Layers, Store, Users,
+  Layers, Store, Users, Send,
 } from 'lucide-react';
 import { DevModeToggle } from '@/components/DevMode';
 import { useT } from '@/lib/i18n/useT';
@@ -458,6 +458,18 @@ export default function Sidebar({
             {t('nav.whatsapp')}
           </Link>
         )}
+
+        <Link
+          href="/dashboard/telegram"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-1 transition-colors ${
+            pathname === '/dashboard/telegram'
+              ? 'bg-brand-50 text-brand-700'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Send className="w-4 h-4" />
+          {t('nav.telegram')}
+        </Link>
 
         {isAppInstalled('spam_protect') && (
           <Link
