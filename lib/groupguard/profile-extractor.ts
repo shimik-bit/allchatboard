@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAndStoreAvatar } from './avatar-fetcher';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 // ============================================================================
 // Types
@@ -97,7 +98,12 @@ export async function extractProfileForMember(
   }
 
   // Call OpenAI to extract
-  const extracted = await callOpenAIExtraction(textMessages, profile);
+  const extracted = await callOpenAIExtraction(
+    textMessages,
+    profile,
+    supabase,
+    profile.workspace_id,
+  );
   if (!extracted) {
     return false;
   }
@@ -149,6 +155,12 @@ export async function extractProfileForMember(
 async function callOpenAIExtraction(
   messages: Array<{ text: string; received_at: string }>,
   existingProfile: any,
+  // Same supabase client as the caller — used to log usage to
+  // ai_usage_log under feature='profile_extraction'. Without these the
+  // AI usage dashboard would silently miss every extraction call, which
+  // for a busy workspace is the dominant AI cost.
+  supabase: SupabaseClient,
+  workspaceId: string,
 ): Promise<ExtractedProfile | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -229,6 +241,19 @@ ${messageText}
     const json = await response.json();
     const content = json.choices?.[0]?.message?.content;
     if (!content) return null;
+
+    // Log to centralized AI usage tracking. Fire-and-forget — a logging
+    // failure shouldn't kill the extraction.
+    const usage = json.usage || {};
+    void logAiUsage({
+      supabase,
+      workspaceId,
+      feature: AI_FEATURES.profile_extraction,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokensInput: Number(usage.prompt_tokens) || 0,
+      tokensOutput: Number(usage.completion_tokens) || 0,
+    });
 
     return parseExtraction(content);
   } catch (err) {

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { gatherFocusContext } from '@/lib/focus/context-gathering';
 import { generateFocusBriefing } from '@/lib/focus/ai-briefing';
+import { logAiUsage, AI_FEATURES } from '@/lib/ai/log-usage';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -100,6 +101,20 @@ export async function POST(req: NextRequest) {
       userPrompt,
       apiKey
     );
+
+    // Log to centralized ai_usage_log so this shows up under
+    // feature='focus_briefing' on the AI usage dashboard. The existing
+    // focus_sessions row records the session for the focus feature itself,
+    // but ai_usage_log is the canonical cross-feature billing/usage table.
+    void logAiUsage({
+      supabase: serviceClient,
+      workspaceId,
+      feature: AI_FEATURES.focus_briefing,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokensInput,
+      tokensOutput,
+    });
 
     // Save the session
     const { data: session } = await serviceClient
