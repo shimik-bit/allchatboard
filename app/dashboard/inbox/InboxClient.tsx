@@ -36,10 +36,13 @@ interface Message {
   id: string;
   text: string | null;
   direction: 'in' | 'out';
-  sender_phone: string;
-  sender_name: string | null;
+  channel: 'whatsapp' | 'telegram';
+  sender_key: string;            // phone for WA, telegram_chat_id for TG
+  sender_display_name: string | null;
   received_at: string;
   status: string | null;
+  media_url: string | null;
+  media_kind: string | null;
 }
 
 // Reason → metadata (icon + Hebrew label + colors)
@@ -64,6 +67,7 @@ export default function InboxClient({
   selected,
   messages,
   currentStatus,
+  currentChannel,
   counts,
   currentUserId,
 }: {
@@ -71,6 +75,7 @@ export default function InboxClient({
   selected: Escalation | null;
   messages: Message[];
   currentStatus: string;
+  currentChannel: 'whatsapp' | 'telegram' | 'all';
   counts: { open: number; in_progress: number; resolved: number };
   currentUserId: string;
 }) {
@@ -102,15 +107,36 @@ export default function InboxClient({
     }
   }, [messages.length, selected?.id]);
 
+  // Helper to build the URL preserving status + channel filters across
+  // navigation (selecting an escalation shouldn't reset the channel filter).
+  function buildInboxUrl(opts: {
+    id?: string | null;
+    status?: string;
+    channel?: string;
+  }) {
+    const params = new URLSearchParams();
+    params.set('status', opts.status ?? currentStatus);
+    const ch = opts.channel ?? currentChannel;
+    if (ch !== 'all') params.set('channel', ch);
+    if (opts.id) params.set('id', opts.id);
+    return `/dashboard/inbox?${params.toString()}`;
+  }
+
   function selectEscalation(id: string) {
     startTransition(() => {
-      router.push(`/dashboard/inbox?status=${currentStatus}&id=${id}`);
+      router.push(buildInboxUrl({ id }));
     });
   }
 
   function changeStatusFilter(status: string) {
     startTransition(() => {
-      router.push(`/dashboard/inbox?status=${status}`);
+      router.push(buildInboxUrl({ status, id: null }));
+    });
+  }
+
+  function changeChannelFilter(channel: 'whatsapp' | 'telegram' | 'all') {
+    startTransition(() => {
+      router.push(buildInboxUrl({ channel, id: null }));
     });
   }
 
@@ -198,13 +224,13 @@ export default function InboxClient({
   // Mobile: hide list when a thread is selected. Single-pane on phones.
   const showList = !selected;
 
-  // Customer display name - prefer the wa_messages sender_name (most accurate
-  // because it comes from WhatsApp itself), fall back to phone number.
+  // Customer display name - prefer the inbound sender's display name (most
+  // accurate because it comes from the channel itself), fall back to phone.
   const customerName = useMemo(() => {
     if (!selected) return null;
-    const inbound = messages.find((m) => m.direction === 'in' && m.sender_name);
-    if (inbound?.sender_name) return inbound.sender_name;
-    return selected.source_phone || 'לקוח/ה';
+    const inbound = messages.find((m) => m.direction === 'in' && m.sender_display_name);
+    if (inbound?.sender_display_name) return inbound.sender_display_name;
+    return selected.source_phone || (selected.channel === 'telegram' ? 'טלגרם' : 'לקוח/ה');
   }, [selected, messages]);
 
   return (
@@ -267,6 +293,13 @@ export default function InboxClient({
           <FilterTab label="הכל"    count={null}               active={currentStatus === 'all'}         onClick={() => changeStatusFilter('all')} />
         </div>
 
+        {/* Channel filter row */}
+        <div className="px-2 py-2 border-b border-gray-100 flex items-center gap-1 overflow-x-auto wa-list-bg">
+          <ChannelTab label="כל הערוצים" channel="all"      icon={null}        active={currentChannel === 'all'}      onClick={() => changeChannelFilter('all')} />
+          <ChannelTab label="וואטסאפ"    channel="whatsapp" icon="whatsapp"    active={currentChannel === 'whatsapp'} onClick={() => changeChannelFilter('whatsapp')} />
+          <ChannelTab label="טלגרם"      channel="telegram" icon="telegram"    active={currentChannel === 'telegram'} onClick={() => changeChannelFilter('telegram')} />
+        </div>
+
         {/* List */}
         <div className="flex-1 overflow-y-auto wa-list-bg">
           {filteredEscalations.length === 0 ? (
@@ -298,7 +331,7 @@ export default function InboxClient({
             <ThreadHeader
               escalation={selected}
               customerName={customerName || 'לקוח/ה'}
-              onBack={() => router.push(`/dashboard/inbox?status=${currentStatus}`)}
+              onBack={() => router.push(buildInboxUrl({ id: null }))}
               onToggleSearch={() => setShowThreadSearch((v) => !v)}
             />
 
@@ -408,6 +441,52 @@ function FilterTab({ label, count, active, onClick }: {
   );
 }
 
+function ChannelTab({ label, channel, icon, active, onClick }: {
+  label: string;
+  channel: 'whatsapp' | 'telegram' | 'all';
+  icon: 'whatsapp' | 'telegram' | null;
+  active: boolean;
+  onClick: () => void;
+}) {
+  // Active colour reflects the channel:
+  //   - whatsapp: emerald (matches WA brand)
+  //   - telegram: sky (matches Telegram brand)
+  //   - all: gray (neutral)
+  const activeStyle =
+    channel === 'whatsapp' ? 'bg-emerald-100 text-emerald-800'
+    : channel === 'telegram' ? 'bg-sky-100 text-sky-800'
+    : 'bg-gray-200 text-gray-800';
+
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+        active ? activeStyle : 'bg-transparent text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      {icon === 'whatsapp' && <MessageSquare className="w-3.5 h-3.5" />}
+      {icon === 'telegram' && <Send className="w-3.5 h-3.5" />}
+      {label}
+    </button>
+  );
+}
+
+function ChannelBadge({ channel }: { channel: 'whatsapp' | 'telegram' }) {
+  // Compact badge for the conversation card. Telegram-specific colour so the
+  // user can scan the list and immediately see "this is a Telegram thread".
+  // For WhatsApp we don't show one (default channel — would be visual noise).
+  if (channel !== 'telegram') return null;
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-sm bg-sky-100 text-sky-700 font-medium"
+      title="טלגרם"
+    >
+      <Send className="w-2.5 h-2.5" />
+      TG
+    </span>
+  );
+}
+
 function ConversationListItem({ escalation, isSelected, onClick, isPending }: {
   escalation: Escalation; isSelected: boolean; onClick: () => void; isPending: boolean;
 }) {
@@ -446,6 +525,7 @@ function ConversationListItem({ escalation, isSelected, onClick, isPending }: {
         <div className="flex items-baseline justify-between gap-2 mb-1">
           <div className="font-medium text-sm text-gray-900 truncate flex items-center gap-1.5">
             {displayName}
+            <ChannelBadge channel={escalation.channel} />
             {isInProgress && (
               <span className="text-[10px] px-1.5 py-0 rounded bg-amber-100 text-amber-700 font-medium">
                 בטיפול
