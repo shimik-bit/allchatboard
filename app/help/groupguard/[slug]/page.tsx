@@ -2,10 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Shield, ArrowLeft } from 'lucide-react';
+import { Shield, ArrowLeft, ArrowRight } from 'lucide-react';
 import MarkdownContent from '../MarkdownContent';
 
-// Generate static params for all guide files at build time
+type Props = {
+  params: { slug: string };
+  searchParams: { lang?: string };
+};
+
+// Generate static params for all guide files at build time (Hebrew only — EN
+// is dynamic via searchParams; both share the same slugs so it works)
 export function generateStaticParams() {
   const docsDir = path.join(process.cwd(), 'public/docs/groupguard');
   const files = fs.readdirSync(docsDir);
@@ -14,8 +20,14 @@ export function generateStaticParams() {
     .map((f) => ({ slug: f.replace(/\.md$/, '') }));
 }
 
-export default function GuidePage({ params }: { params: { slug: string } }) {
-  const docsDir = path.join(process.cwd(), 'public/docs/groupguard');
+export default function GuidePage({ params, searchParams }: Props) {
+  const isEn = searchParams.lang === 'en';
+  const dir = isEn ? 'ltr' : 'rtl';
+
+  const docsDir = isEn
+    ? path.join(process.cwd(), 'public/docs/groupguard/en')
+    : path.join(process.cwd(), 'public/docs/groupguard');
+
   const filePath = path.join(docsDir, `${params.slug}.md`);
 
   // Security: prevent path traversal
@@ -25,50 +37,79 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
 
   const content = fs.readFileSync(filePath, 'utf8');
 
+  const t = {
+    allGuides: isEn ? 'All guides' : 'כל המדריכים',
+    toDashboard: isEn ? 'To dashboard' : 'לדשבורד',
+    switchLang: isEn ? 'עברית' : 'English',
+    switchLangHref: isEn
+      ? `/help/groupguard/${params.slug}`
+      : `/help/groupguard/${params.slug}?lang=en`,
+    allGuidesHref: isEn ? '/help/groupguard?lang=en' : '/help/groupguard',
+  };
+
+  const BackArrow = isEn ? ArrowLeft : ArrowRight;
+
   return (
-    <div dir="rtl" className="min-h-screen bg-gray-50">
+    <div dir={dir} className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <Link
-            href="/help/groupguard"
+            href={t.allGuidesHref}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition border border-gray-200"
           >
-            <ArrowLeft className="w-4 h-4" />
-            כל המדריכים
+            <BackArrow className="w-4 h-4" />
+            {t.allGuides}
           </Link>
-          <Link
-            href="/dashboard/groupguard"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition border border-purple-200"
-          >
-            <Shield className="w-4 h-4" />
-            לדשבורד
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={t.switchLangHref}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition border border-gray-200"
+            >
+              🌐 {t.switchLang}
+            </Link>
+            <Link
+              href="/dashboard/groupguard"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition border border-purple-200"
+            >
+              <Shield className="w-4 h-4" />
+              {t.toDashboard}
+            </Link>
+          </div>
         </div>
 
         {/* Content */}
         <article className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-          <MarkdownContent>{content}</MarkdownContent>
+          <MarkdownContent dir={dir}>{content}</MarkdownContent>
         </article>
       </div>
     </div>
   );
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const docsDir = path.join(process.cwd(), 'public/docs/groupguard');
+export async function generateMetadata({ params, searchParams }: Props) {
+  const isEn = searchParams.lang === 'en';
+  const docsDir = isEn
+    ? path.join(process.cwd(), 'public/docs/groupguard/en')
+    : path.join(process.cwd(), 'public/docs/groupguard');
   const filePath = path.join(docsDir, `${params.slug}.md`);
 
   if (!fs.existsSync(filePath)) {
-    return { title: 'מדריך - TaskFlow AI' };
+    return { title: isEn ? 'Guide - TaskFlow AI' : 'מדריך - TaskFlow AI' };
   }
 
   const content = fs.readFileSync(filePath, 'utf8');
   const titleMatch = content.match(/^#\s+(.+)$/m);
-  const title = titleMatch ? titleMatch[1].replace(/[#*`]/g, '').trim() : 'מדריך';
+  const title = titleMatch
+    ? titleMatch[1].replace(/[#*`]/g, '').trim()
+    : isEn
+      ? 'Guide'
+      : 'מדריך';
 
   return {
     title: `${title} - TaskFlow AI`,
-    description: 'מדריך מלא לניהול קבוצות וואטסאפ ב-TaskFlow.',
+    description: isEn
+      ? 'Complete guide to managing WhatsApp groups in TaskFlow.'
+      : 'מדריך מלא לניהול קבוצות וואטסאפ ב-TaskFlow.',
   };
 }
