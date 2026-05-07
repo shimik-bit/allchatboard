@@ -66,6 +66,7 @@ export const he = {
     tables: 'טבלאות',
     new_table: 'טבלה חדשה',
     whatsapp: 'וואטסאפ',
+    telegram: 'טלגרם',
     api_keys: 'מפתחות API',
     reports: 'דוחות מתוזמנים',
     automations: 'אוטומציות',

@@ -66,6 +66,7 @@ export const en: LocaleDictionary = {
     tables: 'Tables',
     new_table: 'New table',
     whatsapp: 'WhatsApp',
+    telegram: 'Telegram',
     api_keys: 'API Keys',
     reports: 'Scheduled Reports',
     automations: 'Automations',
