@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     .update(updates)
     .eq('id', id)
     .select(
-      'id, bot_id, tg_chat_id, chat_type, title, username, first_name, last_name, is_active, is_routed, last_message_at, message_count, created_at'
+      'id, bot_id, tg_chat_id, chat_type, title, username, first_name, last_name, is_active, is_routed, notes, last_message_at, message_count, created_at'
     )
     .single();
 
