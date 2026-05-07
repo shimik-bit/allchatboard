@@ -314,7 +314,7 @@ export default function GroupGuardTour({
               {t('groupguardTour.skip')}
             </button>
             <a
-              href="/help/groupguard"
+              href={`/help/groupguard${dir === 'ltr' ? '?lang=en' : ''}`}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-purple-500 hover:text-purple-700 transition underline-offset-2 hover:underline"

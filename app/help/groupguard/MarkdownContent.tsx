@@ -2,15 +2,20 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ReactNode } from 'react';
 
 /**
- * MarkdownContent — מציג Markdown עם עיצוב מותאם לעברית/RTL,
- * בלי תלות ב-@tailwindcss/typography.
+ * MarkdownContent — renders Markdown with custom RTL/LTR-aware styles,
+ * without depending on @tailwindcss/typography.
  */
-export default function MarkdownContent({ children }: { children: string }) {
+export default function MarkdownContent({
+  children,
+  dir = 'rtl',
+}: {
+  children: string;
+  dir?: 'rtl' | 'ltr';
+}) {
   return (
-    <div className="markdown-body">
+    <div className="markdown-body" dir={dir}>
       <style jsx global>{`
         .markdown-body {
           color: #374151;
