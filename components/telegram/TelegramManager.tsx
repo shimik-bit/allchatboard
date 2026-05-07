@@ -22,6 +22,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import AddBotModal from './AddBotModal';
+import ChatsSection from './ChatsSection';
 
 type TelegramBot = {
   id: string;

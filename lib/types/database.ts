@@ -82,6 +82,8 @@ export interface Escalation {
   chat_id: string | null;
   source_phone: string | null;
   source_phone_id: string | null;
+  channel: 'whatsapp' | 'telegram';
+  source_telegram_chat_id: string | null;
   reason: EscalationReason;
   priority: EscalationPriority;
   status: EscalationStatus;
