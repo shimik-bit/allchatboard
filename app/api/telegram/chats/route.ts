@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('telegram_chats')
     .select(
-      'id, bot_id, tg_chat_id, chat_type, title, username, first_name, last_name, is_active, is_routed, last_message_at, message_count, created_at'
+      'id, bot_id, tg_chat_id, chat_type, title, username, first_name, last_name, is_active, is_routed, notes, last_message_at, message_count, created_at'
     )
     .eq('workspace_id', workspaceId)
     .order('last_message_at', { ascending: false, nullsFirst: false });

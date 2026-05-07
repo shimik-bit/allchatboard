@@ -29,6 +29,9 @@ import {
   ArrowRight,
   AlertCircle,
   PowerOff,
+  Settings,
+  X,
+  Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -49,6 +52,7 @@ type TelegramChat = {
   last_name: string | null;
   is_active: boolean;
   is_routed: boolean;
+  notes: string | null;
   last_message_at: string | null;
   message_count: number;
   created_at: string;
@@ -351,6 +355,7 @@ function ChatPanel({
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = useCallback(async () => {
@@ -422,14 +427,36 @@ function ChatPanel({
         </button>
         <div className="flex-1 min-w-0">
           <div className="font-bold truncate">{chatDisplayName(chat)}</div>
-          <div className="text-xs text-gray-500">
-            {chat.chat_type === 'private' ? 'הודעה פרטית' : 'קבוצה'}
+          <div className="text-xs text-gray-500 flex items-center gap-2">
+            <span>{chat.chat_type === 'private' ? 'הודעה פרטית' : 'קבוצה'}</span>
             {chat.username && (
-              <span dir="ltr"> · @{chat.username}</span>
+              <span dir="ltr">· @{chat.username}</span>
+            )}
+            {!chat.is_routed && (
+              <span className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-medium">
+                לא מנותב לתיבה
+              </span>
             )}
           </div>
         </div>
+        {canEdit && (
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            aria-label="הגדרות שיחה"
+            title="הגדרות שיחה"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        )}
       </div>
+
+      {showSettings && (
+        <ChatSettingsDialog
+          chat={chat}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
@@ -708,6 +735,171 @@ function ReplyBox({ chatId }: { chatId: string }) {
             <Send className="w-4 h-4 -scale-x-100" />
           )}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Chat settings dialog (Phase 2.4)
+//
+// Lets the user toggle whether the chat appears in Inbox routing,
+// add free-form notes, and see metadata. For groups, also surfaces a
+// reminder about Privacy Mode.
+// ─────────────────────────────────────────────────────────────────────────
+
+function ChatSettingsDialog({
+  chat,
+  onClose,
+}: {
+  chat: TelegramChat;
+  onClose: () => void;
+}) {
+  const [isRouted, setIsRouted] = useState(chat.is_routed);
+  const [notes, setNotes] = useState(chat.notes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/telegram/chats/${chat.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_routed: isRouted, notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'השמירה נכשלה');
+      setSaved(true);
+      setTimeout(() => onClose(), 800);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isGroup = chat.chat_type === 'group' || chat.chat_type === 'supergroup';
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-display font-bold text-lg">הגדרות שיחה</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 grid place-items-center text-gray-500"
+            aria-label="סגור"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* Chat info */}
+          <div className="bg-gray-50 rounded-xl p-3 text-sm">
+            <div className="font-medium mb-1">{chatDisplayName(chat)}</div>
+            <div className="text-xs text-gray-500 space-y-0.5">
+              <div>
+                {isGroup
+                  ? 'קבוצה'
+                  : chat.chat_type === 'private'
+                  ? 'הודעה פרטית'
+                  : 'ערוץ'}
+              </div>
+              <div>{chat.message_count} הודעות</div>
+              {chat.last_message_at && (
+                <div>הודעה אחרונה: {formatRelative(chat.last_message_at)}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Routing toggle */}
+          <div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRouted}
+                onChange={(e) => setIsRouted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-sky-600 focus:ring-sky-500"
+              />
+              <div>
+                <div className="font-medium text-sm">נתב לתיבה הנכנסת</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  כשפעיל, הודעות מהשיחה הזו יוצרות אוטומטית פניות בתיבה הנכנסת
+                  (בהתאם לחוקי הסיווג). כיבוי שומר את ההודעות אבל לא יוצר פניות.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label htmlFor="chat-notes" className="block font-medium text-sm mb-1.5">
+              הערות פנימיות
+            </label>
+            <textarea
+              id="chat-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="לדוגמה: לקוח VIP, ליד חם, קבוצת שיווק..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </div>
+
+          {/* Privacy mode reminder for groups */}
+          {isGroup && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">
+              <div className="font-medium text-amber-900 mb-1">💡 הבוט לא רואה את כל ההודעות?</div>
+              <div className="text-xs text-amber-800 leading-relaxed">
+                כברירת מחדל, בוט בקבוצה רואה רק הודעות שמתייגות אותו או תגובות אליו.
+                כדי שיראה את כל ההודעות:
+                <ol className="list-decimal ms-5 mt-1 space-y-0.5">
+                  <li>פתח את BotFather בטלגרם</li>
+                  <li>שלח <span dir="ltr" className="font-mono">/setprivacy</span></li>
+                  <li>בחר את הבוט שלך</li>
+                  <li>לחץ Disable</li>
+                  <li>הוצא את הבוט מהקבוצה והכנס אותו שוב</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg disabled:opacity-50"
+          >
+            ביטול
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || saved}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saved && <Check className="w-4 h-4" />}
+            {saved ? 'נשמר' : 'שמור'}
+          </button>
+        </div>
       </div>
     </div>
   );

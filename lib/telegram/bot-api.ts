@@ -164,6 +164,28 @@ export function sendPhoto(
   });
 }
 
+/**
+ * Send a document (file) by URL or file_id. Telegram will fetch the URL
+ * itself so the file must be publicly accessible.
+ */
+export function sendDocument(
+  token: string,
+  chatId: number,
+  document: string,
+  caption?: string,
+  filename?: string
+): Promise<SentMessage> {
+  // Telegram doesn't officially support filename override when sending
+  // by URL — it derives it from the URL. We pass it anyway as `filename`
+  // because some clients honor it; the API ignores unknown params.
+  return callTelegram<SentMessage>(token, 'sendDocument', {
+    chat_id: chatId,
+    document,
+    ...(caption ? { caption } : {}),
+    ...(filename ? { filename } : {}),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Media
 // ─────────────────────────────────────────────────────────────────────────
