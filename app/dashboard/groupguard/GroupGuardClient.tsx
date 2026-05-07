@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import DashboardTab from './DashboardTab';
 import MembersTab from './MembersTab';
+import GroupGuardTour, { GroupGuardHelpButton } from './GroupGuardTour';
 import GroupReportModal from '@/components/groupguard/GroupReportModal';
 import BroadcastTab from './BroadcastTab';
 import SummarySection from './SummarySection';
@@ -142,6 +143,7 @@ export default function GroupGuardClient({
   isSuperAdmin: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [tourSignal, setTourSignal] = useState(0);
   const { t } = useT();
 
   return (
@@ -171,6 +173,8 @@ export default function GroupGuardClient({
                 Admin Panel
               </a>
             )}
+
+            <GroupGuardHelpButton onStartTour={() => setTourSignal((s) => s + 1)} />
           </div>
           {!canEdit && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
@@ -182,9 +186,10 @@ export default function GroupGuardClient({
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="border-b border-gray-200 flex overflow-x-auto">
+          <div className="border-b border-gray-200 flex overflow-x-auto" data-tour="gg-tabs">
             {/* Primary actions — what most admins come here to do */}
             <TabButton
+              data-tour="gg-tab-dashboard"
               active={tab === 'dashboard'}
               onClick={() => setTab('dashboard')}
               icon={<BarChart3 className="w-4 h-4" />}
@@ -192,6 +197,7 @@ export default function GroupGuardClient({
             />
             {canEdit && (
               <TabButton
+                data-tour="gg-tab-broadcast"
                 active={tab === 'broadcast'}
                 onClick={() => setTab('broadcast')}
                 icon={<Send className="w-4 h-4" />}
@@ -199,12 +205,14 @@ export default function GroupGuardClient({
               />
             )}
             <TabButton
+              data-tour="gg-tab-groups"
               active={tab === 'groups'}
               onClick={() => setTab('groups')}
               icon={<Users className="w-4 h-4" />}
               label={t('groupguard.tabs.groups')}
             />
             <TabButton
+              data-tour="gg-tab-members"
               active={tab === 'members'}
               onClick={() => setTab('members')}
               icon={<User className="w-4 h-4" />}
@@ -216,18 +224,21 @@ export default function GroupGuardClient({
                 lives across these three tabs. */}
             <div className="w-px bg-gray-200 my-1.5 mx-0.5 shrink-0" aria-hidden />
             <TabButton
+              data-tour="gg-tab-prefixes"
               active={tab === 'prefixes'}
               onClick={() => setTab('prefixes')}
               icon={<Globe className="w-4 h-4" />}
               label={t('groupguard.tabs.prefixes')}
             />
             <TabButton
+              data-tour="gg-tab-whitelist"
               active={tab === 'whitelist'}
               onClick={() => setTab('whitelist')}
               icon={<ShieldCheck className="w-4 h-4" />}
               label={t('groupguard.tabs.whitelist')}
             />
             <TabButton
+              data-tour="gg-tab-log"
               active={tab === 'log'}
               onClick={() => setTab('log')}
               icon={<Activity className="w-4 h-4" />}
@@ -260,6 +271,9 @@ export default function GroupGuardClient({
           </div>
         </div>
       </div>
+
+      {/* Onboarding tour — auto-starts on first visit, can be re-triggered from the help button */}
+      <GroupGuardTour startSignal={tourSignal} />
     </div>
   );
 }
@@ -270,15 +284,18 @@ function TabButton({
   onClick,
   icon,
   label,
+  ...rest
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  [key: string]: any;
 }) {
   return (
     <button
       onClick={onClick}
+      {...rest}
       className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
         active
           ? 'border-purple-500 text-purple-700 bg-purple-50'

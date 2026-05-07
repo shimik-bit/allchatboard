@@ -1798,4 +1798,57 @@ export const en: LocaleDictionary = {
     hours: 'hours',
     days: 'days',
   },
+
+  /* ────────────── GroupGuard Onboarding Tour ────────────── */
+  groupguardTour: {
+    next: 'Next',
+    prev: 'Back',
+    skip: 'Skip tour',
+    finish: 'Done 🎉',
+    start_tour: 'Start guided tour',
+    read_full_guide: 'Full guide',
+    step_count: 'Step {current} of {total}',
+    steps: {
+      welcome: {
+        title: '🛡️ Welcome to Group Management',
+        body: 'In this short tour (about a minute) we\'ll show you how to manage your WhatsApp groups, detect spammers, and get to know your group members. You can skip at any time.',
+      },
+      tabs: {
+        title: 'The main tabs',
+        body: 'Each tab has a different role. We\'ll cover each one briefly — afterwards you can return to anywhere.',
+      },
+      dashboard: {
+        title: '📊 Overview',
+        body: 'A quick look: how many active members, messages today, recent protection actions, and a weekly chart of the busiest groups.',
+      },
+      broadcast: {
+        title: '📣 Broadcast & Delete',
+        body: 'Send messages to all groups at once, or bulk-delete. Useful for updates, promotions, or cleaning up spam in volume.',
+      },
+      groups: {
+        title: '👥 Groups',
+        body: 'See all groups the bot is in. Toggle protection on per group. You can set a different protection level for each one.',
+      },
+      members: {
+        title: '🧑 Group Members',
+        body: 'The bot automatically builds a profile for each person: profession, field, communication style. Search in plain language ("contractor in Petah Tikva").',
+      },
+      prefixes: {
+        title: '🌍 Blocked Prefixes',
+        body: 'Block numbers by country code. Most spam in Israeli groups comes from foreign prefixes — one block prevents thousands of spammers.',
+      },
+      whitelist: {
+        title: '⭐ Whitelist',
+        body: 'People who are always allowed — VIP customers, partners, team. They won\'t be blocked even if their prefix is blocked or they\'re in the global spam database.',
+      },
+      log: {
+        title: '📋 Activity Log',
+        body: 'Every bot action is recorded here with time and reason. If the bot removed a real member by mistake — you can undo the action from here.',
+      },
+      help: {
+        title: '❓ Help is always available',
+        body: 'The ? button at the top restarts this tour anytime, and links to the full guides. Good luck!',
+      },
+    },
+  },
 };
