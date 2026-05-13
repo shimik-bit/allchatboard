@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
+import SyncConfigsSection from './SyncConfigsSection';
 
 type ConnectionStatus =
   | { connected: false }
@@ -202,14 +203,8 @@ export default function IntegrationsClient({ flash }: { flash: Flash | null }) {
           </div>
 
           {status?.connected && (
-            <div className="bg-amber-50 border-t border-amber-100 px-6 py-3">
-              <div className="text-xs text-amber-800 flex items-start gap-2">
-                <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>
-                  הגדרת סנכרון לגיליונות ספציפיים תתאפשר בקרוב (Phase 2 -
-                  Settings UI). כרגע החיבור עצמו מוכן ומאובטח.
-                </span>
-              </div>
+            <div className="border-t border-gray-100 px-6 py-5 bg-gradient-to-b from-gray-50/50 to-white">
+              <SyncConfigsSection />
             </div>
           )}
         </div>
