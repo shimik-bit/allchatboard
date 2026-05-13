@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { getGroupData, stripWhatsAppSuffix } from '@/lib/groupguard/green-api-client';
+import { enqueueSheetSync } from '@/lib/google/enqueue';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -350,6 +351,21 @@ async function syncParticipantProfiles(opts: {
     return { profiles_inserted: 0, memberships_inserted: 0 };
   }
 
+  // Detect which of these phones are *new* members in this group, so we can
+  // emit a 'gg_new_member' event to the Sheets sync queue. We need to do
+  // this BEFORE the membership upsert so the lookup reflects pre-scan state.
+  //
+  // A "new member" = a profile_id that doesn't yet have a row in
+  // gg_member_groups for this group_id. We compute the set up-front and
+  // pass it to a fire-and-forget enqueue at the end of the function so
+  // sheet sync latency never blocks the scan.
+  const newMemberPhones: string[] = await detectNewMembers(
+    admin,
+    workspaceId,
+    groupId,
+    profileRows.map((r) => r.phone),
+  );
+
   // Step 1: bulk-upsert profiles. The unique constraint on
   // (workspace_id, phone) makes this idempotent.
   const { error: profileErr } = await admin
@@ -401,8 +417,134 @@ async function syncParticipantProfiles(opts: {
     return { profiles_inserted: profileRows.length, memberships_inserted: 0 };
   }
 
+  // Fire-and-forget: enqueue 'gg_new_member' events for each detected new
+  // member. We don't await — the user wants the scan response fast, and
+  // sheets sync is a nice-to-have. The Sheets sync queue is durable so
+  // even if the request returns before these resolve, the events still
+  // make it to the queue.
+  if (newMemberPhones.length > 0) {
+    emitNewMemberEvents(admin, workspaceId, groupId, newMemberPhones).catch(
+      (e) => console.warn('[scan] sheets enqueue failed (non-fatal):', e),
+    );
+  }
+
   return {
     profiles_inserted: profileRows.length,
     memberships_inserted: membershipRows.length,
   };
+}
+
+// ============================================================================
+// Helpers for new-member detection + Sheets sync emission
+// ============================================================================
+
+/**
+ * Given a set of phones we're about to upsert, return the subset that
+ * doesn't yet have a row in gg_member_groups for this group_id. Those
+ * are the "new joiners" we want to emit as gg_new_member events.
+ *
+ * Returns an empty array if anything fails — we'd rather miss an event
+ * than break the scan.
+ */
+async function detectNewMembers(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  groupId: string,
+  phones: string[],
+): Promise<string[]> {
+  if (phones.length === 0) return [];
+
+  try {
+    // Find existing memberships for these phones in this group
+    const { data: existingProfiles } = await admin
+      .from('gg_member_profiles')
+      .select('id, phone')
+      .eq('workspace_id', workspaceId)
+      .in('phone', phones);
+
+    if (!existingProfiles || existingProfiles.length === 0) {
+      // None of these phones exist as profiles yet → they're all new
+      return phones;
+    }
+
+    const profileIdToPhone = new Map<string, string>(
+      (existingProfiles as Array<{ id: string; phone: string }>).map((p) => [p.id, p.phone]),
+    );
+    const profileIds = Array.from(profileIdToPhone.keys());
+
+    const { data: existingMemberships } = await admin
+      .from('gg_member_groups')
+      .select('profile_id')
+      .eq('group_id', groupId)
+      .in('profile_id', profileIds);
+
+    const alreadyMemberProfileIds = new Set(
+      (existingMemberships ?? []).map((m: { profile_id: string }) => m.profile_id),
+    );
+
+    // Phones with an existing profile but no membership in THIS group → new
+    const newViaExistingProfile = profileIds
+      .filter((id) => !alreadyMemberProfileIds.has(id))
+      .map((id) => profileIdToPhone.get(id)!)
+      .filter(Boolean);
+
+    // Phones we've never seen as a profile at all → also new
+    const existingPhones = new Set(profileIdToPhone.values());
+    const phonesWithNoProfile = phones.filter((p) => !existingPhones.has(p));
+
+    return [...newViaExistingProfile, ...phonesWithNoProfile];
+  } catch (err) {
+    console.warn('[scan] detectNewMembers failed:', err);
+    return [];
+  }
+}
+
+/**
+ * Look up display name + profession etc. for the detected new members and
+ * enqueue one gg_new_member event per phone. Batched DB read; per-phone
+ * enqueue (since each may go to a different sheet config — actually no,
+ * same config, but enqueueSheetSync is per-row so we call it per phone).
+ */
+async function emitNewMemberEvents(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  groupId: string,
+  phones: string[],
+): Promise<void> {
+  // Look up group name once
+  const { data: group } = await admin
+    .from('gg_groups')
+    .select('name')
+    .eq('id', groupId)
+    .maybeSingle();
+
+  // Look up any existing profile metadata for these phones (in case AI
+  // extraction has already populated fields)
+  const { data: profiles } = await admin
+    .from('gg_member_profiles')
+    .select('phone, full_name, profession, trust_score')
+    .eq('workspace_id', workspaceId)
+    .in('phone', phones);
+
+  const profileMap = new Map<string, any>(
+    ((profiles ?? []) as any[]).map((p) => [p.phone, p]),
+  );
+
+  const ts = new Date().toISOString();
+  await Promise.all(
+    phones.map((phone) => {
+      const p = profileMap.get(phone);
+      return enqueueSheetSync('gg_new_member', workspaceId, {
+        ts,
+        workspaceId,
+        groupId,
+        groupName: group?.name ?? null,
+        phone,
+        displayName: p?.full_name ?? null,
+        profession: p?.profession ?? null,
+        trustScore: p?.trust_score ?? null,
+        joinedAt: ts,
+      });
+    }),
+  );
 }
