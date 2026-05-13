@@ -16,10 +16,16 @@ export default function TermsPage() {
           <Link href="/" className="flex items-center">
             <img src="/taskflow-logo.png" alt="TaskFlow AI" className="h-10 w-auto object-contain" />
           </Link>
-          <Link href="/" className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-            חזרה לעמוד הבית
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <Link href="/en/terms" className="hover:text-gray-900">
+              English
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link href="/" className="hover:text-gray-900 flex items-center gap-1">
+              חזרה לעמוד הבית
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </header>
 
