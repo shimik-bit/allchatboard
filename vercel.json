@@ -43,6 +43,9 @@
     },
     "app/api/groupguard/profiles/avatars-backfill-cron/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/integrations/google/sync-worker/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -69,6 +72,10 @@
     {
       "path": "/api/groupguard/profiles/avatars-backfill-cron",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/integrations/google/sync-worker",
+      "schedule": "* * * * *"
     }
   ]
 }

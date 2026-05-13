@@ -11,6 +11,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { enqueueSheetSync } from '@/lib/google/enqueue';
 import type {
   ActionType,
   ActionResult,
@@ -346,4 +347,20 @@ async function logAction(
   if (error) {
     console.error('[GG] failed to log action:', error);
   }
+
+  // Fire-and-forget enqueue to Google Sheets sync queue. If the workspace
+  // hasn't configured sync for this event type, it's a silent no-op.
+  // We don't await — bot action logging is on the hot path and we don't
+  // want Sheets queue write latency to slow it down. Errors are logged
+  // inside enqueueSheetSync.
+  enqueueSheetSync('gg_bot_action', params.workspaceId, {
+    ts: new Date().toISOString(),
+    groupId: params.groupId,
+    actionType: params.actionType,
+    targetPhone: stripWhatsAppSuffix(params.targetPhone),
+    targetDisplayName: params.targetName,
+    reason: params.reason,
+    succeeded: params.successful,
+    details: params.error ?? null,
+  }).catch((e) => console.warn('[GG] sheets enqueue failed (non-fatal):', e));
 }

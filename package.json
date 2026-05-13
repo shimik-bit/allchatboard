@@ -23,7 +23,8 @@
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5",
     "react-markdown": "^9.0.0",
-    "remark-gfm": "^4.0.0"
+    "remark-gfm": "^4.0.0",
+    "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
