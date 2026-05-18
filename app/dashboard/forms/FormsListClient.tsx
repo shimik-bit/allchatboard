@@ -169,9 +169,8 @@ export default function FormsListClient({
           onClose={() => setShowCreate(false)}
           onCreated={(id) => {
             setShowCreate(false);
-            // Refresh the page (also navigates to the newly-created form
-            // editor once PR #2 lands; for now just reload the list)
-            router.refresh();
+            // Navigate to the builder for the newly-created form
+            router.push(`/dashboard/forms/${id}`);
           }}
         />
       )}
@@ -193,9 +192,12 @@ function FormCard({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md hover:border-purple-200 transition flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-3">
-        <h3 className="font-bold text-gray-900 leading-tight">
+        <Link
+          href={`/dashboard/forms/${form.id}`}
+          className="font-bold text-gray-900 leading-tight hover:text-purple-700 transition"
+        >
           {form.title}
-        </h3>
+        </Link>
         <span
           className={`inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold rounded-full border shrink-0 ${meta.classes}`}
         >
@@ -236,42 +238,34 @@ function FormCard({
       )}
 
       <div className="mt-auto pt-3 border-t border-gray-100 flex items-center gap-2">
-        {form.status === 'published' ? (
-          <>
-            <a
-              href={`/f/${form.slug}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            >
-              <ExternalLink className="w-3 h-3" />
-              פתיחה
-            </a>
-            <button
-              onClick={onCopy}
-              className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs rounded-lg transition ${
-                isCopied
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-100'
-              }`}
-            >
-              {isCopied ? (
-                <>
-                  <CheckCircle2 className="w-3 h-3" />
-                  הועתק
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  העתק קישור
-                </>
-              )}
-            </button>
-          </>
-        ) : (
-          <div className="flex-1 text-xs text-gray-400 italic text-center py-1">
-            לא פורסם
-          </div>
+        <Link
+          href={`/dashboard/forms/${form.id}`}
+          className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-lg transition"
+        >
+          <ArrowUpRight className="w-3 h-3" />
+          ערוך
+        </Link>
+        {form.status === 'published' && (
+          <button
+            onClick={onCopy}
+            className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs rounded-lg transition ${
+              isCopied
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'text-gray-700 bg-white border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {isCopied ? (
+              <>
+                <CheckCircle2 className="w-3 h-3" />
+                הועתק
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                העתק קישור
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>
