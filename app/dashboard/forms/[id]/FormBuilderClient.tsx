@@ -55,6 +55,7 @@ import {
   EyeOff,
   GripVertical,
   Loader2,
+  Menu,
   Palette,
   Pencil,
   Plus,
@@ -113,6 +114,10 @@ export default function FormBuilderClient({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [sidePanel, setSidePanel] = useState<'fields' | 'settings'>('fields');
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+
+  // Mobile: sidebar is hidden by default and toggles open as a drawer.
+  // Desktop (md+): sidebar always visible as a fixed-width column.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Only show fields whose types we can render publicly
   const safeFields = useMemo(
@@ -265,61 +270,62 @@ export default function FormBuilderClient({
     <div dir="rtl" className="min-h-screen bg-gray-50 flex flex-col">
       {/* Toolbar */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="px-4 sm:px-6 py-3 flex items-center gap-3 flex-wrap">
+        <div className="px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Mobile-only sidebar toggle */}
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="md:hidden p-1.5 -ms-1 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+            aria-label="פתח פאנל"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
           <Link
             href="/dashboard/forms"
-            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition"
+            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition shrink-0"
           >
             <ChevronRight className="w-4 h-4" />
-            כל הטפסים
+            <span className="hidden sm:inline">כל הטפסים</span>
           </Link>
 
-          <div className="h-5 w-px bg-gray-200" />
+          <div className="h-5 w-px bg-gray-200 hidden sm:block" />
 
           <input
             type="text"
             value={form.title}
             onChange={(e) => updateField({ title: e.target.value })}
             onBlur={() => handleSave()}
-            className="font-bold text-gray-900 bg-transparent border-0 focus:outline-none focus:ring-0 px-1 min-w-[160px] flex-1 max-w-md"
+            className="font-bold text-gray-900 bg-transparent border-0 focus:outline-none focus:ring-0 px-1 min-w-[100px] flex-1 sm:min-w-[160px] max-w-md text-base"
             placeholder="שם הטופס"
           />
 
-          <div className="flex items-center gap-2 ms-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 ms-auto">
             <StatusBadge status={form.status} />
             {lastSavedAt && !isSaving && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 hidden md:inline">
                 נשמר {new Date(lastSavedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
             {isSaving && (
               <span className="text-xs text-gray-500 inline-flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                שומר...
+                <span className="hidden sm:inline">שומר...</span>
               </span>
             )}
-            <button
-              onClick={() => handleSave()}
-              disabled={isSaving}
-              className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              שמור
-            </button>
             {form.status === 'published' ? (
               <button
                 onClick={handleTogglePublish}
                 disabled={isSaving}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition disabled:opacity-50"
+                className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition disabled:opacity-50"
               >
                 <EyeOff className="w-3.5 h-3.5" />
-                העבר לטיוטה
+                <span className="hidden sm:inline">העבר לטיוטה</span>
               </button>
             ) : (
               <button
                 onClick={handleTogglePublish}
                 disabled={isSaving || exposedFields.length === 0}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 פרסם
@@ -361,8 +367,37 @@ export default function FormBuilderClient({
 
       {/* Main 2-column layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar: fields + settings */}
-        <aside className="w-80 bg-white border-l border-gray-200 flex flex-col">
+        {/* Mobile drawer backdrop */}
+        {mobileSidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-20 bg-black/40"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar: fields + settings.
+            On mobile: fixed drawer that slides in from the right. Toggleable.
+            On desktop: always visible as a 320px column. */}
+        <aside
+          className={`
+            bg-white border-l border-gray-200 flex flex-col
+            md:relative md:w-80 md:translate-x-0
+            fixed z-30 top-0 bottom-0 right-0 w-[85%] max-w-sm transition-transform duration-200
+            ${mobileSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+          `}
+        >
+          {/* Mobile-only close button */}
+          <div className="md:hidden flex items-center justify-between px-4 pt-3 pb-1">
+            <span className="text-xs font-semibold text-gray-500">פאנל</span>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="p-1 text-gray-400 hover:text-gray-700 rounded"
+              aria-label="סגור"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           <div className="border-b border-gray-200 flex">
             <button
               onClick={() => setSidePanel('fields')}
@@ -392,7 +427,13 @@ export default function FormBuilderClient({
             {sidePanel === 'fields' ? (
               <FieldsPanel
                 hiddenFields={hiddenFields}
-                onAdd={addFieldToForm}
+                onAdd={(id) => {
+                  addFieldToForm(id);
+                  // Auto-close drawer on mobile after adding a field
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setMobileSidebarOpen(false);
+                  }
+                }}
               />
             ) : (
               <SettingsPanel form={form} onUpdate={updateField} onBlur={() => handleSave()} />
@@ -412,8 +453,8 @@ export default function FormBuilderClient({
         </aside>
 
         {/* Main: live preview of the form structure */}
-        <main className="flex-1 overflow-y-auto bg-gray-100">
-          <div className="max-w-2xl mx-auto px-4 sm:px-8 py-8">
+        <main className="flex-1 overflow-y-auto bg-gray-100 w-full">
+          <div className="max-w-2xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
             <FormPreview
               form={form}
               exposedFields={exposedFields}
