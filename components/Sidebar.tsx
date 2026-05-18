@@ -343,6 +343,22 @@ export default function Sidebar({
           }`}>AI</span>
         </Link>
 
+        {/* Forms — public surveys that write into tables */}
+        <Link
+          href="/dashboard/forms"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium mb-2 transition-colors ${
+            pathname === '/dashboard/forms' || pathname?.startsWith('/dashboard/forms/')
+              ? 'bg-purple-50 text-purple-700 border border-purple-100'
+              : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>טפסים</span>
+          <span className={`mr-auto text-[9px] font-bold px-1.5 py-0.5 rounded ${
+            pathname?.startsWith('/dashboard/forms') ? 'bg-purple-200 text-purple-700' : 'bg-gray-100 text-gray-500'
+          }`}>NEW</span>
+        </Link>
+
         {/* My Apps — link to the marketplace.
             Plain <Link> identical in shape to /dashboard/inbox and other
             sidebar links above. Anything fancier (preventDefault, router.push,
