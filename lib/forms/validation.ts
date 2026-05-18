@@ -66,12 +66,17 @@ const MAX_STRING_LEN = 5000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Public email validator — reusable across the codebase. */
+export function isValidEmail(v: string): boolean {
+  return EMAIL_RE.test(v);
+}
+
 /**
  * Phone validation: minimum 6 digits anywhere in the input, allow common
  * separators. We don't enforce E.164 because Israeli forms typically take
  * "050-1234567" and we don't want to reject that.
  */
-function isValidPhone(v: string): boolean {
+export function isValidPhone(v: string): boolean {
   const digits = v.replace(/[^\d]/g, '');
   return digits.length >= 6 && digits.length <= 20;
 }

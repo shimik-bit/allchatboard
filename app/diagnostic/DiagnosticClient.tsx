@@ -556,6 +556,12 @@ function SectionBusiness({
           placeholder="050-0000000"
           type="tel"
           dir="ltr"
+          validate={(v) => {
+            const digits = v.replace(/[^\d]/g, '');
+            if (digits.length < 6) return 'מספר טלפון קצר מדי';
+            if (digits.length > 20) return 'מספר טלפון ארוך מדי';
+            return null;
+          }}
         />
         <Input
           label="אימייל"
@@ -565,6 +571,11 @@ function SectionBusiness({
           placeholder="name@company.com"
           type="email"
           dir="ltr"
+          validate={(v) => {
+            // Simple but effective: must have @ and . after it
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(v) ? null : 'כתובת אימייל לא תקינה (חסר @ או דומיין)';
+          }}
         />
       </div>
     </div>
@@ -841,6 +852,7 @@ function Input({
   placeholder,
   type = 'text',
   dir,
+  validate,
 }: {
   label: string;
   name: string;
@@ -849,7 +861,13 @@ function Input({
   placeholder?: string;
   type?: string;
   dir?: 'rtl' | 'ltr';
+  /** Optional validator. Return null when valid, or an error string. */
+  validate?: (v: string) => string | null;
 }) {
+  const [touched, setTouched] = useState(false);
+  const trimmed = (value ?? '').trim();
+  const error = validate && touched && trimmed ? validate(trimmed) : null;
+
   return (
     <label className="block">
       <span className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</span>
@@ -857,10 +875,19 @@ function Input({
         type={type}
         value={value ?? ''}
         onChange={(e) => onChange(name, e.target.value)}
+        onBlur={() => setTouched(true)}
         placeholder={placeholder}
         dir={dir}
-        className="w-full px-3.5 py-2.5 text-sm bg-slate-50/60 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition placeholder:text-slate-400"
+        aria-invalid={!!error}
+        className={`w-full px-3.5 py-2.5 text-sm bg-slate-50/60 border rounded-lg focus:outline-none focus:ring-2 transition placeholder:text-slate-400 ${
+          error
+            ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+            : 'border-slate-200 focus:ring-amber-500/30 focus:border-amber-500'
+        }`}
       />
+      {error && (
+        <span className="block mt-1 text-xs text-red-600">{error}</span>
+      )}
     </label>
   );
 }

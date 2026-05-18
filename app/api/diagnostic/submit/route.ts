@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { isValidEmail, isValidPhone } from '@/lib/forms/validation';
 
 // Notification recipient
 const NOTIFY_TO = process.env.DIAGNOSTIC_NOTIFY_EMAIL ?? 'shimik@taskflow-ai.com';
@@ -58,6 +59,29 @@ export async function POST(req: NextRequest) {
   const action: 'save' | 'submit' = body?.action === 'submit' ? 'submit' : 'save';
   const existingId: string | null =
     typeof body?.id === 'string' && /^[0-9a-f-]{36}$/.test(body.id) ? body.id : null;
+
+  // ---- Server-side format validation (only on final submit) ----
+  // Drafts (`action === 'save'`) skip format checks because the user may
+  // navigate away mid-typing and we want their progress saved regardless.
+  // The final submit is where we reject malformed values.
+  if (action === 'submit') {
+    const errors: string[] = [];
+    const emailRaw = clip(body.contact_email);
+    const phoneRaw = clip(body.contact_phone);
+
+    if (emailRaw && !isValidEmail(emailRaw)) {
+      errors.push('כתובת אימייל לא תקינה');
+    }
+    if (phoneRaw && !isValidPhone(phoneRaw)) {
+      errors.push('מספר טלפון לא תקין');
+    }
+    if (errors.length > 0) {
+      return NextResponse.json(
+        { error: 'validation_failed', message: errors.join(' · ') },
+        { status: 400 },
+      );
+    }
+  }
 
   // Map the form body to a DB row
   const row: Record<string, any> = {
