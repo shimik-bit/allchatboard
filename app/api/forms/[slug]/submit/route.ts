@@ -23,63 +23,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import type { FormRow } from '@/lib/forms/types';
-import { isPublicSafeFieldType } from '@/lib/forms/types';
+import { validateSubmission, type Field } from '@/lib/forms/validation';
 
-const MAX_STRING_LEN = 5000;
 const MAX_FIELDS = 200; // sanity cap on number of fields per submission
-
-type Field = {
-  id: string;
-  name: string;
-  slug: string;
-  type: string;
-  is_required: boolean;
-  config: any;
-};
 
 function getClientIp(req: NextRequest): string | null {
   const fwd = req.headers.get('x-forwarded-for');
   if (fwd) return fwd.split(',')[0].trim();
   return req.headers.get('x-real-ip');
-}
-
-/**
- * Coerce an answer value into something we want to persist for a given field.
- * Returns null if the value should be omitted (empty, malformed).
- */
-function coerceValue(rawValue: any, type: string): any {
-  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
-
-  switch (type) {
-    case 'number':
-    case 'currency': {
-      const n = Number(rawValue);
-      return Number.isFinite(n) ? n : null;
-    }
-    case 'checkbox':
-      return Boolean(rawValue);
-    case 'rating': {
-      const n = Number(rawValue);
-      return Number.isFinite(n) ? Math.max(0, Math.round(n)) : null;
-    }
-    case 'multiselect':
-      if (!Array.isArray(rawValue)) return null;
-      return rawValue
-        .map((v) => (typeof v === 'string' ? v.slice(0, MAX_STRING_LEN) : String(v)))
-        .filter(Boolean);
-    case 'text':
-    case 'longtext':
-    case 'phone':
-    case 'email':
-    case 'url':
-    case 'date':
-    case 'datetime':
-    case 'select':
-    case 'status':
-    case 'city':
-    default:
-      return String(rawValue).slice(0, MAX_STRING_LEN);
-  }
 }
 
 export async function POST(
@@ -121,11 +72,10 @@ export async function POST(
     );
   }
   const fields = rawFields as Field[];
-  const fieldById = new Map<string, Field>(fields.map((f) => [f.id, f]));
 
-  // ---- 3. Validate answers ----
+  // ---- 3. Pre-check answers payload shape ----
   const answers = body.answers;
-  if (!answers || typeof answers !== 'object') {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
     return NextResponse.json({ error: 'missing_answers' }, { status: 400 });
   }
   const answerEntries = Object.entries(answers);
@@ -133,30 +83,36 @@ export async function POST(
     return NextResponse.json({ error: 'too_many_fields' }, { status: 413 });
   }
 
-  // ---- 4. Build the record's `data` payload ----
-  // Note: `records.data` is keyed by field_id (uuids), matching the rest of TaskFlow.
-  const recordData: Record<string, any> = {};
-  for (const [fieldId, rawValue] of answerEntries) {
-    const field = fieldById.get(fieldId);
-    if (!field) continue; // Skip unknown fields silently
-    if (!isPublicSafeFieldType(field.type)) continue;
+  // Strip fields the form doesn't expose before validation. Pass only the
+  // exposed-and-public-safe fields, so validation has the right scope.
+  const exposedFields = fields.filter((f) => {
+    const settings = form.field_settings[f.id];
+    return !(settings && settings.visible === false);
+  });
 
-    // Skip fields that aren't exposed by this form
-    const settings = form.field_settings[fieldId];
-    if (settings && settings.visible === false) continue;
+  // Contact info — used by validation for form-level require_* checks
+  const contactPhone = typeof body.contact_phone === 'string' ? body.contact_phone.slice(0, 50).trim() : null;
+  const contactEmail = typeof body.contact_email === 'string' ? body.contact_email.slice(0, 200).trim() : null;
+  const contactName = typeof body.contact_name === 'string' ? body.contact_name.slice(0, 200).trim() : null;
 
-    const coerced = coerceValue(rawValue, field.type);
-    if (coerced !== null && coerced !== undefined && coerced !== '') {
-      recordData[fieldId] = coerced;
-    }
+  // ---- 4. Validate and sanitize ----
+  const result = validateSubmission(form, exposedFields, answers, {
+    phone: contactPhone || null,
+    email: contactEmail || null,
+  });
+
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error: 'validation_failed',
+        message: result.errors[0]?.message ?? 'שגיאת אימות',
+        errors: result.errors,
+      },
+      { status: 400 },
+    );
   }
 
-  // Add contact info if provided. We store them as keys with __form_ prefix
-  // so they don't collide with field IDs. The dashboard's submission view can
-  // surface these specially.
-  const contactPhone = typeof body.contact_phone === 'string' ? body.contact_phone.slice(0, 50) : null;
-  const contactEmail = typeof body.contact_email === 'string' ? body.contact_email.slice(0, 200) : null;
-  const contactName = typeof body.contact_name === 'string' ? body.contact_name.slice(0, 200) : null;
+  const recordData = result.sanitized;
 
   // Build the insert row. We use source_phone for the contact phone so existing
   // TaskFlow features (CRM conversion, inbox routing) automatically work.

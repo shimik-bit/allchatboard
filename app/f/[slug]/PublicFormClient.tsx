@@ -254,9 +254,13 @@ export default function PublicFormClient({
 
       const data = await res.json();
       if (!res.ok) {
-        setSubmitError(
-          data.message ?? data.error ?? 'שליחה נכשלה. נסה שוב או צור איתנו קשר.',
-        );
+        // Server-side validation errors: prefer the per-field message if any
+        let displayMsg = data.message ?? data.error ?? 'שליחה נכשלה. נסה שוב או צור איתנו קשר.';
+        if (Array.isArray(data.errors) && data.errors.length > 0) {
+          const first = data.errors[0];
+          displayMsg = first.message ?? displayMsg;
+        }
+        setSubmitError(displayMsg);
         return;
       }
 
