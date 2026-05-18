@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Users, Sparkles, AlertTriangle,
   CreditCard, Activity, ShieldAlert, ArrowLeft, LogOut, Smartphone, Brain, Wallet, DollarSign,
-  Menu, X,
+  Menu, X, Stethoscope,
 } from 'lucide-react';
 import type { PlatformAdmin } from '@/lib/admin/auth';
 
@@ -56,6 +56,7 @@ export default function AdminShell({
         { href: '/admin/ai-usage', icon: Sparkles, label: 'שימוש ב-AI' },
         { href: '/admin/errors', icon: AlertTriangle, label: 'שגיאות' },
         { href: '/admin/activity', icon: Activity, label: 'פעילות' },
+        { href: '/admin/diagnostic', icon: Stethoscope, label: 'אבחון לידים' },
       ],
     },
     ...(admin.can_view_billing ? [{
