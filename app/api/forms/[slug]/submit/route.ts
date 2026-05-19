@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import type { FormRow } from '@/lib/forms/types';
 import { validateSubmission, type Field } from '@/lib/forms/validation';
+import { dispatchFormWhatsAppMessages } from '@/lib/forms/whatsapp-sender';
 
 const MAX_FIELDS = 200; // sanity cap on number of fields per submission
 
@@ -164,6 +165,19 @@ export async function POST(
     sendNotificationEmails(form, record.id, contactName, contactPhone, contactEmail).catch(
       (e) => console.error('[forms/submit] notification failed:', e),
     );
+  }
+
+  // WhatsApp automation — fire-and-forget. Errors logged inside the sender.
+  if (form.whatsapp_automation?.enabled) {
+    dispatchFormWhatsAppMessages({
+      form,
+      workspaceId: form.workspace_id,
+      contactName,
+      contactPhone,
+      contactEmail,
+      recordData,
+      fields,
+    }).catch((e) => console.error('[forms/submit] whatsapp dispatch failed:', e));
   }
 
   return NextResponse.json({ record_id: record.id, ok: true });
