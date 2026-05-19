@@ -230,8 +230,13 @@ export default function TemplatesClient({
               setInstalling('financial-suite');
               setFeedback(null);
               try {
-                const verticals = ['expenses', 'bank_transactions', 'income_invoices']
-                  .filter((v) => templates.some((t) => t.vertical === v));
+                const verticals = [
+                  'expenses',
+                  'bank_transactions',
+                  'income_invoices',
+                  'employees',
+                  'attendance',
+                ].filter((v) => templates.some((t) => t.vertical === v));
                 let total = 0;
                 for (const v of verticals) {
                   const res = await fetch('/api/workspaces/install', {
@@ -300,7 +305,13 @@ function FinancialSuiteBanner({
   onInstallAll: () => void;
 }) {
   // Only show if at least one financial template exists in DB
-  const financialVerticals = ['expenses', 'bank_transactions', 'income_invoices'];
+  const financialVerticals = [
+    'expenses',
+    'bank_transactions',
+    'income_invoices',
+    'employees',
+    'attendance',
+  ];
   const available = templates.filter((t) => financialVerticals.includes(t.vertical));
   if (available.length === 0) return null;
 
@@ -327,8 +338,8 @@ function FinancialSuiteBanner({
             </span>
           </div>
           <p className="text-sm text-gray-700 mb-3">
-            ניהול הוצאות + חשבוניות הכנסה + תנועות בנק במקום אחד.{' '}
-            <strong>קישור אוטומטי</strong> בין תנועות לחשבוניות בעזרת AI.
+            ניהול הוצאות, חשבוניות הכנסה, תנועות בנק, עובדים ונוכחות במקום אחד.{' '}
+            <strong>קישור אוטומטי</strong> בין תנועות לחשבוניות וחישוב משכורות בעזרת AI.
           </p>
 
           <div className="flex flex-wrap gap-2 text-xs mb-3">
