@@ -65,6 +65,7 @@ const PATCHABLE_COLUMNS = new Set([
   'allow_multiple_submissions',
   'require_phone',
   'require_email',
+  'whatsapp_automation',
 ]);
 
 export async function PATCH(

@@ -56,6 +56,7 @@ import {
   GripVertical,
   Loader2,
   Menu,
+  MessageSquare,
   Palette,
   Pencil,
   Plus,
@@ -665,6 +666,9 @@ function SettingsPanel({
           dir="ltr"
         />
       </Section>
+
+      {/* WhatsApp automation */}
+      <WhatsAppAutomationSection form={form} onUpdate={onUpdate} onBlur={onBlur} />
     </div>
   );
 }
@@ -735,6 +739,177 @@ function FormPreview({
             </SortableContext>
           </DndContext>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// WhatsApp automation section in the settings panel
+// ============================================================================
+function WhatsAppAutomationSection({
+  form,
+  onUpdate,
+  onBlur,
+}: {
+  form: FormRow;
+  onUpdate: (patch: Partial<FormRow>) => void;
+  onBlur: () => void;
+}) {
+  const auto = form.whatsapp_automation ?? null;
+  const enabled = auto?.enabled ?? false;
+
+  const updateAuto = (patch: Partial<NonNullable<FormRow['whatsapp_automation']>>) => {
+    const next = { ...(auto ?? { enabled: false }), ...patch };
+    onUpdate({ whatsapp_automation: next as any });
+  };
+
+  return (
+    <Section icon={<MessageSquare className="w-3.5 h-3.5" />} title="וואטסאפ אוטומטי">
+      <Toggle
+        label="הפעל שליחה אוטומטית בוואטסאפ"
+        value={enabled}
+        onChange={(v) => {
+          updateAuto({ enabled: v });
+          setTimeout(onBlur, 0);
+        }}
+      />
+
+      {enabled && (
+        <>
+          {/* To respondent */}
+          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
+            <Toggle
+              label="שלח אישור לממלא הטופס"
+              value={auto?.send_to_respondent ?? false}
+              onChange={(v) => {
+                updateAuto({ send_to_respondent: v });
+                setTimeout(onBlur, 0);
+              }}
+            />
+            {auto?.send_to_respondent && (
+              <>
+                <TemplateEditor
+                  label="הודעה לממלא"
+                  value={auto.respondent_message ?? ''}
+                  onChange={(v) => updateAuto({ respondent_message: v })}
+                  onBlur={onBlur}
+                  placeholder={'תודה {{contact_name}}!\nקיבלנו את הטופס וניצור איתך קשר בקרוב.'}
+                />
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  💡 נשלח רק אם הממלא הזין מספר טלפון בטופס.
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* To admins */}
+          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
+            <Toggle
+              label="שלח התראה למספרים שלך"
+              value={auto?.send_to_admins ?? false}
+              onChange={(v) => {
+                updateAuto({ send_to_admins: v });
+                setTimeout(onBlur, 0);
+              }}
+            />
+            {auto?.send_to_admins && (
+              <>
+                <SmallTextarea
+                  label="מספרי טלפון (אחד בכל שורה)"
+                  value={(auto.admin_numbers ?? []).join('\n')}
+                  onChange={(v) =>
+                    updateAuto({
+                      admin_numbers: v
+                        .split('\n')
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  onBlur={onBlur}
+                  dir="ltr"
+                />
+                <TemplateEditor
+                  label="הודעת התראה"
+                  value={auto.admin_message ?? ''}
+                  onChange={(v) => updateAuto({ admin_message: v })}
+                  onBlur={onBlur}
+                  placeholder={'טופס חדש מ-{{contact_name}}\nטלפון: {{contact_phone}}'}
+                />
+              </>
+            )}
+          </div>
+
+          <PlaceholdersReference form={form} />
+        </>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Multiline textarea + a row of insertable variable buttons that paste
+ * a {{placeholder}} at the cursor.
+ */
+function TemplateEditor({
+  label,
+  value,
+  onChange,
+  onBlur,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-semibold text-gray-600 mb-1">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        rows={4}
+        placeholder={placeholder}
+        className="w-full px-2.5 py-1.5 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition resize-none font-mono"
+      />
+    </label>
+  );
+}
+
+/**
+ * Reference card showing the user which placeholders they can use.
+ * Lists contact fields, form metadata, and every slug from the form's
+ * underlying table fields (extracted from field_settings keys we don't
+ * have here, so we just show the contact ones; the form fields' slugs
+ * are visible in the field rows already).
+ */
+function PlaceholdersReference({ form }: { form: FormRow }) {
+  const baseVars = [
+    { key: '{{contact_name}}', desc: 'שם הממלא' },
+    { key: '{{contact_phone}}', desc: 'טלפון' },
+    { key: '{{contact_email}}', desc: 'אימייל' },
+    { key: '{{form_title}}', desc: 'שם הטופס' },
+    { key: '{{submitted_at}}', desc: 'תאריך מילוי' },
+  ];
+
+  return (
+    <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+      <div className="text-xs font-bold text-purple-900 mb-2">משתנים זמינים</div>
+      <div className="space-y-1">
+        {baseVars.map((v) => (
+          <div key={v.key} className="flex items-baseline gap-2 text-[11px]">
+            <code className="bg-white px-1.5 py-0.5 rounded font-mono text-purple-700 border border-purple-200" dir="ltr">
+              {v.key}
+            </code>
+            <span className="text-gray-600">{v.desc}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-[11px] text-purple-800 mt-2 leading-relaxed">
+        💡 לכל שדה בטופס אפשר להשתמש ב-<code className="bg-white px-1 rounded" dir="ltr">{`{{slug}}`}</code> שלו (תוכל לראות slug של שדה בעריכה).
       </div>
     </div>
   );

@@ -49,6 +49,32 @@ export type FormTheme = 'cream' | 'purple' | 'dark' | 'minimal';
 export type FormStatus = 'draft' | 'published' | 'archived';
 
 // ---------------------------------------------------------------------------
+// WhatsApp automation — sent after every successful submission
+// ---------------------------------------------------------------------------
+
+export type WhatsappAutomation = {
+  /** Master toggle */
+  enabled: boolean;
+  /**
+   * Which WhatsApp instance (whatsapp_instances.id) to send from.
+   * null = pick the workspace's first authorized instance automatically.
+   */
+  instance_id?: string | null;
+
+  /** Send a confirmation message to the form respondent (if phone provided) */
+  send_to_respondent?: boolean;
+  /** Template body — supports {{field_slug}} and {{contact_*}} placeholders */
+  respondent_message?: string;
+
+  /** Send a notification to internal phone numbers */
+  send_to_admins?: boolean;
+  /** Phone numbers (with country code, no +). E.g. "972501234567" */
+  admin_numbers?: string[];
+  /** Template body for admins */
+  admin_message?: string;
+};
+
+// ---------------------------------------------------------------------------
 // The row shape as returned from Supabase
 // ---------------------------------------------------------------------------
 
@@ -84,6 +110,9 @@ export type FormRow = {
   total_submissions: number;
   total_completed: number;
   last_submission_at: string | null;
+
+  /** WhatsApp automation triggered on every submission. Null = disabled. */
+  whatsapp_automation: WhatsappAutomation | null;
 };
 
 // ---------------------------------------------------------------------------
